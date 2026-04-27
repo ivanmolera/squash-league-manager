@@ -17,6 +17,23 @@ Los resultados no dependen del estado actual del jugador. Cada partido guarda:
 
 Al cerrar una temporada se pueden guardar snapshots de rankings individuales y de equipos. Eso permite consultar clasificaciones antiguas exactamente como quedaron.
 
+Los cambios de nombre de un club no alteran temporadas anteriores. Para ello se guarda:
+
+- `club_season_profiles.display_name`
+- `player_club_memberships.club_name_at_that_time`
+- nombres historicos de club/equipo/jugador en partidos, plantillas, torneos y snapshots
+
+## Auditoria
+
+Las tablas principales guardan:
+
+- `created_by_user_id`
+- `created_at`
+- `updated_by_user_id`
+- `updated_at`
+
+Ademas existe `audit_log` para registrar cambios administrativos relevantes con datos antes/despues.
+
 ## Roles
 
 Roles soportados:

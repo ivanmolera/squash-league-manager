@@ -37,6 +37,7 @@ npm run dev
 ## Modelo de datos
 
 La migracion inicial esta en `db/migrations/V1__initial_squash_domain.sql`.
+La auditoria, autenticacion local inicial y nombres historicos estan en `db/migrations/V2__audit_auth_and_historical_names.sql`.
 
 El diseno conserva historico mediante:
 
@@ -48,3 +49,20 @@ El diseno conserva historico mediante:
 - auditoria de cambios administrativos
 
 Ver `docs/data-model.md` para el resumen del dominio.
+
+## Usuario de pruebas
+
+El seed inicial crea:
+
+- email: `ivan.molera@gmail.com`
+- password: `Test1234`
+- rol: `admin`
+
+```bash
+npm run seed:admin
+```
+
+## Despliegue
+
+El servicio Cloud Run de esta app debe llamarse `squash-league-manager`.
+No desplegar sobre `euclid-umap-app`, que pertenece a otra aplicacion.
