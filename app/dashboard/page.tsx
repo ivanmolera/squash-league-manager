@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { ShieldCheck, Trophy, UsersRound, Warehouse } from "lucide-react";
 import { logoutAction } from "@/app/actions";
 import { getCurrentUser } from "@/src/lib/auth";
@@ -23,26 +22,29 @@ const nextModules = [
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
-
-  if (!user) {
-    redirect("/login");
-  }
-
-  const roles = user.roles.map((role) => role.role).join(", ");
+  const roles = user?.roles.map((role) => role.role).join(", ");
 
   return (
     <main className="app-shell">
       <header className="topbar">
         <div>
           <p className="eyebrow">Panel inicial</p>
-          <h1>Hola, {user.displayName ?? user.email}</h1>
-          <p className="muted">Rol activo: {roles}</p>
+          <h1>{user ? `Hola, ${user.displayName ?? user.email}` : "Consulta publica"}</h1>
+          <p className="muted">
+            {user ? `Rol activo: ${roles}` : "No necesitas login para consultar la app."}
+          </p>
         </div>
-        <form action={logoutAction}>
-          <button className="secondary-button" type="submit">
-            Salir
-          </button>
-        </form>
+        {user ? (
+          <form action={logoutAction}>
+            <button className="secondary-button" type="submit">
+              Salir
+            </button>
+          </form>
+        ) : (
+          <a className="secondary-link" href="/login">
+            Acceso admin
+          </a>
+        )}
       </header>
 
       <section className="status-band">
