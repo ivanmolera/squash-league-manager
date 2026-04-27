@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+.next/
+node_modules/
+dist/
+coverage/
+*.log
+.DS_Store
+tsconfig.tsbuildinfo
+prisma/generated/

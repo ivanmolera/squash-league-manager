@@ -1,0 +1,36 @@
+{
+  "name": "squash-league-manager",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Web app for managing squash leagues, teams, tournaments, rankings and historical results.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "prisma:generate": "prisma generate",
+    "db:migrate": "flyway -configFiles=flyway.conf migrate",
+    "db:info": "flyway -configFiles=flyway.conf info",
+    "db:validate": "flyway -configFiles=flyway.conf validate"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "firebase": "^11.0.2",
+    "firebase-admin": "^12.7.0",
+    "lucide-react": "^0.468.0",
+    "next": "^15.0.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^9.14.0",
+    "eslint-config-next": "^15.0.3",
+    "prisma": "^5.22.0",
+    "typescript": "^5.6.3"
+  }
+}
