@@ -24,7 +24,8 @@ const playerSchema = z.object({
   racketBrand: z.string().optional(),
   showContactPublic: z.coerce.boolean().default(false),
   showPhysicalPublic: z.coerce.boolean().default(false),
-  clubId: z.string().uuid().optional().or(z.literal(""))
+  clubId: z.string().uuid().optional().or(z.literal("")),
+  profilePhotoUrl: z.string().optional()
 });
 
 const clubSchema = z.object({
@@ -57,8 +58,10 @@ const tournamentSchema = z.object({
   registrationDeadline: z.string().min(10),
   startsAt: z.string().min(10),
   endsAt: z.string().min(10),
+  categoryIds: z.array(z.string().uuid()).default([]),
   participantIds: z.array(z.string().uuid()).default([]),
-  seedPlayerIds: z.array(z.string().uuid()).default([])
+  seedPlayerIds: z.array(z.string().uuid()).default([]),
+  seedEntries: z.array(z.string()).default([])
 });
 
 const teamSchema = z.object({
@@ -77,6 +80,11 @@ const removeClubPlayerSchema = z.object({
   clubId: z.string().uuid()
 });
 
+const tournamentRegistrationSchema = z.object({
+  competitionCategoryId: z.string().uuid(),
+  playerId: z.string().uuid().optional()
+});
+
 function textValue(value: unknown) {
   return value?.toString().trim() || undefined;
 }
@@ -87,6 +95,27 @@ function toArray(formData: FormData, key: string) {
 
 function hasRole(user: Awaited<ReturnType<typeof getCurrentUser>>, role: "admin" | "manager" | "player") {
   return Boolean(user?.roles.some((assignment) => assignment.role === role));
+}
+
+function genericProfileVariant(gender: "male" | "female" | "other" | "not_specified") {
+  if (gender === "male" || gender === "female") return gender;
+  return "neutral";
+}
+
+async function readProfilePhoto(formData: FormData) {
+  const file = formData.get("profilePhoto");
+  if (!(file instanceof File) || file.size === 0) return undefined;
+
+  if (!file.type.startsWith("image/")) {
+    throw new Error("La foto debe ser una imagen.");
+  }
+
+  if (file.size > 1_500_000) {
+    throw new Error("La foto no puede superar 1,5 MB.");
+  }
+
+  const bytes = Buffer.from(await file.arrayBuffer());
+  return `data:${file.type};base64,${bytes.toString("base64")}`;
 }
 
 async function requireUser() {
@@ -245,9 +274,76 @@ async function assertCanEditMatchResult(matchId: string, currentUser: Awaited<Re
   throw new Error("No tienes permisos para modificar este resultado.");
 }
 
+async function assertCanEditTournament(competitionId: string, currentUser: Awaited<ReturnType<typeof getCurrentUser>>) {
+  const competition = await prisma.competition.findUniqueOrThrow({
+    where: { id: competitionId },
+    include: { hostClub: true }
+  });
+  const isAdmin = hasRole(currentUser, "admin");
+  if (!isAdmin && competition.hostClub?.managerUserId !== currentUser?.id) {
+    throw new Error("Solo el manager del club organizador o un admin puede modificar este torneo.");
+  }
+  return competition;
+}
+
+async function registerTournamentPlayer(competitionCategoryId: string, playerId: string, createdByUserId: string) {
+  const competitionCategory = await prisma.competitionCategory.findUniqueOrThrow({
+    where: { id: competitionCategoryId },
+    include: { competition: true }
+  });
+
+  if (competitionCategory.competition.registrationDeadline && competitionCategory.competition.registrationDeadline < new Date()) {
+    throw new Error("La inscripción ya está cerrada.");
+  }
+
+  const player = await prisma.player.findUniqueOrThrow({
+    where: { id: playerId },
+    include: { memberships: { where: { toDate: null }, include: { club: true }, take: 1 } }
+  });
+
+  await prisma.$transaction([
+    prisma.competitionParticipant.upsert({
+      where: {
+        competitionCategoryId_playerId: {
+          competitionCategoryId,
+          playerId
+        }
+      },
+      update: {},
+      create: {
+        competitionId: competitionCategory.competitionId,
+        competitionCategoryId,
+        playerId,
+        createdByUserId
+      }
+    }),
+    prisma.tournamentRegistration.upsert({
+      where: {
+        competitionCategoryId_playerId: {
+          competitionCategoryId,
+          playerId
+        }
+      },
+      update: { status: "accepted" },
+      create: {
+        competitionCategoryId,
+        playerId,
+        clubIdAtRegistration: player.memberships[0]?.clubId ?? null,
+        playerNameAtRegistration: `${player.firstName} ${player.lastName}`,
+        clubNameAtRegistration: player.memberships[0]?.club.name ?? null,
+        status: "accepted"
+      }
+    })
+  ]);
+
+  revalidatePath(`/tournaments/${competitionCategory.competitionId}`);
+  revalidatePath(`/tournaments/${competitionCategory.competitionId}/edit`);
+}
+
 export async function savePlayerAction(formData: FormData) {
   const currentUser = await requireUser();
   const isAdmin = hasRole(currentUser, "admin");
+  const uploadedProfilePhotoUrl = await readProfilePhoto(formData);
   const parsed = playerSchema.parse({
     playerId: textValue(formData.get("playerId")),
     firstName: textValue(formData.get("firstName")),
@@ -263,7 +359,8 @@ export async function savePlayerAction(formData: FormData) {
     racketBrand: textValue(formData.get("racketBrand")),
     showContactPublic: formData.get("showContactPublic") === "on",
     showPhysicalPublic: formData.get("showPhysicalPublic") === "on",
-    clubId: textValue(formData.get("clubId")) ?? ""
+    clubId: textValue(formData.get("clubId")) ?? "",
+    profilePhotoUrl: uploadedProfilePhotoUrl ?? textValue(formData.get("profilePhotoUrl"))
   });
 
   if (!isAdmin) {
@@ -327,6 +424,8 @@ export async function savePlayerAction(formData: FormData) {
           heightCm: parsed.heightCm || null,
           weightKg: parsed.weightKg || null,
           racketBrand: parsed.racketBrand,
+          profilePhotoUrl: parsed.profilePhotoUrl || null,
+          genericProfileVariant: genericProfileVariant(parsed.gender),
           showContactPublic: parsed.showContactPublic,
           showPhysicalPublic: parsed.showPhysicalPublic
         }
@@ -341,6 +440,8 @@ export async function savePlayerAction(formData: FormData) {
           heightCm: parsed.heightCm || null,
           weightKg: parsed.weightKg || null,
           racketBrand: parsed.racketBrand,
+          profilePhotoUrl: parsed.profilePhotoUrl || null,
+          genericProfileVariant: genericProfileVariant(parsed.gender),
           showContactPublic: parsed.showContactPublic,
           showPhysicalPublic: parsed.showPhysicalPublic
         }
@@ -369,6 +470,8 @@ export async function savePlayerAction(formData: FormData) {
   }
 
   revalidatePath("/admin/players");
+  revalidatePath(`/players/${player.id}`);
+  revalidatePath(`/players/${player.id}/edit`);
 }
 
 export async function saveClubAction(formData: FormData) {
@@ -607,8 +710,10 @@ export async function saveTournamentAction(formData: FormData) {
     registrationDeadline: textValue(formData.get("registrationDeadline")),
     startsAt: textValue(formData.get("startsAt")),
     endsAt: textValue(formData.get("endsAt")),
+    categoryIds: toArray(formData, "categoryIds"),
     participantIds: toArray(formData, "participantIds"),
-    seedPlayerIds: toArray(formData, "seedPlayerIds")
+    seedPlayerIds: toArray(formData, "seedPlayerIds"),
+    seedEntries: toArray(formData, "seedEntries")
   });
 
   if (!isAdmin) {
@@ -632,17 +737,8 @@ export async function saveTournamentAction(formData: FormData) {
   }
 
   const season = await getDefaultSeason();
-  const category = await getDefaultCategory();
-  const existingParticipants = parsed.competitionId
-    ? await prisma.competitionParticipant.findMany({
-        where: { competitionId: parsed.competitionId },
-        select: { playerId: true }
-      })
-    : [];
-  const previousPlayerIds = existingParticipants.map((participant) => participant.playerId).filter(Boolean).sort();
-  const nextPlayerIds = [...parsed.participantIds].sort();
-  const participantsChanged = previousPlayerIds.length !== nextPlayerIds.length ||
-    previousPlayerIds.some((playerId, index) => playerId !== nextPlayerIds[index]);
+  const defaultCategory = await getDefaultCategory();
+  const categoryIds = parsed.categoryIds.length ? parsed.categoryIds : [defaultCategory.id];
   const competition = parsed.competitionId
     ? await prisma.competition.update({
         where: { id: parsed.competitionId },
@@ -669,61 +765,31 @@ export async function saveTournamentAction(formData: FormData) {
         }
       });
 
-  const competitionCategory = await prisma.competitionCategory.upsert({
+  await prisma.competitionCategory.deleteMany({
     where: {
-      competitionId_categoryId: {
-        competitionId: competition.id,
-        categoryId: category.id
-      }
-    },
-    update: { format: parsed.participantIds.length < 8 ? "round_robin" : "knockout" },
-    create: {
       competitionId: competition.id,
-      categoryId: category.id,
-      format: parsed.participantIds.length < 8 ? "round_robin" : "knockout"
+      categoryId: { notIn: categoryIds }
     }
   });
 
-  await prisma.competitionParticipant.deleteMany({
-    where: { competitionCategoryId: competitionCategory.id }
-  });
-  await prisma.tournamentRegistration.deleteMany({
-    where: { competitionCategoryId: competitionCategory.id }
-  });
-
-  if (shouldGenerateDraw || participantsChanged) {
-    await prisma.tournamentSeed.deleteMany({
-      where: { competitionCategoryId: competitionCategory.id }
-    });
-    await prisma.tournamentDrawEntry.deleteMany({
-      where: { competitionCategoryId: competitionCategory.id }
-    });
-    await prisma.match.deleteMany({ where: { competitionId: competition.id } });
-  }
-
-  const players = await prisma.player.findMany({
-    where: { id: { in: parsed.participantIds } },
-    include: { memberships: { include: { club: true }, take: 1 } }
-  });
-
-  await prisma.competitionParticipant.createMany({
-    data: players.map((player) => ({
-      competitionId: competition.id,
-      competitionCategoryId: competitionCategory.id,
-      playerId: player.id
-    }))
-  });
-
-  await prisma.tournamentRegistration.createMany({
-    data: players.map((player) => ({
-      competitionCategoryId: competitionCategory.id,
-      playerId: player.id,
-      clubIdAtRegistration: player.memberships[0]?.clubId ?? null,
-      playerNameAtRegistration: `${player.firstName} ${player.lastName}`,
-      clubNameAtRegistration: player.memberships[0]?.club.name ?? null,
-      status: "accepted"
-    }))
-  });
+  await Promise.all(
+    categoryIds.map((categoryId) =>
+      prisma.competitionCategory.upsert({
+        where: {
+          competitionId_categoryId: {
+            competitionId: competition.id,
+            categoryId
+          }
+        },
+        update: {},
+        create: {
+          competitionId: competition.id,
+          categoryId,
+          format: "knockout"
+        }
+      })
+    )
+  );
 
   if (!shouldGenerateDraw) {
     revalidatePath("/manager/tournaments");
@@ -732,92 +798,159 @@ export async function saveTournamentAction(formData: FormData) {
     return;
   }
 
-  const seeds = parsed.seedPlayerIds
-    .map((playerId, index) => players.find((player) => player.id === playerId) && { playerId, index })
-    .filter(Boolean) as Array<{ playerId: string; index: number }>;
+  const competitionCategories = await prisma.competitionCategory.findMany({
+    where: { competitionId: competition.id },
+    orderBy: { createdAt: "asc" }
+  });
 
-  if (seeds.length > 0) {
-    await prisma.tournamentSeed.createMany({
-      data: seeds.map((seed) => {
-        const player = players.find((item) => item.id === seed.playerId)!;
-        return {
-          competitionCategoryId: competitionCategory.id,
-          playerId: player.id,
-          playerNameAtTime: `${player.firstName} ${player.lastName}`,
-          seedNumber: seed.index + 1,
-          suggested: false
-        };
+  for (const competitionCategory of competitionCategories) {
+    const participants = await prisma.competitionParticipant.findMany({
+      where: { competitionCategoryId: competitionCategory.id, playerId: { not: null } },
+      include: { player: true },
+      orderBy: { createdAt: "asc" }
+    });
+    const players = participants.flatMap((participant) => participant.player ? [participant.player] : []);
+    const seedPlayerIds = parsed.seedEntries
+      .map((entry) => {
+        const [categoryId, playerId] = entry.split(":");
+        return categoryId === competitionCategory.id ? playerId : null;
       })
-    });
-  }
+      .filter(Boolean) as string[];
+    const seeds = seedPlayerIds
+      .map((playerId, index) => players.find((player) => player.id === playerId) && { playerId, index })
+      .filter(Boolean) as Array<{ playerId: string; index: number }>;
+    const format = players.length < 8 ? "round_robin" : "knockout";
 
-  const format = parsed.participantIds.length < 8 ? "round_robin" : "knockout";
-  if (format === "round_robin") {
-    const rounds = generateRoundRobin(shuffle(players));
-    await prisma.match.createMany({
-      data: rounds.flatMap((round, roundIndex) =>
-        round.map(([home, away], matchIndex) => ({
-          seasonId: season.id,
-          competitionId: competition.id,
+    await prisma.$transaction([
+      prisma.tournamentSeed.deleteMany({ where: { competitionCategoryId: competitionCategory.id } }),
+      prisma.tournamentDrawEntry.deleteMany({ where: { competitionCategoryId: competitionCategory.id } }),
+      prisma.match.deleteMany({ where: { competitionId: competition.id, competitionCategoryId: competitionCategory.id } }),
+      prisma.competitionCategory.update({
+        where: { id: competitionCategory.id },
+        data: { format }
+      })
+    ]);
+
+    if (seeds.length > 0) {
+      await prisma.tournamentSeed.createMany({
+        data: seeds.map((seed) => {
+          const player = players.find((item) => item.id === seed.playerId)!;
+          return {
+            competitionCategoryId: competitionCategory.id,
+            playerId: player.id,
+            playerNameAtTime: `${player.firstName} ${player.lastName}`,
+            seedNumber: seed.index + 1,
+            suggested: false
+          };
+        })
+      });
+    }
+
+    if (players.length < 2) continue;
+
+    if (format === "round_robin") {
+      const rounds = generateRoundRobin(shuffle(players));
+      await prisma.match.createMany({
+        data: rounds.flatMap((round, roundIndex) =>
+          round.map(([home, away], matchIndex) => ({
+            seasonId: season.id,
+            competitionId: competition.id,
+            competitionCategoryId: competitionCategory.id,
+            matchType: "tournament_round_robin" as const,
+            roundNumber: roundIndex + 1,
+            matchOrder: matchIndex + 1,
+            status: "scheduled" as const,
+            homePlayerId: home.id,
+            awayPlayerId: away.id,
+            homePlayerNameAtMatchTime: `${home.firstName} ${home.lastName}`,
+            awayPlayerNameAtMatchTime: `${away.firstName} ${away.lastName}`
+          }))
+        )
+      });
+    } else {
+      const bracketSize = nextPowerOfTwo(players.length);
+      const seededPlayers = seeds
+        .map((seed) => players.find((player) => player.id === seed.playerId))
+        .filter((player): player is typeof players[number] => Boolean(player));
+      const remaining = shuffle(players.filter((player) => !seeds.some((seed) => seed.playerId === player.id)));
+      const ordered = [...seededPlayers, ...remaining] as typeof players;
+      const entries = Array.from({ length: bracketSize }, (_, index) => ordered[index] ?? null);
+
+      await prisma.tournamentDrawEntry.createMany({
+        data: entries.map((player, index) => ({
           competitionCategoryId: competitionCategory.id,
-          matchType: "tournament_round_robin",
-          roundNumber: roundIndex + 1,
-          matchOrder: matchIndex + 1,
-          status: "scheduled",
-          homePlayerId: home.id,
-          awayPlayerId: away.id,
-          homePlayerNameAtMatchTime: `${home.firstName} ${home.lastName}`,
-          awayPlayerNameAtMatchTime: `${away.firstName} ${away.lastName}`
-        }))
-      )
-    });
-  } else {
-    const bracketSize = nextPowerOfTwo(players.length);
-    const seededPlayers = seeds
-      .map((seed) => players.find((player) => player.id === seed.playerId))
-      .filter(Boolean);
-    const remaining = shuffle(players.filter((player) => !seeds.some((seed) => seed.playerId === player.id)));
-    const ordered = [...seededPlayers, ...remaining] as typeof players;
-    const entries = Array.from({ length: bracketSize }, (_, index) => ordered[index] ?? null);
-
-    await prisma.tournamentDrawEntry.createMany({
-      data: entries.map((player, index) => ({
-        competitionCategoryId: competitionCategory.id,
-        playerId: player?.id ?? null,
-        playerNameAtTime: player ? `${player.firstName} ${player.lastName}` : null,
-        seedNumber: player
-          ? ((seeds.find((seed) => seed.playerId === player.id)?.index ?? -1) + 1 || null)
-          : null,
-        bracketPosition: index + 1,
-        isBye: !player
-      }))
-    });
-
-    await prisma.match.createMany({
-      data: Array.from({ length: bracketSize / 2 }, (_, index) => {
-        const home = entries[index * 2];
-        const away = entries[index * 2 + 1];
-        return {
-          seasonId: season.id,
-          competitionId: competition.id,
-          competitionCategoryId: competitionCategory.id,
-          matchType: "tournament_knockout" as const,
-          roundNumber: 1,
+          playerId: player?.id ?? null,
+          playerNameAtTime: player ? `${player.firstName} ${player.lastName}` : null,
+          seedNumber: player
+            ? ((seeds.find((seed) => seed.playerId === player.id)?.index ?? -1) + 1 || null)
+            : null,
           bracketPosition: index + 1,
-          status: home && away ? "scheduled" : "bye",
-          homePlayerId: home?.id ?? null,
-          awayPlayerId: away?.id ?? null,
-          winnerPlayerId: home && !away ? home.id : !home && away ? away.id : null,
-          homePlayerNameAtMatchTime: home ? `${home.firstName} ${home.lastName}` : null,
-          awayPlayerNameAtMatchTime: away ? `${away.firstName} ${away.lastName}` : null
-        };
-      })
-    });
+          isBye: !player
+        }))
+      });
+
+      await prisma.match.createMany({
+        data: Array.from({ length: bracketSize / 2 }, (_, index) => {
+          const home = entries[index * 2];
+          const away = entries[index * 2 + 1];
+          return {
+            seasonId: season.id,
+            competitionId: competition.id,
+            competitionCategoryId: competitionCategory.id,
+            matchType: "tournament_knockout" as const,
+            roundNumber: 1,
+            bracketPosition: index + 1,
+            status: home && away ? "scheduled" as const : "bye" as const,
+            homePlayerId: home?.id ?? null,
+            awayPlayerId: away?.id ?? null,
+            winnerPlayerId: home && !away ? home.id : !home && away ? away.id : null,
+            homePlayerNameAtMatchTime: home ? `${home.firstName} ${home.lastName}` : null,
+            awayPlayerNameAtMatchTime: away ? `${away.firstName} ${away.lastName}` : null
+          };
+        })
+      });
+    }
   }
 
   revalidatePath("/manager/tournaments");
   revalidatePath(`/tournaments/${competition.id}`);
   revalidatePath(`/tournaments/${competition.id}/edit`);
+}
+
+export async function registerSelfForTournamentAction(formData: FormData) {
+  const currentUser = await requireUser();
+  const parsed = tournamentRegistrationSchema.parse({
+    competitionCategoryId: textValue(formData.get("competitionCategoryId"))
+  });
+  const player = await prisma.player.findUnique({
+    where: { userId: currentUser.id },
+    select: { id: true }
+  });
+
+  if (!player) {
+    throw new Error("Debes tener perfil de jugador para inscribirte.");
+  }
+
+  await registerTournamentPlayer(parsed.competitionCategoryId, player.id, currentUser.id);
+}
+
+export async function registerPlayerForTournamentAction(formData: FormData) {
+  const currentUser = await requireUser();
+  const parsed = tournamentRegistrationSchema.parse({
+    competitionCategoryId: textValue(formData.get("competitionCategoryId")),
+    playerId: textValue(formData.get("playerId"))
+  });
+  const competitionCategory = await prisma.competitionCategory.findUniqueOrThrow({
+    where: { id: parsed.competitionCategoryId },
+    select: { competitionId: true }
+  });
+  await assertCanEditTournament(competitionCategory.competitionId, currentUser);
+
+  if (!parsed.playerId) {
+    throw new Error("Selecciona un jugador.");
+  }
+
+  await registerTournamentPlayer(parsed.competitionCategoryId, parsed.playerId, currentUser.id);
 }
 
 export async function saveTeamAction(formData: FormData) {

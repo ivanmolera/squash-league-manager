@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { saveTournamentAction } from "@/app/admin/actions";
+import { BackToTopButton } from "@/app/back-to-top-button";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
 import { prisma } from "@/src/lib/prisma";
@@ -7,8 +8,8 @@ import { prisma } from "@/src/lib/prisma";
 export const dynamic = "force-dynamic";
 
 export default async function TournamentsPage() {
-  const [players, clubs, tournaments, currentUser] = await Promise.all([
-    prisma.player.findMany({ orderBy: [{ lastName: "asc" }, { firstName: "asc" }] }),
+  const [categories, clubs, tournaments, currentUser] = await Promise.all([
+    prisma.category.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     prisma.club.findMany({ orderBy: [{ province: "asc" }, { name: "asc" }] }),
     prisma.competition.findMany({
       where: { type: "tournament" },
@@ -23,12 +24,12 @@ export default async function TournamentsPage() {
   const canEdit = isAdmin || isManager;
 
   return (
-    <main className="app-shell">
+    <main className="app-shell" id="page-top">
       <Navigation />
       <section className="page-heading">
         <p className="eyebrow">Manager</p>
         <h1>Torneos</h1>
-        <p className="muted">Alta de torneo, inscripciones, cabezas de serie y cuadro automático.</p>
+        <p className="muted">Alta de torneo, categorías, inscripción de jugadores y cuadro automático.</p>
       </section>
 
       <section className="work-grid">
@@ -49,21 +50,20 @@ export default async function TournamentsPage() {
             <div className="form-row">
               <label>Fin<input name="endsAt" type="date" required /></label>
             </div>
-            <fieldset className="check-grid tall-check-grid">
-              <legend>Jugadores inscritos</legend>
-              {players.map((player) => (
-                <label key={player.id}>
-                  <input type="checkbox" name="participantIds" value={player.id} />
-                  {player.lastName}, {player.firstName}
+            <fieldset className="check-grid">
+              <legend>Categorías</legend>
+              {categories.map((category) => (
+                <label key={category.id}>
+                  <input type="checkbox" name="categoryIds" value={category.id} />
+                  {category.name}
                 </label>
               ))}
             </fieldset>
-            <p className="muted">Primero guarda el torneo y sus inscritos. Después podrás seleccionar cabezas de serie y generar el cuadro desde la edición del torneo.</p>
-            <button type="submit" name="mode" value="save">Guardar torneo e inscritos</button>
+            <p className="muted">El torneo se crea sin jugadores inscritos. Los jugadores podrán inscribirse después y el manager o admin podrá añadir inscripciones a petición.</p>
+            <button type="submit" name="mode" value="save">Guardar torneo</button>
           </form>
         ) : (
-          <section className="list-panel">
-            <h2>Solo lectura</h2>
+          <section className="list-panel quiet-panel">
             <p className="muted">Inicia sesión como manager o admin para crear torneos.</p>
           </section>
         )}
@@ -85,6 +85,7 @@ export default async function TournamentsPage() {
           </div>
         </section>
       </section>
+      <BackToTopButton />
     </main>
   );
 }

@@ -36,12 +36,20 @@ type TeamStanding = {
 };
 
 type MatchWithSets = Awaited<ReturnType<typeof getLeagueMatches>>[number];
+type TeamTie = Awaited<ReturnType<typeof getTeamTies>>[number];
 
 async function getLeagueMatches(competitionId: string, competitionCategoryId?: string) {
   return prisma.match.findMany({
     where: { competitionId, ...(competitionCategoryId ? { competitionCategoryId } : {}) },
     include: { sets: { orderBy: { setNumber: "asc" } } },
     orderBy: [{ roundNumber: "asc" }, { matchOrder: "asc" }, { bracketPosition: "asc" }]
+  });
+}
+
+async function getTeamTies(competitionId: string, competitionCategoryId: string) {
+  return prisma.teamTie.findMany({
+    where: { competitionId, competitionCategoryId },
+    orderBy: [{ scheduledAt: "asc" }, { homeTeamNameAtTime: "asc" }]
   });
 }
 
@@ -80,6 +88,31 @@ function groupByCategory<T extends { competition_category_id: string; category_n
       group.rows.push(row);
     } else {
       groups.push({ id: row.competition_category_id, name: row.category_name, rows: [row] });
+    }
+    return groups;
+  }, []);
+}
+
+function groupMatchesByRound(matches: MatchWithSets[]) {
+  return matches.reduce<Array<{ round: number | null; matches: MatchWithSets[] }>>((groups, match) => {
+    const group = groups.find((item) => item.round === match.roundNumber);
+    if (group) {
+      group.matches.push(match);
+    } else {
+      groups.push({ round: match.roundNumber, matches: [match] });
+    }
+    return groups;
+  }, []);
+}
+
+function groupTeamTiesByDate(teamTies: TeamTie[]) {
+  return teamTies.reduce<Array<{ key: string; scheduledAt: Date | null; ties: TeamTie[] }>>((groups, tie) => {
+    const key = tie.scheduledAt?.toISOString().slice(0, 10) ?? "no-date";
+    const group = groups.find((item) => item.key === key);
+    if (group) {
+      group.ties.push(tie);
+    } else {
+      groups.push({ key, scheduledAt: tie.scheduledAt, ties: [tie] });
     }
     return groups;
   }, []);
@@ -129,23 +162,40 @@ export async function LeagueStandings({
   if (type === "individual_league") {
     const standings = await prisma.$queryRaw<IndividualStanding[]>`
       SELECT
-        cir.competition_category_id,
+        cp.competition_category_id,
         cat.name AS category_name,
-        cir.position,
-        cir.player_id,
+        row_number() OVER (
+          PARTITION BY cp.competition_category_id
+          ORDER BY COALESCE(cir.matches_won, 0) DESC,
+                   CASE
+                     WHEN COALESCE(cir.matches_won, 0) + COALESCE(cir.matches_lost, 0) = 0 THEN 0
+                     ELSE COALESCE(cir.matches_won, 0)::numeric / (COALESCE(cir.matches_won, 0) + COALESCE(cir.matches_lost, 0))
+                   END DESC,
+                   (COALESCE(cir.sets_for, 0) - COALESCE(cir.sets_against, 0)) DESC,
+                   (COALESCE(cir.points_for, 0) - COALESCE(cir.points_against, 0)) DESC,
+                   COALESCE(cir.points_for, 0) DESC,
+                   p.last_name,
+                   p.first_name
+        )::integer AS position,
+        p.id AS player_id,
         concat(p.last_name, ', ', p.first_name) AS player_name,
-        cir.matches_won,
-        cir.matches_lost,
-        cir.sets_for,
-        cir.sets_against,
-        cir.points_for,
-        cir.points_against
-      FROM current_individual_rankings cir
-      JOIN players p ON p.id = cir.player_id
-      JOIN competition_categories cc ON cc.id = cir.competition_category_id
+        COALESCE(cir.matches_won, 0)::integer AS matches_won,
+        COALESCE(cir.matches_lost, 0)::integer AS matches_lost,
+        COALESCE(cir.sets_for, 0)::integer AS sets_for,
+        COALESCE(cir.sets_against, 0)::integer AS sets_against,
+        COALESCE(cir.points_for, 0)::integer AS points_for,
+        COALESCE(cir.points_against, 0)::integer AS points_against
+      FROM competition_participants cp
+      JOIN players p ON p.id = cp.player_id
+      JOIN competition_categories cc ON cc.id = cp.competition_category_id
       JOIN categories cat ON cat.id = cc.category_id
-      WHERE cir.competition_id = ${competitionId}::uuid
-      ORDER BY cat.sort_order, cir.position, p.last_name, p.first_name
+      LEFT JOIN current_individual_rankings cir
+        ON cir.competition_id = cp.competition_id
+       AND cir.competition_category_id = cp.competition_category_id
+       AND cir.player_id = cp.player_id
+      WHERE cp.competition_id = ${competitionId}::uuid
+        AND cp.player_id IS NOT NULL
+      ORDER BY cat.sort_order, position, p.last_name, p.first_name
     `;
 
     return (
@@ -181,25 +231,47 @@ export async function LeagueStandings({
   }
 
   const standings = await prisma.$queryRaw<TeamStanding[]>`
+    WITH category_teams AS (
+      SELECT DISTINCT
+        tt.competition_category_id,
+        tt.home_team_id AS team_id
+      FROM team_ties tt
+      WHERE tt.competition_id = ${competitionId}::uuid
+      UNION
+      SELECT DISTINCT
+        tt.competition_category_id,
+        tt.away_team_id AS team_id
+      FROM team_ties tt
+      WHERE tt.competition_id = ${competitionId}::uuid
+    )
     SELECT
-      ctr.competition_category_id,
+      ct.competition_category_id,
       cat.name AS category_name,
-      ctr.position,
-      ctr.team_id,
+      row_number() OVER (
+        PARTITION BY ct.competition_category_id
+        ORDER BY COALESCE(ctr.rubbers_for, 0) DESC,
+                 (COALESCE(ctr.points_for, 0) - COALESCE(ctr.points_against, 0)) DESC,
+                 COALESCE(ctr.points_for, 0) DESC,
+                 t.name
+      )::integer AS position,
+      t.id AS team_id,
       t.name AS team_name,
-      ctr.ties_won,
-      ctr.ties_drawn,
-      ctr.ties_lost,
-      ctr.rubbers_for,
-      ctr.rubbers_against,
-      ctr.points_for,
-      ctr.points_against
-    FROM current_team_rankings ctr
-    JOIN teams t ON t.id = ctr.team_id
-    JOIN competition_categories cc ON cc.id = ctr.competition_category_id
+      COALESCE(ctr.ties_won, 0)::integer AS ties_won,
+      COALESCE(ctr.ties_drawn, 0)::integer AS ties_drawn,
+      COALESCE(ctr.ties_lost, 0)::integer AS ties_lost,
+      COALESCE(ctr.rubbers_for, 0)::integer AS rubbers_for,
+      COALESCE(ctr.rubbers_against, 0)::integer AS rubbers_against,
+      COALESCE(ctr.points_for, 0)::integer AS points_for,
+      COALESCE(ctr.points_against, 0)::integer AS points_against
+    FROM category_teams ct
+    JOIN teams t ON t.id = ct.team_id
+    JOIN competition_categories cc ON cc.id = ct.competition_category_id
     JOIN categories cat ON cat.id = cc.category_id
-    WHERE ctr.competition_id = ${competitionId}::uuid
-    ORDER BY cat.sort_order, ctr.position, t.name
+    LEFT JOIN current_team_rankings ctr
+      ON ctr.competition_id = ${competitionId}::uuid
+     AND ctr.competition_category_id = ct.competition_category_id
+     AND ctr.team_id = ct.team_id
+    ORDER BY cat.sort_order, position, t.name
   `;
 
   return (
@@ -251,19 +323,32 @@ export async function LeagueCategoryCalendar({
   const matches = await getLeagueMatches(competitionId, competitionCategoryId);
 
   if (type === "individual_league") {
+    const matchdayGroups = groupMatchesByRound(matches);
+
     return (
       <section className="list-panel full-width">
         <h2>{t.calendar}</h2>
         <div className="calendar-list">
-          {matches.map((match) => (
-            <article className="match-card" key={match.id}>
-              <div>
-                <strong>{t.matchday} {match.roundNumber ?? "-"} · {dateTime(match.scheduledAt, locale, t.noDate)}</strong>
-                <p>{match.homePlayerNameAtMatchTime} vs {match.awayPlayerNameAtMatchTime}</p>
-                <p>{t.venue}: {match.homeClubNameAtMatchTime ?? t.noVenue}</p>
-                <p>{t.result}: {scoreText(match, t.pending)}</p>
+          {matchdayGroups.map((group) => (
+            <article className="matchday-card" key={group.round ?? "no-round"}>
+              <header>
+                <strong>{t.matchday} {group.round ?? "-"}</strong>
+                <span>{dateTime(group.matches[0]?.scheduledAt ?? null, locale, t.noDate)}</span>
+              </header>
+              <div className="compact-match-list">
+                {group.matches.map((match) => (
+                  <div className="compact-match-row" key={match.id}>
+                    <div>
+                      <p><strong>{match.homePlayerNameAtMatchTime}</strong> vs <strong>{match.awayPlayerNameAtMatchTime}</strong></p>
+                      <span>{t.venue}: {match.homeClubNameAtMatchTime ?? t.noVenue}</span>
+                    </div>
+                    <div className="compact-result">
+                      <span>{scoreText(match, t.pending)}</span>
+                      {canEditLeagueMatch(match, editContext) ? <ResultForm match={match} labels={{ sets: t.sets, save: t.saveResult }} /> : null}
+                    </div>
+                  </div>
+                ))}
               </div>
-              {canEditLeagueMatch(match, editContext) ? <ResultForm match={match} labels={{ sets: t.sets, save: t.saveResult }} /> : null}
             </article>
           ))}
         </div>
@@ -271,10 +356,7 @@ export async function LeagueCategoryCalendar({
     );
   }
 
-  const teamTies = await prisma.teamTie.findMany({
-    where: { competitionId, competitionCategoryId },
-    orderBy: [{ scheduledAt: "asc" }, { homeTeamNameAtTime: "asc" }]
-  });
+  const teamTies = await getTeamTies(competitionId, competitionCategoryId);
   const matchesByTie = new Map<string, MatchWithSets[]>();
   for (const match of matches) {
     if (!match.teamTieId) continue;
@@ -282,36 +364,48 @@ export async function LeagueCategoryCalendar({
     tieMatches.push(match);
     matchesByTie.set(match.teamTieId, tieMatches);
   }
+  const matchdayGroups = groupTeamTiesByDate(teamTies);
 
   return (
     <section className="list-panel full-width">
       <h2>{t.calendar}</h2>
       <div className="calendar-list">
-        {teamTies.map((tie, index) => {
-          const tieMatches = matchesByTie.get(tie.id) ?? [];
-          const homeRubbers = tieMatches.filter((match) => match.winnerPlayerId === match.homePlayerId).length;
-          const awayRubbers = tieMatches.filter((match) => match.winnerPlayerId === match.awayPlayerId).length;
-          const completed = tieMatches.length === 4 && tieMatches.every((match) => match.status === "played");
+        {matchdayGroups.map((group, index) => (
+          <article className="matchday-card" key={group.key}>
+            <header>
+              <strong>{t.matchday} {index + 1}</strong>
+              <span>{dateTime(group.scheduledAt, locale, t.noDate)}</span>
+            </header>
+            <div className="compact-match-list">
+              {group.ties.map((tie) => {
+                const tieMatches = matchesByTie.get(tie.id) ?? [];
+                const homeRubbers = tieMatches.filter((match) => match.winnerPlayerId === match.homePlayerId).length;
+                const awayRubbers = tieMatches.filter((match) => match.winnerPlayerId === match.awayPlayerId).length;
+                const completed = tieMatches.length === 4 && tieMatches.every((match) => match.status === "played");
 
-          return (
-            <article className="match-card" key={tie.id}>
-              <div>
-                <strong>{t.matchday} {index + 1} · {dateTime(tie.scheduledAt, locale, t.noDate)}</strong>
-                <p>{tie.homeTeamNameAtTime} vs {tie.awayTeamNameAtTime}</p>
-                <p>{t.venue}: {tie.homeClubNameAtTime ?? t.noVenue}</p>
-                <p>{t.score}: {completed ? `${homeRubbers}-${awayRubbers}` : t.pending}</p>
-              </div>
-              <div className="rubber-list">
-                {tieMatches.map((match) => (
-                  <div className="rubber-row" key={match.id}>
-                    <p>{match.matchOrder}. {match.homePlayerNameAtMatchTime} vs {match.awayPlayerNameAtMatchTime}: {scoreText(match, t.pending)}</p>
-                    {canEditLeagueMatch(match, editContext) ? <ResultForm match={match} labels={{ sets: t.sets, save: t.saveResult }} /> : null}
+                return (
+                  <div className="compact-match-row team-tie-row" key={tie.id}>
+                    <div>
+                      <p><strong>{tie.homeTeamNameAtTime}</strong> vs <strong>{tie.awayTeamNameAtTime}</strong></p>
+                      <span>{t.venue}: {tie.homeClubNameAtTime ?? t.noVenue}</span>
+                    </div>
+                    <div className="compact-result">
+                      <span>{t.score}: {completed ? `${homeRubbers}-${awayRubbers}` : t.pending}</span>
+                    </div>
+                    <div className="rubber-list compact-rubbers">
+                      {tieMatches.map((match) => (
+                        <div className="rubber-row" key={match.id}>
+                          <p>{match.matchOrder}. {match.homePlayerNameAtMatchTime} vs {match.awayPlayerNameAtMatchTime}: {scoreText(match, t.pending)}</p>
+                          {canEditLeagueMatch(match, editContext) ? <ResultForm match={match} labels={{ sets: t.sets, save: t.saveResult }} /> : null}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
-              </div>
-            </article>
-          );
-        })}
+                );
+              })}
+            </div>
+          </article>
+        ))}
       </div>
     </section>
   );

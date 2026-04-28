@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { registerSelfForTournamentAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { TournamentMatches } from "@/app/tournaments/[id]/tournament-matches";
 import { getCurrentUser } from "@/src/lib/auth";
@@ -15,13 +16,7 @@ export default async function TournamentDetailPage({ params }: { params: Promise
       where: { id },
       include: {
         hostClub: true,
-        categories: { include: { category: true, seeds: true, drawEntries: true } },
-        participants: {
-          include: {
-            competitionCategory: { include: { category: true } },
-            player: true
-          }
-        }
+        categories: { include: { category: true, seeds: true, drawEntries: true, registrations: { include: { player: true } } } }
       }
     }),
     getCurrentUser()
@@ -32,13 +27,10 @@ export default async function TournamentDetailPage({ params }: { params: Promise
 
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
   const canEdit = isAdmin || tournament.hostClub?.managerUserId === currentUser?.id;
-  const participants = [...tournament.participants].sort((left, right) => {
-    const categorySort = left.competitionCategory.category.name.localeCompare(right.competitionCategory.category.name, "es");
-    if (categorySort !== 0) return categorySort;
-    const leftName = left.player ? `${left.player.lastName}, ${left.player.firstName}` : "";
-    const rightName = right.player ? `${right.player.lastName}, ${right.player.firstName}` : "";
-    return leftName.localeCompare(rightName, "es");
-  });
+  const currentPlayer = currentUser
+    ? await prisma.player.findUnique({ where: { userId: currentUser.id }, select: { id: true } })
+    : null;
+  const registrationOpen = tournament.registrationDeadline ? tournament.registrationDeadline >= new Date() : false;
   const seeds = tournament.categories.flatMap((category) => category.seeds).sort((left, right) => left.seedNumber - right.seedNumber);
   const drawEntries = tournament.categories
     .flatMap((category) => category.drawEntries)
@@ -64,13 +56,27 @@ export default async function TournamentDetailPage({ params }: { params: Promise
           <p><strong>{t.end}:</strong> {tournament.endsAt?.toLocaleDateString("es-ES") ?? t.noDate}</p>
         </article>
         <article className="list-panel">
-          <h2>{t.participants}</h2>
-          {participants.map((participant) => (
-            <p key={participant.id}>
-              <span>{participant.competitionCategory.category.name}</span> ·{" "}
-              {participant.player ? <Link href={`/players/${participant.player.id}`}>{participant.player.lastName}, {participant.player.firstName}</Link> : t.notProvided}
-            </p>
-          ))}
+          <h2>Inscripción</h2>
+          {tournament.categories.map((competitionCategory) => {
+            const isRegistered = Boolean(currentPlayer && competitionCategory.registrations.some((registration) => registration.playerId === currentPlayer.id));
+
+            return (
+              <div className="standing-block" key={competitionCategory.id}>
+                <h3>{competitionCategory.category.name}</h3>
+                {competitionCategory.registrations.length ? competitionCategory.registrations.map((registration) => (
+                  <p key={registration.id}>
+                    <Link href={`/players/${registration.playerId}`}>{registration.playerNameAtRegistration}</Link> · {registration.clubNameAtRegistration ?? t.independent}
+                  </p>
+                )) : <p className="muted">Sin inscritos.</p>}
+                {currentPlayer && registrationOpen && !isRegistered ? (
+                  <form className="compact-form" action={registerSelfForTournamentAction}>
+                    <input type="hidden" name="competitionCategoryId" value={competitionCategory.id} />
+                    <button type="submit">Inscribirme</button>
+                  </form>
+                ) : null}
+              </div>
+            );
+          })}
         </article>
         <article className="list-panel">
           <h2>{t.seeds}</h2>

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { saveTournamentAction } from "@/app/admin/actions";
+import { registerPlayerForTournamentAction, saveTournamentAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { GenerateDrawButton } from "@/app/tournaments/generate-draw-button";
 import { TournamentMatches } from "@/app/tournaments/[id]/tournament-matches";
@@ -14,13 +14,28 @@ function dateInputValue(value: Date | null) {
 
 export default async function EditTournamentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [tournament, players, clubs, currentUser] = await Promise.all([
+  const [tournament, players, clubs, categories, currentUser] = await Promise.all([
     prisma.competition.findUnique({
       where: { id },
-      include: { participants: true, categories: { include: { seeds: true } }, hostClub: true }
+      include: {
+        participants: { include: { player: true, club: true, competitionCategory: { include: { category: true } } } },
+        categories: { include: { category: true, seeds: true } },
+        hostClub: true
+      }
     }),
-    prisma.player.findMany({ orderBy: [{ lastName: "asc" }, { firstName: "asc" }] }),
+    prisma.player.findMany({
+      include: {
+        memberships: {
+          where: { toDate: null },
+          include: { club: true },
+          orderBy: { fromDate: "desc" },
+          take: 1
+        }
+      },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
+    }),
     prisma.club.findMany({ orderBy: [{ province: "asc" }, { name: "asc" }] }),
+    prisma.category.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     getCurrentUser()
   ]);
 
@@ -30,9 +45,16 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
   if (!canEdit) notFound();
 
   const editableClubs = isAdmin ? clubs : clubs.filter((club) => club.managerUserId === currentUser?.id);
-  const selectedParticipants = new Set(tournament.participants.map((participant) => participant.playerId).filter(Boolean));
-  const selectedSeeds = new Set(tournament.categories.flatMap((category) => category.seeds).map((seed) => seed.playerId));
-  const seedCandidates = players.filter((player) => selectedParticipants.has(player.id));
+  const selectedCategoryIds = new Set(tournament.categories.map((category) => category.categoryId));
+  const selectedSeeds = new Set(
+    tournament.categories.flatMap((category) => category.seeds.map((seed) => `${category.id}:${seed.playerId}`))
+  );
+  const participantsByCategory = new Map<string, typeof tournament.participants>();
+  for (const participant of tournament.participants) {
+    const rows = participantsByCategory.get(participant.competitionCategoryId) ?? [];
+    rows.push(participant);
+    participantsByCategory.set(participant.competitionCategoryId, rows);
+  }
   const registrationDeadlineValue = dateInputValue(tournament.registrationDeadline);
   const registrationStillOpen = tournament.registrationDeadline ? tournament.registrationDeadline >= new Date() : false;
   const hasSelectedSeeds = selectedSeeds.size > 0;
@@ -55,25 +77,36 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
           <label>Inicio<input name="startsAt" type="date" defaultValue={dateInputValue(tournament.startsAt)} required /></label>
         </div>
         <label>Fin<input name="endsAt" type="date" defaultValue={dateInputValue(tournament.endsAt)} required /></label>
-        <fieldset className="check-grid tall-check-grid">
-          <legend>Jugadores inscritos</legend>
-          {players.map((player) => (
-            <label key={player.id}>
-              <input type="checkbox" name="participantIds" value={player.id} defaultChecked={selectedParticipants.has(player.id)} />
-              {player.lastName}, {player.firstName}
-            </label>
-          ))}
-        </fieldset>
-        <button type="submit" name="mode" value="save">Guardar torneo e inscritos</button>
         <fieldset className="check-grid">
-          <legend>Cabezas de serie manuales</legend>
-          {seedCandidates.map((player) => (
-            <label key={player.id}>
-              <input type="checkbox" name="seedPlayerIds" value={player.id} defaultChecked={selectedSeeds.has(player.id)} />
-              {player.lastName}, {player.firstName}
+          <legend>Categorías</legend>
+          {categories.map((category) => (
+            <label key={category.id}>
+              <input type="checkbox" name="categoryIds" value={category.id} defaultChecked={selectedCategoryIds.has(category.id)} />
+              {category.name}
             </label>
           ))}
         </fieldset>
+        <button type="submit" name="mode" value="save">Guardar torneo</button>
+        {tournament.categories.map((competitionCategory) => {
+          const participants = participantsByCategory.get(competitionCategory.id) ?? [];
+
+          return (
+            <fieldset className="check-grid" key={competitionCategory.id}>
+              <legend>Cabezas de serie · {competitionCategory.category.name}</legend>
+              {participants.length ? participants.map((participant) => participant.player ? (
+                <label key={participant.id}>
+                  <input
+                    type="checkbox"
+                    name="seedEntries"
+                    value={`${competitionCategory.id}:${participant.player.id}`}
+                    defaultChecked={selectedSeeds.has(`${competitionCategory.id}:${participant.player.id}`)}
+                  />
+                  {participant.player.lastName}, {participant.player.firstName}
+                </label>
+              ) : null) : <p className="muted">No hay jugadores inscritos en esta categoría.</p>}
+            </fieldset>
+          );
+        })}
         {registrationStillOpen ? (
           <p className="warning-box">La fecha límite de inscripción todavía no ha pasado. Si generas el cuadro ahora, podrían quedar fuera jugadores inscritos después.</p>
         ) : null}
@@ -88,6 +121,44 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
           continueMessage="¿Quieres generar el cuadro igualmente?"
         />
       </form>
+      <section className="list-panel full-width">
+        <h2>Inscribir jugador</h2>
+        <form className="compact-form" action={registerPlayerForTournamentAction}>
+          <div className="form-row">
+            <label>Categoría
+              <select name="competitionCategoryId" required>
+                {tournament.categories.map((competitionCategory) => (
+                  <option key={competitionCategory.id} value={competitionCategory.id}>{competitionCategory.category.name}</option>
+                ))}
+              </select>
+            </label>
+            <label>Jugador
+              <select name="playerId" required>
+                {players.map((player) => (
+                  <option key={player.id} value={player.id}>
+                    {player.lastName}, {player.firstName} · {player.memberships[0]?.clubNameAtThatTime ?? "Independiente"}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <button type="submit">Inscribir jugador</button>
+        </form>
+        {tournament.categories.map((competitionCategory) => {
+          const participants = participantsByCategory.get(competitionCategory.id) ?? [];
+
+          return (
+            <div className="standing-block" key={competitionCategory.id}>
+              <h3>{competitionCategory.category.name}</h3>
+              {participants.length ? participants.map((participant) => (
+                <p key={participant.id}>
+                  {participant.player ? `${participant.player.lastName}, ${participant.player.firstName}` : "Jugador sin datos"} · {participant.club?.name ?? "Independiente"}
+                </p>
+              )) : <p className="muted">Sin inscritos.</p>}
+            </div>
+          );
+        })}
+      </section>
       <TournamentMatches competitionId={tournament.id} canEdit={canEdit} />
     </main>
   );

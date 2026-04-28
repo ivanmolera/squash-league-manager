@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { saveClubAction } from "@/app/admin/actions";
+import { BackToTopButton } from "@/app/back-to-top-button";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
 import { prisma } from "@/src/lib/prisma";
@@ -15,7 +16,7 @@ export default async function ClubsPage() {
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
 
   return (
-    <main className="app-shell">
+    <main className="app-shell" id="page-top">
       <Navigation />
       <section className="page-heading">
         <p className="eyebrow">Admin</p>
@@ -30,9 +31,8 @@ export default async function ClubsPage() {
             <button type="submit">Crear club</button>
           </form>
         ) : (
-          <section className="list-panel">
-            <h2>Solo lectura</h2>
-            <p className="muted">Los managers solo pueden editar su propio club.</p>
+          <section className="list-panel quiet-panel">
+            <p className="muted">Inicia sesión para modificar los datos del club.</p>
           </section>
         )}
         <div className="list-panel">
@@ -55,6 +55,7 @@ export default async function ClubsPage() {
           ))}
         </div>
       </section>
+      <BackToTopButton />
     </main>
   );
 }

@@ -15,14 +15,7 @@ export default async function LeagueDetailPage({ params }: { params: Promise<{ i
       where: { id },
       include: {
         season: true,
-        categories: { include: { category: true } },
-        participants: {
-          include: {
-            competitionCategory: { include: { category: true } },
-            player: true,
-            club: true
-          }
-        }
+        categories: { include: { category: true } }
       }
     }),
     getCurrentUser()
@@ -32,30 +25,6 @@ export default async function LeagueDetailPage({ params }: { params: Promise<{ i
   if (!league || !["individual_league", "team_league"].includes(league.type)) notFound();
 
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
-  const participants = [...league.participants].sort((left, right) => {
-    const leftCategory = left.competitionCategory.category;
-    const rightCategory = right.competitionCategory.category;
-    const categorySort = leftCategory.sortOrder - rightCategory.sortOrder ||
-      leftCategory.name.localeCompare(rightCategory.name, "es");
-    if (categorySort !== 0) return categorySort;
-    const leftName = left.player ? `${left.player.lastName}, ${left.player.firstName}` : left.club?.name ?? "";
-    const rightName = right.player ? `${right.player.lastName}, ${right.player.firstName}` : right.club?.name ?? "";
-    return leftName.localeCompare(rightName, "es");
-  });
-  const participantGroups = participants.reduce<Array<{
-    id: string;
-    name: string;
-    rows: typeof participants;
-  }>>((groups, participant) => {
-    const category = participant.competitionCategory.category;
-    const group = groups.find((item) => item.id === participant.competitionCategoryId);
-    if (group) {
-      group.rows.push(participant);
-    } else {
-      groups.push({ id: participant.competitionCategoryId, name: category.name, rows: [participant] });
-    }
-    return groups;
-  }, []);
 
   return (
     <main className="app-shell">
@@ -79,23 +48,6 @@ export default async function LeagueDetailPage({ params }: { params: Promise<{ i
         </article>
       </section>
       <LeagueStandings competitionId={league.id} type={league.type as "individual_league" | "team_league"} />
-      <section className="list-panel full-width">
-        <h2>{t.participants}</h2>
-        {participantGroups.map((group) => (
-          <div className="standing-block" key={group.id}>
-            <h3>{group.name}</h3>
-            {group.rows.map((participant) => (
-              <p key={participant.id}>
-                {participant.player ? (
-                  <Link href={`/players/${participant.player.id}`}>{participant.player.lastName}, {participant.player.firstName}</Link>
-                ) : participant.club ? (
-                  <Link href={`/clubs/${participant.club.id}`}>{participant.club.name}</Link>
-                ) : t.notProvided}
-              </p>
-            ))}
-          </div>
-        ))}
-      </section>
     </main>
   );
 }

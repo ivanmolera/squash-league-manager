@@ -3,12 +3,24 @@ import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 
 type TournamentMatch = Awaited<ReturnType<typeof getTournamentMatches>>[number];
+type TournamentDraw = Awaited<ReturnType<typeof getTournamentDraws>>[number];
 
 async function getTournamentMatches(competitionId: string) {
   return prisma.match.findMany({
     where: { competitionId },
     include: { sets: { orderBy: { setNumber: "asc" } } },
     orderBy: [{ roundNumber: "asc" }, { matchOrder: "asc" }, { bracketPosition: "asc" }]
+  });
+}
+
+async function getTournamentDraws(competitionId: string) {
+  return prisma.competitionCategory.findMany({
+    where: { competitionId, format: "knockout" },
+    include: {
+      category: true,
+      drawEntries: { orderBy: { bracketPosition: "asc" } }
+    },
+    orderBy: { createdAt: "asc" }
   });
 }
 
@@ -43,6 +55,46 @@ function ResultForm({ match, labels }: { match: TournamentMatch; labels: { sets:
   );
 }
 
+function TournamentBracket({ draw }: { draw: TournamentDraw }) {
+  if (!draw.drawEntries.length) return null;
+
+  const bracketSize = draw.drawEntries.length;
+  const rounds = Math.ceil(Math.log2(Math.max(bracketSize, 2)));
+
+  return (
+    <div className="bracket-block">
+      <h3>{draw.category.name}</h3>
+      <div className="bracket-scroll">
+        <div className="bracket">
+          <div className="bracket-round first-round">
+            {Array.from({ length: bracketSize / 2 }, (_, index) => {
+              const home = draw.drawEntries[index * 2];
+              const away = draw.drawEntries[index * 2 + 1];
+
+              return (
+                <div className="bracket-pair" key={index}>
+                  <span>{home?.isBye ? "BYE" : home?.playerNameAtTime ?? "BYE"}</span>
+                  <span>{away?.isBye ? "BYE" : away?.playerNameAtTime ?? "BYE"}</span>
+                </div>
+              );
+            })}
+          </div>
+          {Array.from({ length: rounds }, (_, roundIndex) => {
+            const slots = Math.max(1, bracketSize / 2 ** (roundIndex + 2));
+            return (
+              <div className="bracket-round" key={roundIndex}>
+                {Array.from({ length: slots }, (_, slotIndex) => (
+                  <div className="bracket-slot" key={slotIndex} />
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export async function TournamentMatches({
   competitionId,
   canEdit
@@ -50,12 +102,17 @@ export async function TournamentMatches({
   competitionId: string;
   canEdit: boolean;
 }) {
-  const [matches, dictionary] = await Promise.all([getTournamentMatches(competitionId), getDictionary()]);
+  const [matches, draws, dictionary] = await Promise.all([getTournamentMatches(competitionId), getTournamentDraws(competitionId), getDictionary()]);
   const { locale, t } = dictionary;
 
   return (
     <section className="list-panel full-width">
       <h2>{t.tournament} · {t.calendar}</h2>
+      {draws.some((draw) => draw.drawEntries.length) ? (
+        <div className="bracket-list">
+          {draws.map((draw) => <TournamentBracket draw={draw} key={draw.id} />)}
+        </div>
+      ) : null}
       {matches.length ? (
         <div className="calendar-list">
           {matches.map((match) => (

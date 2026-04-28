@@ -22,8 +22,10 @@ export default async function EditPlayerPage({ params }: { params: Promise<{ id:
       <form className="admin-form" action={savePlayerAction}>
         <h1>Editar jugador</h1>
         <input type="hidden" name="playerId" value={player.id} />
+        <input type="hidden" name="profilePhotoUrl" value={player.profilePhotoUrl ?? ""} />
         <label>Nombre<input name="firstName" defaultValue={player.firstName} required /></label>
         <label>Apellidos<input name="lastName" defaultValue={player.lastName} required /></label>
+        <label>Foto<input name="profilePhoto" type="file" accept="image/*" /></label>
         <label>Email<input name="email" type="email" defaultValue={player.user?.email ?? ""} readOnly={!isAdmin} required /></label>
         <label>Teléfono<input name="phone" defaultValue={player.user?.phone ?? ""} /></label>
         <label>Idioma

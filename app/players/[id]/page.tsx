@@ -7,6 +7,19 @@ import { prisma } from "@/src/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
+function PlayerPortrait({ player }: { player: { firstName: string; lastName: string; profilePhotoUrl: string | null; genericProfileVariant: string } }) {
+  if (player.profilePhotoUrl) {
+    return <img className="player-photo" src={player.profilePhotoUrl} alt={`${player.firstName} ${player.lastName}`} />;
+  }
+
+  return (
+    <div className={`player-avatar ${player.genericProfileVariant}`} aria-hidden="true">
+      <span className="avatar-head" />
+      <span className="avatar-shoulders" />
+    </div>
+  );
+}
+
 export default async function PlayerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [player, currentUser] = await Promise.all([
@@ -36,6 +49,9 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ i
         {canEdit ? <Link className="primary-link" href={`/players/${player.id}/edit`}>{t.edit}</Link> : null}
       </section>
       <section className="detail-grid">
+        <article className="list-panel player-photo-card">
+          <PlayerPortrait player={player} />
+        </article>
         <article className="list-panel">
           <h2>{t.personalData}</h2>
           <p><strong>{t.email}:</strong> {canSeeContact ? player.user?.email ?? t.unavailable : t.privateValue}</p>
@@ -48,11 +64,11 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ i
         </article>
         <article className="list-panel">
           <h2>{t.clubs}</h2>
-          {player.memberships.map((membership) => (
+          {player.memberships.length ? player.memberships.map((membership) => (
             <p key={membership.id}>
-              {membership.clubNameAtThatTime} · {membership.season.name}
+              <Link href={`/clubs/${membership.club.id}`}>{membership.clubNameAtThatTime}</Link> · {membership.season.name}
             </p>
-          ))}
+          )) : <p>{t.independent}</p>}
         </article>
       </section>
     </main>

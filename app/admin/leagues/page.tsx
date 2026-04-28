@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { saveLeagueAction } from "@/app/admin/actions";
+import { BackToTopButton } from "@/app/back-to-top-button";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
 import { prisma } from "@/src/lib/prisma";
@@ -8,7 +9,18 @@ export const dynamic = "force-dynamic";
 
 export default async function LeaguesPage() {
   const [players, clubs, leagues, currentUser] = await Promise.all([
-    prisma.player.findMany({ include: { user: true }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }] }),
+    prisma.player.findMany({
+      include: {
+        user: true,
+        memberships: {
+          where: { toDate: null },
+          include: { club: true },
+          orderBy: { fromDate: "desc" },
+          take: 1
+        }
+      },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
+    }),
     prisma.club.findMany({ orderBy: [{ province: "asc" }, { name: "asc" }] }),
     prisma.competition.findMany({
       where: { type: { in: ["individual_league", "team_league"] } },
@@ -20,7 +32,7 @@ export default async function LeaguesPage() {
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
 
   return (
-    <main className="app-shell">
+    <main className="app-shell" id="page-top">
       <Navigation />
       <section className="page-heading">
         <p className="eyebrow">Admin</p>
@@ -32,7 +44,7 @@ export default async function LeaguesPage() {
         <section className="work-grid">
           <LeagueForm title="Liga individual" type="individual_league" participants={players.map((player) => ({
             id: player.id,
-            label: `${player.lastName}, ${player.firstName}`
+            label: `${player.lastName}, ${player.firstName} · ${player.memberships[0]?.clubNameAtThatTime ?? "Independiente"}`
           }))} />
           <LeagueForm title="Liga por equipos" type="team_league" participants={clubs.map((club) => ({
             id: club.id,
@@ -40,8 +52,7 @@ export default async function LeaguesPage() {
           }))} />
         </section>
       ) : (
-        <section className="list-panel">
-          <h2>Solo lectura</h2>
+        <section className="list-panel quiet-panel">
           <p className="muted">Inicia sesión como admin para crear o modificar ligas.</p>
         </section>
       )}
@@ -50,17 +61,22 @@ export default async function LeaguesPage() {
         <h2>Ligas existentes</h2>
         <div className="table-list">
           {leagues.map((league) => (
-            <article className="row-card" key={league.id}>
-              <strong><Link href={`/leagues/${league.id}`}>{league.name}</Link></strong>
-              <span>{league.type === "individual_league" ? "Individual" : "Equipos"}</span>
-              <span>Inscripción: {league.registrationDeadline?.toLocaleDateString("es-ES") ?? "Sin límite"}</span>
-              <span>Inicio: {league.startsAt?.toLocaleDateString("es-ES")}</span>
-              <span>Fin: {league.endsAt?.toLocaleDateString("es-ES")}</span>
+            <article className="league-row" key={league.id}>
+              <div>
+                <strong><Link href={`/leagues/${league.id}`}>{league.name}</Link></strong>
+                <span>{league.type === "individual_league" ? "Individual" : "Por equipos"}</span>
+              </div>
+              <p>
+                <span>Inscripción: {league.registrationDeadline?.toLocaleDateString("es-ES") ?? "Sin límite"}</span>
+                <span>Inicio: {league.startsAt?.toLocaleDateString("es-ES")}</span>
+                <span>Fin: {league.endsAt?.toLocaleDateString("es-ES")}</span>
+              </p>
               {isAdmin ? <Link className="secondary-link" href={`/leagues/${league.id}/edit`}>Editar</Link> : null}
             </article>
           ))}
         </div>
       </section>
+      <BackToTopButton />
     </main>
   );
 }

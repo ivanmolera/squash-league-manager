@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { savePlayerAction } from "@/app/admin/actions";
+import { BackToTopButton } from "@/app/back-to-top-button";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
 import { prisma } from "@/src/lib/prisma";
@@ -11,7 +12,12 @@ export default async function PlayersPage() {
     prisma.player.findMany({
       include: {
         user: true,
-        memberships: { include: { club: true }, take: 1 }
+        memberships: {
+          where: { toDate: null },
+          include: { club: true },
+          orderBy: { fromDate: "desc" },
+          take: 1
+        }
       },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
     }),
@@ -23,7 +29,7 @@ export default async function PlayersPage() {
   const canCreateOwnProfile = Boolean(currentUser && !ownPlayerId);
 
   return (
-    <main className="app-shell">
+    <main className="app-shell" id="page-top">
       <Navigation />
       <section className="page-heading">
         <p className="eyebrow">Admin</p>
@@ -39,28 +45,32 @@ export default async function PlayersPage() {
             <button type="submit">Crear jugador</button>
           </form>
         ) : (
-          <section className="list-panel">
-            <h2>Solo lectura</h2>
+          <section className="list-panel quiet-panel">
             <p className="muted">Inicia sesión para modificar tu perfil.</p>
           </section>
         )}
 
         <div className="list-panel">
           <h2>Listado de jugadores</h2>
-          {players.map((player) => (
-            isAdmin || player.id === ownPlayerId ? (
+          {players.map((player) => {
+            const clubName = player.memberships[0]?.clubNameAtThatTime ?? "Independiente";
+
+            return isAdmin || player.id === ownPlayerId ? (
               <article className="row-card" key={player.id}>
                 <strong><Link href={`/players/${player.id}`}>{player.lastName}, {player.firstName}</Link></strong>
+                <span>{clubName}</span>
                 <Link className="secondary-link" href={`/players/${player.id}/edit`}>Editar</Link>
               </article>
             ) : (
               <article className="row-card simple-row" key={player.id}>
                 <strong><Link href={`/players/${player.id}`}>{player.lastName}, {player.firstName}</Link></strong>
+                <span>{clubName}</span>
               </article>
-            )
-          ))}
+            );
+          })}
         </div>
       </section>
+      <BackToTopButton />
     </main>
   );
 }
@@ -77,6 +87,7 @@ type PlayerFieldData = {
   heightCm?: number | null;
   weightKg?: unknown;
   racketBrand?: string | null;
+  profilePhotoUrl?: string | null;
   clubId?: string;
   showContactPublic?: boolean;
   showPhysicalPublic?: boolean;
@@ -99,6 +110,8 @@ function PlayerFields({
         <label>Nombre<input name="firstName" defaultValue={player?.firstName ?? ""} required /></label>
         <label>Apellidos<input name="lastName" defaultValue={player?.lastName ?? ""} required /></label>
       </div>
+      <input type="hidden" name="profilePhotoUrl" value={player?.profilePhotoUrl ?? ""} />
+      <label>Foto<input name="profilePhoto" type="file" accept="image/*" /></label>
       <div className="form-row">
         <label>Email<input name="email" type="email" defaultValue={player?.email ?? currentUserEmail ?? ""} readOnly={!isAdmin} required /></label>
         <label>Teléfono<input name="phone" defaultValue={player?.phone ?? ""} /></label>
