@@ -9,6 +9,37 @@ import { prisma } from "@/src/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
+function playerAgeAt(referenceDate: Date, birthDate: Date | null) {
+  if (!birthDate) return null;
+
+  let age = referenceDate.getFullYear() - birthDate.getFullYear();
+  const birthdayThisYear = new Date(referenceDate);
+  birthdayThisYear.setMonth(birthDate.getMonth(), birthDate.getDate());
+  if (referenceDate < birthdayThisYear) age -= 1;
+  return age;
+}
+
+function canPlayerRegisterForCategory(
+  player: { gender: string; birthDate: Date | null },
+  category: { genderScope: string; minAge: number | null; maxAge: number | null },
+  referenceDate: Date
+) {
+  if (category.genderScope !== "not_specified" && player.gender !== category.genderScope) {
+    return false;
+  }
+
+  const age = playerAgeAt(referenceDate, player.birthDate);
+  if (category.minAge !== null && (age === null || age < category.minAge)) {
+    return false;
+  }
+
+  if (category.maxAge !== null && (age === null || age > category.maxAge)) {
+    return false;
+  }
+
+  return true;
+}
+
 export default async function TournamentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [tournament, currentUser] = await Promise.all([
@@ -28,7 +59,7 @@ export default async function TournamentDetailPage({ params }: { params: Promise
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
   const canEdit = isAdmin || tournament.hostClub?.managerUserId === currentUser?.id;
   const currentPlayer = currentUser
-    ? await prisma.player.findUnique({ where: { userId: currentUser.id }, select: { id: true } })
+    ? await prisma.player.findUnique({ where: { userId: currentUser.id }, select: { id: true, gender: true, birthDate: true } })
     : null;
   const registrationOpen = tournament.registrationDeadline ? tournament.registrationDeadline >= new Date() : false;
   const seeds = tournament.categories.flatMap((category) => category.seeds).sort((left, right) => left.seedNumber - right.seedNumber);
@@ -63,6 +94,10 @@ export default async function TournamentDetailPage({ params }: { params: Promise
           <h2>Inscripción</h2>
           {tournament.categories.map((competitionCategory) => {
             const isRegistered = Boolean(currentPlayer && competitionCategory.registrations.some((registration) => registration.playerId === currentPlayer.id));
+            const isEligible = Boolean(
+              currentPlayer &&
+                canPlayerRegisterForCategory(currentPlayer, competitionCategory.category, tournament.startsAt ?? new Date())
+            );
 
             return (
               <div className="standing-block" key={competitionCategory.id}>
@@ -72,7 +107,7 @@ export default async function TournamentDetailPage({ params }: { params: Promise
                     <Link href={`/players/${registration.playerId}`}>{registration.playerNameAtRegistration}</Link> · {registration.clubNameAtRegistration ?? t.independent}
                   </p>
                 )) : <p className="muted">Sin inscritos.</p>}
-                {currentPlayer && registrationOpen && !isRegistered ? (
+                {currentPlayer && registrationOpen && !isRegistered && isEligible ? (
                   <form className="compact-form" action={registerSelfForTournamentAction}>
                     <input type="hidden" name="competitionCategoryId" value={competitionCategory.id} />
                     <button type="submit">Inscribirme</button>

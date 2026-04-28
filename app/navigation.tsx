@@ -9,9 +9,8 @@ export async function Navigation() {
 
   return (
     <nav className="nav">
-      <Link href="/">{t.app}</Link>
-      <Link href="/dashboard">{t.dashboard}</Link>
-      <Link href="/admin/players">{t.players}</Link>
+      <Link href="/">{t.home}</Link>
+      {currentUser ? <Link href="/admin/players">{t.players}</Link> : null}
       <Link href="/admin/clubs">{t.clubs}</Link>
       <Link href="/admin/leagues">{t.leagues}</Link>
       <Link href="/manager/tournaments">{t.tournaments}</Link>

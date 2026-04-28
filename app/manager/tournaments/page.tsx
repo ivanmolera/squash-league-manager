@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { saveTournamentAction } from "@/app/admin/actions";
-import { BackToTopButton } from "@/app/back-to-top-button";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
 import { prisma } from "@/src/lib/prisma";
@@ -24,15 +23,15 @@ export default async function TournamentsPage() {
   const canEdit = isAdmin || isManager;
 
   return (
-    <main className="app-shell" id="page-top">
+    <main className="app-shell">
       <Navigation />
       <section className="page-heading">
         <p className="eyebrow">Manager</p>
         <h1>Torneos</h1>
-        <p className="muted">Alta de torneo, categorías, inscripción de jugadores y cuadro automático.</p>
+        <p className="muted">Inicia sesión como manager o admin para crear torneos.</p>
       </section>
 
-      <section className="work-grid">
+      <section className={canEdit ? "work-grid" : "centered-list"}>
         {canEdit ? (
           <form className="admin-form wide-form" action={saveTournamentAction}>
             <h2>Nuevo torneo</h2>
@@ -77,11 +76,7 @@ export default async function TournamentsPage() {
             <p className="muted">El torneo se crea sin jugadores inscritos. Los jugadores podrán inscribirse después y el manager o admin podrá añadir inscripciones a petición.</p>
             <button type="submit" name="mode" value="save">Guardar torneo</button>
           </form>
-        ) : (
-          <section className="list-panel quiet-panel">
-            <p className="muted">Inicia sesión como manager o admin para crear torneos.</p>
-          </section>
-        )}
+        ) : null}
 
         <section className="list-panel">
           <h2>Torneos existentes</h2>
@@ -103,7 +98,6 @@ export default async function TournamentsPage() {
           </div>
         </section>
       </section>
-      <BackToTopButton />
     </main>
   );
 }

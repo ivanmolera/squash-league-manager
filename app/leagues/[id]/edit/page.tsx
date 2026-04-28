@@ -48,6 +48,12 @@ export default async function EditLeaguePage({ params }: { params: Promise<{ id:
             <option value="3">Al mejor de 3 sets</option>
           </select>
         </label>
+        <label>Club restringido
+          <select name="hostClubId" defaultValue={league.hostClubId ?? ""}>
+            <option value="">Sin restricción</option>
+            {clubs.map((club) => <option key={club.id} value={club.id}>{club.name}</option>)}
+          </select>
+        </label>
         <div className="form-row">
           <label>Límite inscripción<input name="registrationDeadline" type="date" defaultValue={dateInputValue(league.registrationDeadline)} required /></label>
           <label>Inicio<input name="startsAt" type="date" defaultValue={dateInputValue(league.startsAt)} required /></label>

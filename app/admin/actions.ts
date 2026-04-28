@@ -6,6 +6,7 @@ import { z } from "zod";
 import { getCurrentUser } from "@/src/lib/auth";
 import { prisma } from "@/src/lib/prisma";
 import { generateRoundRobin, nextPowerOfTwo, shuffle } from "@/src/lib/schedule";
+import { getTournamentRankingRows } from "@/src/lib/tournament-rankings";
 
 const testPassword = "TestUser1234";
 
@@ -49,6 +50,7 @@ const competitionSchema = z.object({
   registrationDeadline: z.string().min(10),
   startsAt: z.string().min(10),
   endsAt: z.string().min(10),
+  hostClubId: z.string().uuid().optional().or(z.literal("")),
   participantIds: z.array(z.string().uuid()).default([])
 });
 
@@ -580,6 +582,42 @@ async function saveTournamentSeeds(competitionCategoryId: string, playerIds: str
   revalidatePath(`/tournaments/${competitionCategory.competitionId}/edit`);
 }
 
+function playerAgeAt(referenceDate: Date, birthDate: Date | null) {
+  if (!birthDate) return null;
+
+  let age = referenceDate.getFullYear() - birthDate.getFullYear();
+  const birthdayThisYear = new Date(referenceDate);
+  birthdayThisYear.setMonth(birthDate.getMonth(), birthDate.getDate());
+  if (referenceDate < birthdayThisYear) age -= 1;
+  return age;
+}
+
+async function assertPlayerEligibleForCompetitionCategory(competitionCategoryId: string, playerId: string) {
+  const competitionCategory = await prisma.competitionCategory.findUniqueOrThrow({
+    where: { id: competitionCategoryId },
+    include: { competition: true, category: true }
+  });
+  const player = await prisma.player.findUniqueOrThrow({
+    where: { id: playerId },
+    select: { gender: true, birthDate: true }
+  });
+  const referenceDate = competitionCategory.competition.startsAt ?? new Date();
+  const age = playerAgeAt(referenceDate, player.birthDate);
+  const genderMatches = competitionCategory.category.genderScope === "not_specified" || player.gender === competitionCategory.category.genderScope;
+
+  if (!genderMatches) {
+    throw new Error("El jugador no cumple la restricción de sexo de esta categoría.");
+  }
+
+  if (competitionCategory.category.minAge !== null && (age === null || age < competitionCategory.category.minAge)) {
+    throw new Error(`El jugador debe tener al menos ${competitionCategory.category.minAge} años para inscribirse en esta categoría.`);
+  }
+
+  if (competitionCategory.category.maxAge !== null && (age === null || age > competitionCategory.category.maxAge)) {
+    throw new Error(`El jugador debe tener como máximo ${competitionCategory.category.maxAge} años para inscribirse en esta categoría.`);
+  }
+}
+
 async function canManageClub(userId: string, clubId?: string | null) {
   if (!clubId) {
     return false;
@@ -655,6 +693,8 @@ async function registerTournamentPlayer(competitionCategoryId: string, playerId:
   if (competitionCategory.competition.registrationDeadline && competitionCategory.competition.registrationDeadline < new Date()) {
     throw new Error("La inscripción ya está cerrada.");
   }
+
+  await assertPlayerEligibleForCompetitionCategory(competitionCategoryId, playerId);
 
   const player = await prisma.player.findUniqueOrThrow({
     where: { id: playerId },
@@ -932,6 +972,7 @@ export async function saveLeagueAction(formData: FormData) {
     registrationDeadline: textValue(formData.get("registrationDeadline")),
     startsAt: textValue(formData.get("startsAt")),
     endsAt: textValue(formData.get("endsAt")),
+    hostClubId: textValue(formData.get("hostClubId")) ?? "",
     participantIds: toArray(formData, "participantIds")
   });
 
@@ -945,6 +986,7 @@ export async function saveLeagueAction(formData: FormData) {
           description: parsed.description,
           type: parsed.type,
           bestOfSets: parsed.bestOfSets,
+          hostClubId: parsed.hostClubId || null,
           registrationDeadline: new Date(parsed.registrationDeadline),
           startsAt: new Date(parsed.startsAt),
           endsAt: new Date(parsed.endsAt)
@@ -957,6 +999,7 @@ export async function saveLeagueAction(formData: FormData) {
           description: parsed.description,
           type: parsed.type,
           bestOfSets: parsed.bestOfSets,
+          hostClubId: parsed.hostClubId || null,
           status: "draft",
           registrationDeadline: new Date(parsed.registrationDeadline),
           startsAt: new Date(parsed.startsAt),
@@ -984,12 +1027,29 @@ export async function saveLeagueAction(formData: FormData) {
   });
   await prisma.match.deleteMany({ where: { competitionId: competition.id } });
   await prisma.teamTie.deleteMany({ where: { competitionId: competition.id } });
+  if (parsed.participantIds.length < 2) {
+    revalidatePath("/admin/leagues");
+    revalidatePath(`/leagues/${competition.id}`);
+    revalidatePath(`/leagues/${competition.id}/edit`);
+    return;
+  }
 
   if (parsed.type === "individual_league") {
     const players = await prisma.player.findMany({
-      where: { id: { in: parsed.participantIds } },
+      where: {
+        id: { in: parsed.participantIds },
+        ...(parsed.hostClubId
+          ? { memberships: { some: { clubId: parsed.hostClubId, toDate: null } } }
+          : {})
+      },
       include: { memberships: { include: { club: true }, take: 1 } }
     });
+    if (players.length < 2) {
+      revalidatePath("/admin/leagues");
+      revalidatePath(`/leagues/${competition.id}`);
+      revalidatePath(`/leagues/${competition.id}/edit`);
+      return;
+    }
 
     await prisma.competitionParticipant.createMany({
       data: players.map((player) => ({
@@ -1022,7 +1082,18 @@ export async function saveLeagueAction(formData: FormData) {
       )
     });
   } else {
-    const clubs = await prisma.club.findMany({ where: { id: { in: parsed.participantIds } } });
+    const clubs = await prisma.club.findMany({
+      where: {
+        id: { in: parsed.participantIds },
+        ...(parsed.hostClubId ? { id: parsed.hostClubId } : {})
+      }
+    });
+    if (clubs.length < 2) {
+      revalidatePath("/admin/leagues");
+      revalidatePath(`/leagues/${competition.id}`);
+      revalidatePath(`/leagues/${competition.id}/edit`);
+      return;
+    }
     await prisma.competitionParticipant.createMany({
       data: clubs.map((club) => ({
         competitionId: competition.id,
@@ -1074,6 +1145,8 @@ export async function saveLeagueAction(formData: FormData) {
   }
 
   revalidatePath("/admin/leagues");
+  revalidatePath(`/leagues/${competition.id}`);
+  revalidatePath(`/leagues/${competition.id}/edit`);
 }
 
 export async function saveTournamentAction(formData: FormData) {
@@ -1332,6 +1405,22 @@ export async function saveTournamentAction(formData: FormData) {
           }
         });
       }
+
+      const byeMatches = await prisma.match.findMany({
+        where: {
+          competitionId: competition.id,
+          competitionCategoryId: competitionCategory.id,
+          matchType: "tournament_knockout",
+          status: "bye",
+          winnerPlayerId: { not: null }
+        },
+        select: { id: true, winnerPlayerId: true },
+        orderBy: { bracketPosition: "asc" }
+      });
+
+      for (const byeMatch of byeMatches) {
+        await advanceTournamentResult(byeMatch.id, byeMatch.winnerPlayerId);
+      }
     }
   }
 
@@ -1407,18 +1496,18 @@ export async function suggestTournamentSeedsAction(formData: FormData) {
 
   await assertCanEditTournament(competitionCategory.competitionId, currentUser);
 
-  if (competitionCategory.competition.rankingScope === "none") {
-    throw new Error("Selecciona primero un tipo de ránking para el torneo.");
-  }
-
   const players = competitionCategory.participants.flatMap((participant) => participant.player ? [participant.player] : []);
-  const scores = await tournamentRankingScores(competitionCategory.competition.rankingScope, players.map((player) => player.id));
+  const rankingRows = competitionCategory.competition.rankingScope === "none"
+    ? []
+    : await getTournamentRankingRows(competitionCategory.competition.rankingScope, players.map((player) => player.id));
+  const rankingPositions = new Map(rankingRows.map((row, index) => [row.playerId, { ...row, index }]));
+  const hasRankingScores = rankingRows.some((row) => row.points > 0);
   const seedPlayerIds = players
-    .map((player) => ({ player, score: scores.get(player.id) ?? { points: 0, played: 0, won: 0 } }))
+    .map((player) => ({ player, ranking: rankingPositions.get(player.id) }))
     .sort((left, right) =>
-      right.score.points - left.score.points ||
-      right.score.won - left.score.won ||
-      right.score.played - left.score.played ||
+      (hasRankingScores
+        ? (left.ranking?.index ?? Number.MAX_SAFE_INTEGER) - (right.ranking?.index ?? Number.MAX_SAFE_INTEGER)
+        : 0) ||
       left.player.lastName.localeCompare(right.player.lastName) ||
       left.player.firstName.localeCompare(right.player.firstName)
     )

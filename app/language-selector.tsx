@@ -23,6 +23,11 @@ export function LanguageSelector({
   consentMessage: string;
 }) {
   const [needsConsent, setNeedsConsent] = useState(false);
+  const locales = [
+    { id: "ca", name: "Català", flag: "CAT" },
+    { id: "es", name: "Español", flag: "ES" },
+    { id: "en", name: "English", flag: "UK" }
+  ];
 
   function changeLocale(nextLocale: string) {
     if (!hasCookieConsent()) {
@@ -36,14 +41,22 @@ export function LanguageSelector({
 
   return (
     <div className="locale-form">
-      <label>
-        <span className="sr-only">{label}</span>
-        <select aria-label={help} defaultValue={locale} onChange={(event) => changeLocale(event.target.value)}>
-          <option value="ca">CA</option>
-          <option value="es">ES</option>
-          <option value="en">EN</option>
-        </select>
-      </label>
+      <span className="sr-only">{label}</span>
+      <div className="flag-switcher" role="group" aria-label={help}>
+        {locales.map((item) => (
+          <button
+            aria-label={item.name}
+            aria-pressed={locale === item.id}
+            className={`flag-button flag-${item.id}${locale === item.id ? " is-active" : ""}`}
+            key={item.id}
+            onClick={() => changeLocale(item.id)}
+            title={item.name}
+            type="button"
+          >
+            <span aria-hidden="true">{item.flag}</span>
+          </button>
+        ))}
+      </div>
       {needsConsent ? <span className="locale-warning">{consentMessage}</span> : null}
     </div>
   );

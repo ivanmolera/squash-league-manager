@@ -15,6 +15,7 @@ export default async function LeagueDetailPage({ params }: { params: Promise<{ i
       where: { id },
       include: {
         season: true,
+        hostClub: true,
         categories: { include: { category: true } }
       }
     }),
@@ -42,6 +43,7 @@ export default async function LeagueDetailPage({ params }: { params: Promise<{ i
           <p><strong>{t.type}:</strong> {t[league.type as keyof typeof t]}</p>
           <p><strong>{t.matchFormat}:</strong> {league.bestOfSets === 3 ? t.bestOf3 : t.bestOf5}</p>
           <p><strong>{t.description}:</strong> {league.description ?? t.notProvidedFemale}</p>
+          {league.hostClub ? <p><strong>{t.club}:</strong> <Link href={`/clubs/${league.hostClub.id}`}>{league.hostClub.name}</Link></p> : null}
           <p><strong>{t.season}:</strong> {league.season.name}</p>
           <p><strong>{t.registration}:</strong> {league.registrationDeadline?.toLocaleDateString("es-ES") ?? t.noDeadline}</p>
           <p><strong>{t.start}:</strong> {league.startsAt?.toLocaleDateString("es-ES") ?? t.noDate}</p>

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { savePlayerAction } from "@/app/admin/actions";
-import { BackToTopButton } from "@/app/back-to-top-button";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
 import { prisma } from "@/src/lib/prisma";
@@ -29,7 +28,7 @@ export default async function PlayersPage() {
   const canCreateOwnProfile = Boolean(currentUser && !ownPlayerId);
 
   return (
-    <main className="app-shell" id="page-top">
+    <main className="app-shell">
       <Navigation />
       <section className="page-heading">
         <p className="eyebrow">Admin</p>
@@ -70,7 +69,6 @@ export default async function PlayersPage() {
           })}
         </div>
       </section>
-      <BackToTopButton />
     </main>
   );
 }

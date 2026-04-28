@@ -12,6 +12,46 @@ function dateInputValue(value: Date | null) {
   return value ? value.toISOString().slice(0, 10) : "";
 }
 
+function playerAgeAt(referenceDate: Date, birthDate: Date | null) {
+  if (!birthDate) return null;
+
+  let age = referenceDate.getFullYear() - birthDate.getFullYear();
+  const birthdayThisYear = new Date(referenceDate);
+  birthdayThisYear.setMonth(birthDate.getMonth(), birthDate.getDate());
+  if (referenceDate < birthdayThisYear) age -= 1;
+  return age;
+}
+
+function playerMeetsCategoryRestrictions(
+  player: { gender: string; birthDate: Date | null },
+  category: { genderScope: string; minAge: number | null; maxAge: number | null },
+  referenceDate: Date
+) {
+  if (category.genderScope !== "not_specified" && player.gender !== category.genderScope) {
+    return false;
+  }
+
+  const age = playerAgeAt(referenceDate, player.birthDate);
+  if (category.minAge !== null && (age === null || age < category.minAge)) {
+    return false;
+  }
+
+  if (category.maxAge !== null && (age === null || age > category.maxAge)) {
+    return false;
+  }
+
+  return true;
+}
+
+function restrictionLabel(category: { genderScope: string; minAge: number | null; maxAge: number | null }) {
+  const restrictions = [];
+  if (category.genderScope === "male") restrictions.push("masculina");
+  if (category.genderScope === "female") restrictions.push("femenina");
+  if (category.minAge !== null) restrictions.push(`+${category.minAge}`);
+  if (category.maxAge !== null) restrictions.push(`sub${category.maxAge}`);
+  return restrictions.length ? restrictions.join(" · ") : "mixta";
+}
+
 export default async function EditTournamentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [tournament, players, clubs, categories, currentUser] = await Promise.all([
@@ -72,6 +112,7 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
   const registrationDeadlineValue = dateInputValue(tournament.registrationDeadline);
   const registrationStillOpen = tournament.registrationDeadline ? tournament.registrationDeadline >= new Date() : false;
   const hasSelectedSeeds = selectedSeeds.size > 0;
+  const eligibilityReferenceDate = tournament.startsAt ?? new Date();
 
   return (
     <main className="app-shell">
@@ -111,7 +152,7 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
           {categories.map((category) => (
             <label key={category.id}>
               <input type="checkbox" name="categoryIds" value={category.id} defaultChecked={selectedCategoryIds.has(category.id)} />
-              {category.name}
+              {category.name} · {restrictionLabel(category)}
             </label>
           ))}
         </fieldset>
@@ -134,10 +175,14 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
         <h2>Categorías del torneo</h2>
         {tournament.categories.map((competitionCategory) => {
           const participants = participantsByCategory.get(competitionCategory.id) ?? [];
+          const eligiblePlayers = players.filter((player) =>
+            playerMeetsCategoryRestrictions(player, competitionCategory.category, eligibilityReferenceDate)
+          );
 
           return (
             <div className="category-config-card" key={competitionCategory.id}>
               <h3>{competitionCategory.category.name}</h3>
+              <p className="muted">Restricciones: {restrictionLabel(competitionCategory.category)}</p>
               <div className="category-config-grid">
                 <form className="compact-form" action={saveTournamentSeedsAction}>
                   <input type="hidden" name="competitionCategoryId" value={competitionCategory.id} />
@@ -164,14 +209,14 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
                   <input type="hidden" name="competitionCategoryId" value={competitionCategory.id} />
                   <label>Inscribir jugador
                     <select name="playerId" required>
-                      {players.map((player) => (
+                      {eligiblePlayers.map((player) => (
                         <option key={player.id} value={player.id}>
                           {player.lastName}, {player.firstName} · {player.memberships[0]?.clubNameAtThatTime ?? "Independiente"}
                         </option>
                       ))}
                     </select>
                   </label>
-                  <button type="submit">Inscribir jugador</button>
+                  <button type="submit" disabled={!eligiblePlayers.length}>Inscribir jugador</button>
                 </form>
               </div>
               {participants.length ? participants.map((participant) => (

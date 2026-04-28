@@ -1,8 +1,10 @@
 import { Navigation } from "@/app/navigation";
+import { getCurrentUser } from "@/src/lib/auth";
 import { getDictionary } from "@/src/lib/i18n";
 
 export default async function Home() {
-  const { t } = await getDictionary();
+  const [user, { t }] = await Promise.all([getCurrentUser(), getDictionary()]);
+  const roles = user?.roles.map((role) => role.role).join(", ");
   const modules = [
     { title: t.moduleCompetitions, text: t.moduleCompetitionsText },
     { title: t.moduleResults, text: t.moduleResultsText },
@@ -14,8 +16,8 @@ export default async function Home() {
       <Navigation />
       <section className="public-hero">
         <p className="eyebrow">Squash League Manager</p>
-        <h1>{t.homeTitle}</h1>
-        <p className="muted">{t.homeText}</p>
+        <h1>{user ? `Hola, ${user.displayName ?? user.email}` : t.homeTitle}</h1>
+        <p className="muted">{user ? `${t.activeRole}: ${roles}` : t.homeText}</p>
       </section>
 
       <section className="module-grid" aria-label={t.publicAccess}>

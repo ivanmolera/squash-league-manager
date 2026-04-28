@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { saveClubAction } from "@/app/admin/actions";
-import { BackToTopButton } from "@/app/back-to-top-button";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
 import { prisma } from "@/src/lib/prisma";
@@ -16,46 +15,41 @@ export default async function ClubsPage() {
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
 
   return (
-    <main className="app-shell" id="page-top">
+    <main className="app-shell">
       <Navigation />
       <section className="page-heading">
         <p className="eyebrow">Admin</p>
         <h1>Clubes</h1>
-        <p className="muted">Alta y modificación de clubes, con manager único por club.</p>
+        {!isAdmin ? <p className="muted">Inicia sesión para modificar los datos del club.</p> : null}
       </section>
-      <section className="work-grid">
-        {isAdmin ? (
+      <section className="list-panel full-width">
+        <h2>Listado de clubes</h2>
+        {clubs.map((club) => {
+          const address = `${club.address ?? "Sin dirección"}, ${club.city ?? "Sin ciudad"} (${club.province ?? "Sin provincia"})`;
+
+          return isAdmin || club.managerUserId === currentUser?.id ? (
+            <article className="row-card" key={club.id}>
+              <strong><Link href={`/clubs/${club.id}`}>{club.name}</Link></strong>
+              <span>{address}</span>
+              <Link className="secondary-link" href={`/clubs/${club.id}/edit`}>Editar</Link>
+            </article>
+          ) : (
+            <article className="row-card" key={club.id}>
+              <strong><Link href={`/clubs/${club.id}`}>{club.name}</Link></strong>
+              <span>{address}</span>
+            </article>
+          );
+        })}
+      </section>
+      {isAdmin ? (
+        <section className="work-grid">
           <form className="admin-form" action={saveClubAction}>
             <h2>Nuevo club</h2>
             <ClubFields managers={managers} isAdmin={isAdmin} />
             <button type="submit">Crear club</button>
           </form>
-        ) : (
-          <section className="list-panel quiet-panel">
-            <p className="muted">Inicia sesión para modificar los datos del club.</p>
-          </section>
-        )}
-        <div className="list-panel">
-          <h2>Listado de clubes</h2>
-          {clubs.map((club) => (
-            isAdmin || club.managerUserId === currentUser?.id ? (
-              <article className="row-card" key={club.id}>
-                <strong><Link href={`/clubs/${club.id}`}>{club.name}</Link></strong>
-                <span>{club.province ?? "Sin provincia"}</span>
-                <span>{club.address ?? "Sin dirección"}</span>
-                <Link className="secondary-link" href={`/clubs/${club.id}/edit`}>Editar</Link>
-              </article>
-            ) : (
-              <article className="row-card" key={club.id}>
-                <strong><Link href={`/clubs/${club.id}`}>{club.name}</Link></strong>
-                <span>{club.province ?? "Sin provincia"}</span>
-                <span>{club.address ?? "Sin dirección"}</span>
-              </article>
-            )
-          ))}
-        </div>
-      </section>
-      <BackToTopButton />
+        </section>
+      ) : null}
     </main>
   );
 }

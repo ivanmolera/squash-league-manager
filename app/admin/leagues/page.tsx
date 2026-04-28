@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { saveLeagueAction } from "@/app/admin/actions";
-import { BackToTopButton } from "@/app/back-to-top-button";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
 import { prisma } from "@/src/lib/prisma";
@@ -32,52 +31,51 @@ export default async function LeaguesPage() {
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
 
   return (
-    <main className="app-shell" id="page-top">
+    <main className="app-shell">
       <Navigation />
       <section className="page-heading">
         <p className="eyebrow">Admin</p>
         <h1>Ligas</h1>
-        <p className="muted">Creación, modificación y generación automática de jornadas.</p>
+        <p className="muted">Inicia sesión como admin para crear o modificar ligas.</p>
       </section>
 
       {isAdmin ? (
         <section className="work-grid">
-          <LeagueForm title="Liga individual" type="individual_league" participants={players.map((player) => ({
+          <LeagueForm title="Liga individual" type="individual_league" clubs={clubs} participants={players.map((player) => ({
             id: player.id,
-            label: `${player.lastName}, ${player.firstName} · ${player.memberships[0]?.clubNameAtThatTime ?? "Independiente"}`
+            label: `${player.lastName}, ${player.firstName} · ${player.memberships[0]?.clubNameAtThatTime ?? "Independiente"}`,
+            clubId: player.memberships[0]?.clubId ?? ""
           }))} />
-          <LeagueForm title="Liga por equipos" type="team_league" participants={clubs.map((club) => ({
+          <LeagueForm title="Liga por equipos" type="team_league" clubs={clubs} participants={clubs.map((club) => ({
             id: club.id,
             label: `${club.province ?? "Sin provincia"} - ${club.name}`
           }))} />
         </section>
-      ) : (
-        <section className="list-panel quiet-panel">
-          <p className="muted">Inicia sesión como admin para crear o modificar ligas.</p>
-        </section>
-      )}
+      ) : null}
 
       <section className="list-panel full-width">
-        <h2>Ligas existentes</h2>
+        <h2>Ligas en curso</h2>
         <div className="table-list">
-          {leagues.map((league) => (
-            <article className="league-row" key={league.id}>
-              <div>
-                <strong><Link href={`/leagues/${league.id}`}>{league.name}</Link></strong>
-                <span>{league.type === "individual_league" ? "Individual" : "Por equipos"}</span>
-                <span>Mejor de {league.bestOfSets}</span>
-              </div>
-              <p>
-                <span>Inscripción: {league.registrationDeadline?.toLocaleDateString("es-ES") ?? "Sin límite"}</span>
-                <span>Inicio: {league.startsAt?.toLocaleDateString("es-ES")}</span>
-                <span>Fin: {league.endsAt?.toLocaleDateString("es-ES")}</span>
-              </p>
-              {isAdmin ? <Link className="secondary-link" href={`/leagues/${league.id}/edit`}>Editar</Link> : null}
-            </article>
-          ))}
+          {leagues.map((league) => {
+            const hasEnded = Boolean(league.endsAt && league.endsAt < new Date());
+
+            return (
+              <article className={`league-row${hasEnded ? " is-ended" : ""}`} key={league.id}>
+                <div>
+                  <strong><Link href={`/leagues/${league.id}`}>{league.name}</Link></strong>
+                  <span>{league.type === "individual_league" ? "Individual" : "Por equipos"}</span>
+                </div>
+                <p>
+                  <span>Inscripción: {league.registrationDeadline?.toLocaleDateString("es-ES") ?? "Sin límite"}</span>
+                  <span>Inicio: {league.startsAt?.toLocaleDateString("es-ES")}</span>
+                  <span>Fin: {league.endsAt?.toLocaleDateString("es-ES")}</span>
+                </p>
+                {isAdmin ? <Link className="secondary-link" href={`/leagues/${league.id}/edit`}>Editar</Link> : null}
+              </article>
+            );
+          })}
         </div>
       </section>
-      <BackToTopButton />
     </main>
   );
 }
@@ -85,11 +83,13 @@ export default async function LeaguesPage() {
 function LeagueForm({
   title,
   type,
+  clubs,
   participants
 }: {
   title: string;
   type: "individual_league" | "team_league";
-  participants: Array<{ id: string; label: string }>;
+  clubs: Array<{ id: string; name: string }>;
+  participants: Array<{ id: string; label: string; clubId?: string }>;
 }) {
   return (
     <form className="admin-form" action={saveLeagueAction}>
@@ -103,6 +103,12 @@ function LeagueForm({
           <option value="3">Al mejor de 3 sets</option>
         </select>
       </label>
+      <label>Club restringido
+        <select name="hostClubId" defaultValue="">
+          <option value="">Sin restricción</option>
+          {clubs.map((club) => <option key={club.id} value={club.id}>{club.name}</option>)}
+        </select>
+      </label>
       <div className="form-row">
         <label>Límite inscripción<input name="registrationDeadline" type="date" required /></label>
         <label>Inicio<input name="startsAt" type="date" required /></label>
@@ -114,7 +120,7 @@ function LeagueForm({
         <legend>{type === "individual_league" ? "Jugadores" : "Clubes"}</legend>
         {participants.map((participant) => (
           <label key={participant.id}>
-            <input type="checkbox" name="participantIds" value={participant.id} />
+            <input type="checkbox" name="participantIds" value={participant.id} data-club-id={participant.clubId ?? ""} />
             {participant.label}
           </label>
         ))}

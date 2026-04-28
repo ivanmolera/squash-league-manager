@@ -4,6 +4,7 @@ import { prisma } from "@/src/lib/prisma";
 
 type TournamentMatch = Awaited<ReturnType<typeof getTournamentMatches>>[number];
 type TournamentDraw = Awaited<ReturnType<typeof getTournamentDraws>>[number];
+type BracketMatchType = "tournament_knockout" | "tournament_consolation";
 
 async function getTournamentMatches(competitionId: string) {
   return prisma.match.findMany({
@@ -38,40 +39,111 @@ function scoreText(match: TournamentMatch, pendingLabel: string) {
   return `${homeSets}-${awaySets} (${sets})`;
 }
 
-function TournamentBracket({ title, entries, pendingLabel }: { title: string; entries: TournamentDraw["drawEntries"]; pendingLabel: string }) {
+function playerName(name: string | null | undefined, isBye: boolean | undefined, pendingLabel: string) {
+  if (isBye) return "BYE";
+  return name ?? pendingLabel;
+}
+
+function sideSets(match: TournamentMatch | undefined, side: "home" | "away") {
+  if (!match?.sets.length) return "";
+
+  return String(match.sets.filter((set) => side === "home" ? set.homePoints > set.awayPoints : set.awayPoints > set.homePoints).length);
+}
+
+function BracketMatchBox({
+  match,
+  fallbackHome,
+  fallbackAway,
+  pendingLabel
+}: {
+  match?: TournamentMatch;
+  fallbackHome?: TournamentDraw["drawEntries"][number];
+  fallbackAway?: TournamentDraw["drawEntries"][number];
+  pendingLabel: string;
+}) {
+  const homeId = match?.homePlayerId ?? fallbackHome?.playerId ?? null;
+  const awayId = match?.awayPlayerId ?? fallbackAway?.playerId ?? null;
+  const homeName = playerName(match?.homePlayerNameAtMatchTime ?? fallbackHome?.playerNameAtTime, fallbackHome?.isBye, pendingLabel);
+  const awayName = playerName(match?.awayPlayerNameAtMatchTime ?? fallbackAway?.playerNameAtTime, fallbackAway?.isBye, pendingLabel);
+  const homeWinner = Boolean(homeId && match?.winnerPlayerId === homeId);
+  const awayWinner = Boolean(awayId && match?.winnerPlayerId === awayId);
+  const showMatchScore = Boolean(match && (match.status === "played" || match.status === "bye" || match.sets.length));
+
+  return (
+    <div className={`bracket-match${showMatchScore ? " is-complete" : ""}`}>
+      <div className={`bracket-player${homeWinner ? " is-winner" : ""}`}>
+        <span className="bracket-player-name">{homeName}</span>
+        <span className="bracket-player-score">{homeWinner && match?.status === "bye" ? "W" : sideSets(match, "home")}</span>
+      </div>
+      <div className={`bracket-player${awayWinner ? " is-winner" : ""}`}>
+        <span className="bracket-player-name">{awayName}</span>
+        <span className="bracket-player-score">{awayWinner && match?.status === "bye" ? "W" : sideSets(match, "away")}</span>
+      </div>
+      {showMatchScore && match ? <p>{scoreText(match, pendingLabel)}</p> : null}
+    </div>
+  );
+}
+
+function TournamentBracket({
+  title,
+  entries,
+  matches,
+  matchType,
+  pendingLabel
+}: {
+  title: string;
+  entries: TournamentDraw["drawEntries"];
+  matches: TournamentMatch[];
+  matchType: BracketMatchType;
+  pendingLabel: string;
+}) {
   if (!entries.length) return null;
 
   const bracketSize = entries.length;
   const rounds = Math.ceil(Math.log2(Math.max(bracketSize, 2)));
+  const finalMatch = matches.find((match) => match.matchType === matchType && match.roundNumber === rounds && match.bracketPosition === 1);
+  const championName = finalMatch?.winnerPlayerId === finalMatch?.homePlayerId
+    ? finalMatch?.homePlayerNameAtMatchTime
+    : finalMatch?.winnerPlayerId === finalMatch?.awayPlayerId
+      ? finalMatch?.awayPlayerNameAtMatchTime
+      : null;
+  const matchFor = (roundNumber: number, bracketPosition: number) =>
+    matches.find((match) => match.matchType === matchType && match.roundNumber === roundNumber && match.bracketPosition === bracketPosition);
 
   return (
     <div className="bracket-block">
       <h3>{title}</h3>
       <div className="bracket-scroll">
         <div className="bracket">
-          <div className="bracket-round first-round">
-            {Array.from({ length: bracketSize / 2 }, (_, index) => {
-              const home = entries[index * 2];
-              const away = entries[index * 2 + 1];
-
-              return (
-                <div className="bracket-pair" key={index}>
-                  <span>{home?.isBye ? "BYE" : home?.playerNameAtTime ?? pendingLabel}</span>
-                  <span>{away?.isBye ? "BYE" : away?.playerNameAtTime ?? pendingLabel}</span>
-                </div>
-              );
-            })}
-          </div>
           {Array.from({ length: rounds }, (_, roundIndex) => {
-            const slots = Math.max(1, bracketSize / 2 ** (roundIndex + 2));
+            const roundNumber = roundIndex + 1;
+            const slots = Math.max(1, bracketSize / 2 ** roundNumber);
+            const roundGap = Math.min(140, 14 + (2 ** (roundNumber - 1) - 1) * 42);
             return (
-              <div className="bracket-round" key={roundIndex}>
-                {Array.from({ length: slots }, (_, slotIndex) => (
-                  <div className="bracket-slot" key={slotIndex} />
-                ))}
+              <div className="bracket-round" key={roundNumber} style={{ gap: `${roundGap}px` }}>
+                {Array.from({ length: slots }, (_, slotIndex) => {
+                  const bracketPosition = slotIndex + 1;
+                  const home = roundNumber === 1 ? entries[slotIndex * 2] : undefined;
+                  const away = roundNumber === 1 ? entries[slotIndex * 2 + 1] : undefined;
+
+                  return (
+                    <BracketMatchBox
+                      match={matchFor(roundNumber, bracketPosition)}
+                      fallbackHome={home}
+                      fallbackAway={away}
+                      pendingLabel={pendingLabel}
+                      key={bracketPosition}
+                    />
+                  );
+                })}
               </div>
             );
           })}
+          <div className="bracket-round bracket-champion">
+            <div className="bracket-winner-slot">
+              <span>{championName ?? pendingLabel}</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -96,9 +168,10 @@ export async function TournamentMatches({
           {draws.flatMap((draw) => {
             const mainEntries = draw.drawEntries.filter((entry) => entry.bracketType === "main");
             const consolationEntries = draw.drawEntries.filter((entry) => entry.bracketType === "consolation");
+            const categoryMatches = matches.filter((match) => match.competitionCategoryId === draw.id);
             return [
-              <TournamentBracket title={`${draw.category.name} · ${t.mainDraw}`} entries={mainEntries} pendingLabel={t.pending} key={`${draw.id}-main`} />,
-              <TournamentBracket title={`${draw.category.name} · ${t.consolationDraw}`} entries={consolationEntries} pendingLabel={t.pending} key={`${draw.id}-consolation`} />
+              <TournamentBracket title={`${draw.category.name} · ${t.mainDraw}`} entries={mainEntries} matches={categoryMatches} matchType="tournament_knockout" pendingLabel={t.pending} key={`${draw.id}-main`} />,
+              <TournamentBracket title={`${draw.category.name} · ${t.consolationDraw}`} entries={consolationEntries} matches={categoryMatches} matchType="tournament_consolation" pendingLabel={t.pending} key={`${draw.id}-consolation`} />
             ];
           })}
         </div>
