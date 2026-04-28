@@ -2,11 +2,15 @@
 
 export function GenerateDrawButton({
   registrationDeadline,
-  message,
+  earlyDeadlineMessage,
+  noSeedsMessage,
+  continueMessage,
   label
 }: {
   registrationDeadline: string;
-  message: string;
+  earlyDeadlineMessage: string;
+  noSeedsMessage: string;
+  continueMessage: string;
   label: string;
 }) {
   return (
@@ -15,8 +19,22 @@ export function GenerateDrawButton({
       name="mode"
       value="generate"
       onClick={(event) => {
-        const deadline = new Date(`${registrationDeadline}T23:59:59`);
-        if (deadline >= new Date() && !window.confirm(message)) {
+        const form = event.currentTarget.form;
+        const formData = form ? new FormData(form) : null;
+        const deadlineValue = formData?.get("registrationDeadline")?.toString() || registrationDeadline;
+        const deadline = new Date(`${deadlineValue}T23:59:59`);
+        const selectedSeeds = formData?.getAll("seedPlayerIds").filter(Boolean).length ?? 0;
+        const warnings = [];
+
+        if (deadline >= new Date()) {
+          warnings.push(earlyDeadlineMessage);
+        }
+
+        if (selectedSeeds === 0) {
+          warnings.push(noSeedsMessage);
+        }
+
+        if (warnings.length > 0 && !window.confirm(`${warnings.join("\n\n")}\n\n${continueMessage}`)) {
           event.preventDefault();
         }
       }}

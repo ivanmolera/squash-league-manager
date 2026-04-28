@@ -736,18 +736,20 @@ export async function saveTournamentAction(formData: FormData) {
     .map((playerId, index) => players.find((player) => player.id === playerId) && { playerId, index })
     .filter(Boolean) as Array<{ playerId: string; index: number }>;
 
-  await prisma.tournamentSeed.createMany({
-    data: seeds.map((seed) => {
-      const player = players.find((item) => item.id === seed.playerId)!;
-      return {
-        competitionCategoryId: competitionCategory.id,
-        playerId: player.id,
-        playerNameAtTime: `${player.firstName} ${player.lastName}`,
-        seedNumber: seed.index + 1,
-        suggested: false
-      };
-    })
-  });
+  if (seeds.length > 0) {
+    await prisma.tournamentSeed.createMany({
+      data: seeds.map((seed) => {
+        const player = players.find((item) => item.id === seed.playerId)!;
+        return {
+          competitionCategoryId: competitionCategory.id,
+          playerId: player.id,
+          playerNameAtTime: `${player.firstName} ${player.lastName}`,
+          seedNumber: seed.index + 1,
+          suggested: false
+        };
+      })
+    });
+  }
 
   const format = parsed.participantIds.length < 8 ? "round_robin" : "knockout";
   if (format === "round_robin") {

@@ -3,7 +3,7 @@ import { saveLeagueAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
 import { prisma } from "@/src/lib/prisma";
-import { LeagueStandingsAndCalendar } from "../league-sections";
+import { LeagueStandings } from "../league-sections";
 
 export const dynamic = "force-dynamic";
 
@@ -58,7 +58,7 @@ export default async function EditLeaguePage({ params }: { params: Promise<{ id:
         </fieldset>
         <button type="submit">Guardar y regenerar jornadas</button>
       </form>
-      <LeagueStandingsAndCalendar competitionId={league.id} type={league.type as "individual_league" | "team_league"} currentUser={currentUser} />
+      <LeagueStandings competitionId={league.id} type={league.type as "individual_league" | "team_league"} />
     </main>
   );
 }

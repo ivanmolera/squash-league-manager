@@ -35,6 +35,7 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
   const seedCandidates = players.filter((player) => selectedParticipants.has(player.id));
   const registrationDeadlineValue = dateInputValue(tournament.registrationDeadline);
   const registrationStillOpen = tournament.registrationDeadline ? tournament.registrationDeadline >= new Date() : false;
+  const hasSelectedSeeds = selectedSeeds.size > 0;
 
   return (
     <main className="app-shell">
@@ -76,10 +77,15 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
         {registrationStillOpen ? (
           <p className="warning-box">La fecha límite de inscripción todavía no ha pasado. Si generas el cuadro ahora, podrían quedar fuera jugadores inscritos después.</p>
         ) : null}
+        {!hasSelectedSeeds ? (
+          <p className="warning-box">No hay cabezas de serie seleccionados. Si generas el cuadro así, el sorteo será 100% aleatorio.</p>
+        ) : null}
         <GenerateDrawButton
           registrationDeadline={registrationDeadlineValue}
           label="Guardar y generar cuadro"
-          message="La fecha límite de inscripción todavía no ha pasado. ¿Quieres generar el cuadro igualmente?"
+          earlyDeadlineMessage="La fecha límite de inscripción todavía no ha pasado."
+          noSeedsMessage="No hay cabezas de serie seleccionados. El sorteo del cuadro será 100% aleatorio."
+          continueMessage="¿Quieres generar el cuadro igualmente?"
         />
       </form>
       <TournamentMatches competitionId={tournament.id} canEdit={canEdit} />

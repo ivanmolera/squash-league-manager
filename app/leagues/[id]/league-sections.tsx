@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { saveMatchResultAction } from "@/app/admin/actions";
 import { getCurrentUser } from "@/src/lib/auth";
 import { getDictionary } from "@/src/lib/i18n";
@@ -36,9 +37,9 @@ type TeamStanding = {
 
 type MatchWithSets = Awaited<ReturnType<typeof getLeagueMatches>>[number];
 
-async function getLeagueMatches(competitionId: string) {
+async function getLeagueMatches(competitionId: string, competitionCategoryId?: string) {
   return prisma.match.findMany({
-    where: { competitionId },
+    where: { competitionId, ...(competitionCategoryId ? { competitionCategoryId } : {}) },
     include: { sets: { orderBy: { setNumber: "asc" } } },
     orderBy: [{ roundNumber: "asc" }, { matchOrder: "asc" }, { bracketPosition: "asc" }]
   });
@@ -116,118 +117,164 @@ function ResultForm({ match, labels }: { match: MatchWithSets; labels: { sets: s
   );
 }
 
-export async function LeagueStandingsAndCalendar({
+export async function LeagueStandings({
   competitionId,
+  type
+}: {
+  competitionId: string;
+  type: "individual_league" | "team_league";
+}) {
+  const { t } = await getDictionary();
+
+  if (type === "individual_league") {
+    const standings = await prisma.$queryRaw<IndividualStanding[]>`
+      SELECT
+        cir.competition_category_id,
+        cat.name AS category_name,
+        cir.position,
+        cir.player_id,
+        concat(p.last_name, ', ', p.first_name) AS player_name,
+        cir.matches_won,
+        cir.matches_lost,
+        cir.sets_for,
+        cir.sets_against,
+        cir.points_for,
+        cir.points_against
+      FROM current_individual_rankings cir
+      JOIN players p ON p.id = cir.player_id
+      JOIN competition_categories cc ON cc.id = cir.competition_category_id
+      JOIN categories cat ON cat.id = cc.category_id
+      WHERE cir.competition_id = ${competitionId}::uuid
+      ORDER BY cat.sort_order, cir.position, p.last_name, p.first_name
+    `;
+
+    return (
+      <section className="list-panel full-width">
+        <h2>{t.standingsToDate}</h2>
+        {groupByCategory(standings).map((group) => (
+          <div className="standing-block" key={group.id}>
+            <h3>{group.name}</h3>
+            <table className="data-table">
+              <thead>
+                <tr><th>#</th><th>{t.player}</th><th>G</th><th>P</th><th>{t.sets}</th><th>{t.points}</th></tr>
+              </thead>
+              <tbody>
+                {group.rows.map((row) => (
+                  <tr key={row.player_id}>
+                    <td>{row.position}</td>
+                    <td><Link href={`/players/${row.player_id}`}>{row.player_name}</Link></td>
+                    <td>{row.matches_won}</td>
+                    <td>{row.matches_lost}</td>
+                    <td>{row.sets_for}-{row.sets_against}</td>
+                    <td>{row.points_for}-{row.points_against}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <Link className="secondary-link inline-link" href={`/leagues/${competitionId}/categories/${group.id}/calendar`}>
+              {t.viewCategoryCalendar}
+            </Link>
+          </div>
+        ))}
+      </section>
+    );
+  }
+
+  const standings = await prisma.$queryRaw<TeamStanding[]>`
+    SELECT
+      ctr.competition_category_id,
+      cat.name AS category_name,
+      ctr.position,
+      ctr.team_id,
+      t.name AS team_name,
+      ctr.ties_won,
+      ctr.ties_drawn,
+      ctr.ties_lost,
+      ctr.rubbers_for,
+      ctr.rubbers_against,
+      ctr.points_for,
+      ctr.points_against
+    FROM current_team_rankings ctr
+    JOIN teams t ON t.id = ctr.team_id
+    JOIN competition_categories cc ON cc.id = ctr.competition_category_id
+    JOIN categories cat ON cat.id = cc.category_id
+    WHERE ctr.competition_id = ${competitionId}::uuid
+    ORDER BY cat.sort_order, ctr.position, t.name
+  `;
+
+  return (
+    <section className="list-panel full-width">
+      <h2>{t.standingsToDate}</h2>
+      {groupByCategory(standings).map((group) => (
+        <div className="standing-block" key={group.id}>
+          <h3>{group.name}</h3>
+          <table className="data-table">
+            <thead>
+              <tr><th>#</th><th>{t.team}</th><th>G</th><th>E</th><th>P</th><th>{t.players}</th><th>{t.points}</th></tr>
+            </thead>
+            <tbody>
+              {group.rows.map((row) => (
+                <tr key={row.team_id}>
+                  <td>{row.position}</td>
+                  <td><Link href={`/teams/${row.team_id}`}>{row.team_name}</Link></td>
+                  <td>{row.ties_won}</td>
+                  <td>{row.ties_drawn}</td>
+                  <td>{row.ties_lost}</td>
+                  <td>{row.rubbers_for}-{row.rubbers_against}</td>
+                  <td>{row.points_for}-{row.points_against}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <Link className="secondary-link inline-link" href={`/leagues/${competitionId}/categories/${group.id}/calendar`}>
+            {t.viewCategoryCalendar}
+          </Link>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+export async function LeagueCategoryCalendar({
+  competitionId,
+  competitionCategoryId,
   type,
   currentUser
 }: {
   competitionId: string;
+  competitionCategoryId: string;
   type: "individual_league" | "team_league";
   currentUser: CurrentUser;
 }) {
   const editContext = await getEditContext(currentUser);
   const { locale, t } = await getDictionary();
+  const matches = await getLeagueMatches(competitionId, competitionCategoryId);
 
   if (type === "individual_league") {
-    const [standings, matches] = await Promise.all([
-      prisma.$queryRaw<IndividualStanding[]>`
-        SELECT
-          cir.competition_category_id,
-          cat.name AS category_name,
-          cir.position,
-          cir.player_id,
-          concat(p.last_name, ', ', p.first_name) AS player_name,
-          cir.matches_won,
-          cir.matches_lost,
-          cir.sets_for,
-          cir.sets_against,
-          cir.points_for,
-          cir.points_against
-        FROM current_individual_rankings cir
-        JOIN players p ON p.id = cir.player_id
-        JOIN competition_categories cc ON cc.id = cir.competition_category_id
-        JOIN categories cat ON cat.id = cc.category_id
-        WHERE cir.competition_id = ${competitionId}::uuid
-        ORDER BY cat.sort_order, cir.position, p.last_name, p.first_name
-      `,
-      getLeagueMatches(competitionId)
-    ]);
-
     return (
-      <>
-        <section className="list-panel full-width">
-          <h2>{t.standingsToDate}</h2>
-          {groupByCategory(standings).map((group) => (
-            <div className="standing-block" key={group.id}>
-              <h3>{group.name}</h3>
-              <table className="data-table">
-                <thead>
-                  <tr><th>#</th><th>{t.player}</th><th>G</th><th>P</th><th>{t.sets}</th><th>{t.points}</th></tr>
-                </thead>
-                <tbody>
-                  {group.rows.map((row) => (
-                    <tr key={row.player_id}>
-                      <td>{row.position}</td>
-                      <td>{row.player_name}</td>
-                      <td>{row.matches_won}</td>
-                      <td>{row.matches_lost}</td>
-                      <td>{row.sets_for}-{row.sets_against}</td>
-                      <td>{row.points_for}-{row.points_against}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+      <section className="list-panel full-width">
+        <h2>{t.calendar}</h2>
+        <div className="calendar-list">
+          {matches.map((match) => (
+            <article className="match-card" key={match.id}>
+              <div>
+                <strong>{t.matchday} {match.roundNumber ?? "-"} · {dateTime(match.scheduledAt, locale, t.noDate)}</strong>
+                <p>{match.homePlayerNameAtMatchTime} vs {match.awayPlayerNameAtMatchTime}</p>
+                <p>{t.venue}: {match.homeClubNameAtMatchTime ?? t.noVenue}</p>
+                <p>{t.result}: {scoreText(match, t.pending)}</p>
+              </div>
+              {canEditLeagueMatch(match, editContext) ? <ResultForm match={match} labels={{ sets: t.sets, save: t.saveResult }} /> : null}
+            </article>
           ))}
-        </section>
-        <section className="list-panel full-width">
-          <h2>{t.calendar}</h2>
-          <div className="calendar-list">
-            {matches.map((match) => (
-              <article className="match-card" key={match.id}>
-                <div>
-                  <strong>{t.matchday} {match.roundNumber ?? "-"} · {dateTime(match.scheduledAt, locale, t.noDate)}</strong>
-                  <p>{match.homePlayerNameAtMatchTime} vs {match.awayPlayerNameAtMatchTime}</p>
-                  <p>{t.venue}: {match.homeClubNameAtMatchTime ?? t.noVenue}</p>
-                  <p>{t.result}: {scoreText(match, t.pending)}</p>
-                </div>
-                {canEditLeagueMatch(match, editContext) ? <ResultForm match={match} labels={{ sets: t.sets, save: t.saveResult }} /> : null}
-              </article>
-            ))}
-          </div>
-        </section>
-      </>
+        </div>
+      </section>
     );
   }
 
-  const [standings, teamTies, matches] = await Promise.all([
-    prisma.$queryRaw<TeamStanding[]>`
-      SELECT
-        ctr.competition_category_id,
-        cat.name AS category_name,
-        ctr.position,
-        ctr.team_id,
-        t.name AS team_name,
-        ctr.ties_won,
-        ctr.ties_drawn,
-        ctr.ties_lost,
-        ctr.rubbers_for,
-        ctr.rubbers_against,
-        ctr.points_for,
-        ctr.points_against
-      FROM current_team_rankings ctr
-      JOIN teams t ON t.id = ctr.team_id
-      JOIN competition_categories cc ON cc.id = ctr.competition_category_id
-      JOIN categories cat ON cat.id = cc.category_id
-      WHERE ctr.competition_id = ${competitionId}::uuid
-      ORDER BY cat.sort_order, ctr.position, t.name
-    `,
-    prisma.teamTie.findMany({
-      where: { competitionId },
-      orderBy: [{ scheduledAt: "asc" }, { homeTeamNameAtTime: "asc" }]
-    }),
-    getLeagueMatches(competitionId)
-  ]);
+  const teamTies = await prisma.teamTie.findMany({
+    where: { competitionId, competitionCategoryId },
+    orderBy: [{ scheduledAt: "asc" }, { homeTeamNameAtTime: "asc" }]
+  });
   const matchesByTie = new Map<string, MatchWithSets[]>();
   for (const match of matches) {
     if (!match.teamTieId) continue;
@@ -237,63 +284,35 @@ export async function LeagueStandingsAndCalendar({
   }
 
   return (
-    <>
-      <section className="list-panel full-width">
-        <h2>{t.standingsToDate}</h2>
-        {groupByCategory(standings).map((group) => (
-          <div className="standing-block" key={group.id}>
-            <h3>{group.name}</h3>
-            <table className="data-table">
-              <thead>
-                <tr><th>#</th><th>{t.team}</th><th>G</th><th>E</th><th>P</th><th>{t.players}</th><th>{t.points}</th></tr>
-              </thead>
-              <tbody>
-                {group.rows.map((row) => (
-                  <tr key={row.team_id}>
-                    <td>{row.position}</td>
-                    <td>{row.team_name}</td>
-                    <td>{row.ties_won}</td>
-                    <td>{row.ties_drawn}</td>
-                    <td>{row.ties_lost}</td>
-                    <td>{row.rubbers_for}-{row.rubbers_against}</td>
-                    <td>{row.points_for}-{row.points_against}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ))}
-      </section>
-      <section className="list-panel full-width">
-        <h2>{t.calendar}</h2>
-        <div className="calendar-list">
-          {teamTies.map((tie, index) => {
-            const tieMatches = matchesByTie.get(tie.id) ?? [];
-            const homeRubbers = tieMatches.filter((match) => match.winnerPlayerId === match.homePlayerId).length;
-            const awayRubbers = tieMatches.filter((match) => match.winnerPlayerId === match.awayPlayerId).length;
-            const completed = tieMatches.length === 4 && tieMatches.every((match) => match.status === "played");
+    <section className="list-panel full-width">
+      <h2>{t.calendar}</h2>
+      <div className="calendar-list">
+        {teamTies.map((tie, index) => {
+          const tieMatches = matchesByTie.get(tie.id) ?? [];
+          const homeRubbers = tieMatches.filter((match) => match.winnerPlayerId === match.homePlayerId).length;
+          const awayRubbers = tieMatches.filter((match) => match.winnerPlayerId === match.awayPlayerId).length;
+          const completed = tieMatches.length === 4 && tieMatches.every((match) => match.status === "played");
 
-            return (
-              <article className="match-card" key={tie.id}>
-                <div>
-                  <strong>{t.matchday} {index + 1} · {dateTime(tie.scheduledAt, locale, t.noDate)}</strong>
-                  <p>{tie.homeTeamNameAtTime} vs {tie.awayTeamNameAtTime}</p>
-                  <p>{t.venue}: {tie.homeClubNameAtTime ?? t.noVenue}</p>
-                  <p>{t.score}: {completed ? `${homeRubbers}-${awayRubbers}` : t.pending}</p>
-                </div>
-                <div className="rubber-list">
-                  {tieMatches.map((match) => (
-                    <div className="rubber-row" key={match.id}>
-                      <p>{match.matchOrder}. {match.homePlayerNameAtMatchTime} vs {match.awayPlayerNameAtMatchTime}: {scoreText(match, t.pending)}</p>
-                      {canEditLeagueMatch(match, editContext) ? <ResultForm match={match} labels={{ sets: t.sets, save: t.saveResult }} /> : null}
-                    </div>
-                  ))}
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-    </>
+          return (
+            <article className="match-card" key={tie.id}>
+              <div>
+                <strong>{t.matchday} {index + 1} · {dateTime(tie.scheduledAt, locale, t.noDate)}</strong>
+                <p>{tie.homeTeamNameAtTime} vs {tie.awayTeamNameAtTime}</p>
+                <p>{t.venue}: {tie.homeClubNameAtTime ?? t.noVenue}</p>
+                <p>{t.score}: {completed ? `${homeRubbers}-${awayRubbers}` : t.pending}</p>
+              </div>
+              <div className="rubber-list">
+                {tieMatches.map((match) => (
+                  <div className="rubber-row" key={match.id}>
+                    <p>{match.matchOrder}. {match.homePlayerNameAtMatchTime} vs {match.awayPlayerNameAtMatchTime}: {scoreText(match, t.pending)}</p>
+                    {canEditLeagueMatch(match, editContext) ? <ResultForm match={match} labels={{ sets: t.sets, save: t.saveResult }} /> : null}
+                  </div>
+                ))}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
   );
 }

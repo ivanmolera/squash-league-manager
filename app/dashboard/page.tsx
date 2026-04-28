@@ -1,5 +1,4 @@
 import { ShieldCheck, Trophy, UsersRound, Warehouse } from "lucide-react";
-import { logoutAction } from "@/app/actions";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
 import { getDictionary } from "@/src/lib/i18n";
@@ -25,17 +24,6 @@ export default async function DashboardPage() {
             {user ? `${t.activeRole}: ${roles}` : t.noLoginNeeded}
           </p>
         </div>
-        {user ? (
-          <form action={logoutAction}>
-            <button className="secondary-button" type="submit">
-              {t.logout}
-            </button>
-          </form>
-        ) : (
-          <a className="secondary-link" href="/login">
-            {t.adminAccess}
-          </a>
-        )}
       </header>
 
       <section className="status-band">

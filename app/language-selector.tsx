@@ -37,7 +37,7 @@ export function LanguageSelector({
   return (
     <div className="locale-form">
       <label>
-        {label}
+        <span className="sr-only">{label}</span>
         <select aria-label={help} defaultValue={locale} onChange={(event) => changeLocale(event.target.value)}>
           <option value="ca">CA</option>
           <option value="es">ES</option>
