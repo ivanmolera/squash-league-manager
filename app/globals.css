@@ -352,6 +352,10 @@ h1 {
   padding: 12px;
 }
 
+.tall-check-grid {
+  max-height: 520px;
+}
+
 .check-grid legend {
   font-weight: 900;
   padding: 0 6px;
@@ -366,6 +370,15 @@ h1 {
 
 .compact-form {
   margin-top: 12px;
+}
+
+.warning-box {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  color: #9a3412;
+  font-weight: 800;
+  padding: 12px;
 }
 
 .full-width {
@@ -400,6 +413,41 @@ h1 {
   gap: 10px;
 }
 
+.calendar-list,
+.standing-block {
+  display: grid;
+  gap: 12px;
+}
+
+.standing-block + .standing-block {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.standing-block h3 {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.data-table {
+  border-collapse: collapse;
+  font-size: 0.92rem;
+  width: 100%;
+}
+
+.data-table th,
+.data-table td {
+  border-bottom: 1px solid var(--line);
+  padding: 8px;
+  text-align: left;
+}
+
+.data-table th {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
 .row-card {
   align-items: center;
   border: 1px solid var(--line);
@@ -408,6 +456,74 @@ h1 {
   gap: 8px;
   grid-template-columns: 1fr auto auto auto;
   padding: 12px;
+}
+
+.match-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.match-card p,
+.rubber-row p {
+  margin: 4px 0 0;
+}
+
+.rubber-list {
+  display: grid;
+  gap: 10px;
+}
+
+.rubber-row {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+}
+
+.result-form {
+  align-items: end;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(180px, 1fr) auto;
+}
+
+.result-form label {
+  display: grid;
+  font-size: 0.82rem;
+  font-weight: 800;
+  gap: 6px;
+}
+
+.result-form input {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  min-height: 38px;
+  padding: 8px 10px;
+}
+
+.result-form button,
+.danger-button {
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 900;
+  min-height: 38px;
+  padding: 8px 10px;
+}
+
+.result-form button {
+  background: var(--accent);
+  color: white;
+}
+
+.danger-button {
+  background: #b42318;
+  color: white;
 }
 
 .module {
@@ -476,8 +592,15 @@ h1 {
   .work-grid,
   .detail-grid,
   .form-row,
-  .row-card {
+  .row-card,
+  .result-form {
     grid-template-columns: 1fr;
+  }
+
+  .data-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
   }
 
   .detail-header {

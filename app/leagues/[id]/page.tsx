@@ -4,6 +4,7 @@ import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
+import { LeagueStandingsAndCalendar } from "./league-sections";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +76,7 @@ export default async function LeagueDetailPage({ params }: { params: Promise<{ i
           ))}
         </article>
       </section>
+      <LeagueStandingsAndCalendar competitionId={league.id} type={league.type as "individual_league" | "team_league"} currentUser={currentUser} />
     </main>
   );
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Navigation } from "@/app/navigation";
+import { TournamentMatches } from "@/app/tournaments/[id]/tournament-matches";
 import { getCurrentUser } from "@/src/lib/auth";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
@@ -82,6 +83,7 @@ export default async function TournamentDetailPage({ params }: { params: Promise
           ))}
         </article>
       </section>
+      <TournamentMatches competitionId={tournament.id} canEdit={canEdit} />
     </main>
   );
 }

@@ -28,7 +28,7 @@ export default async function TournamentsPage() {
       <section className="page-heading">
         <p className="eyebrow">Manager</p>
         <h1>Torneos</h1>
-        <p className="muted">Alta de torneo, inscripciones, cabezas de serie y cuadro automatico.</p>
+        <p className="muted">Alta de torneo, inscripciones, cabezas de serie y cuadro automático.</p>
       </section>
 
       <section className="work-grid">
@@ -49,7 +49,7 @@ export default async function TournamentsPage() {
             <div className="form-row">
               <label>Fin<input name="endsAt" type="date" required /></label>
             </div>
-            <fieldset className="check-grid">
+            <fieldset className="check-grid tall-check-grid">
               <legend>Jugadores inscritos</legend>
               {players.map((player) => (
                 <label key={player.id}>
@@ -58,16 +58,8 @@ export default async function TournamentsPage() {
                 </label>
               ))}
             </fieldset>
-            <fieldset className="check-grid">
-              <legend>Cabezas de serie manuales</legend>
-              {players.map((player) => (
-                <label key={player.id}>
-                  <input type="checkbox" name="seedPlayerIds" value={player.id} />
-                  {player.lastName}, {player.firstName}
-                </label>
-              ))}
-            </fieldset>
-            <button type="submit">Guardar y generar cuadro</button>
+            <p className="muted">Primero guarda el torneo y sus inscritos. Después podrás seleccionar cabezas de serie y generar el cuadro desde la edición del torneo.</p>
+            <button type="submit" name="mode" value="save">Guardar torneo e inscritos</button>
           </form>
         ) : (
           <section className="list-panel">

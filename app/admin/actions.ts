@@ -67,6 +67,16 @@ const teamSchema = z.object({
   showRosterPublic: z.coerce.boolean().default(false)
 });
 
+const matchResultSchema = z.object({
+  matchId: z.string().uuid(),
+  setScores: z.string().min(5)
+});
+
+const removeClubPlayerSchema = z.object({
+  membershipId: z.string().uuid(),
+  clubId: z.string().uuid()
+});
+
 function textValue(value: unknown) {
   return value?.toString().trim() || undefined;
 }
@@ -137,6 +147,102 @@ async function ensureCredential(userId: string) {
     update: {},
     create: { userId, passwordHash }
   });
+}
+
+function parseSetScores(value: string) {
+  const sets = value
+    .split(/[,\n;]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item, index) => {
+      const match = item.match(/^(\d{1,2})\s*[-/]\s*(\d{1,2})$/);
+
+      if (!match) {
+        throw new Error("Introduce los sets con formato 11-8, 11-9, 11-7.");
+      }
+
+      const homePoints = Number(match[1]);
+      const awayPoints = Number(match[2]);
+      const winnerPoints = Math.max(homePoints, awayPoints);
+      const pointDiff = Math.abs(homePoints - awayPoints);
+
+      if (homePoints === awayPoints || winnerPoints < 11 || pointDiff < 2) {
+        throw new Error("Cada set debe ganarse con al menos 11 puntos y 2 puntos de diferencia.");
+      }
+
+      return { setNumber: index + 1, homePoints, awayPoints };
+    });
+
+  if (sets.length < 3 || sets.length > 5) {
+    throw new Error("Un partido debe tener entre 3 y 5 sets.");
+  }
+
+  const homeSets = sets.filter((set) => set.homePoints > set.awayPoints).length;
+  const awaySets = sets.filter((set) => set.awayPoints > set.homePoints).length;
+
+  if (homeSets !== 3 && awaySets !== 3) {
+    throw new Error("El resultado debe dejar un ganador con 3 sets.");
+  }
+
+  if (sets.length > homeSets + awaySets) {
+    throw new Error("Resultado de sets no válido.");
+  }
+
+  return { sets, homeSets, awaySets };
+}
+
+async function canManageClub(userId: string, clubId?: string | null) {
+  if (!clubId) {
+    return false;
+  }
+
+  const club = await prisma.club.findFirst({
+    where: { id: clubId, managerUserId: userId },
+    select: { id: true }
+  });
+
+  return Boolean(club);
+}
+
+async function assertCanEditMatchResult(matchId: string, currentUser: Awaited<ReturnType<typeof getCurrentUser>>) {
+  if (!currentUser) {
+    throw new Error("Debes iniciar sesión para modificar resultados.");
+  }
+
+  if (hasRole(currentUser, "admin")) {
+    return;
+  }
+
+  const match = await prisma.match.findUniqueOrThrow({
+    where: { id: matchId }
+  });
+  const competition = await prisma.competition.findUniqueOrThrow({
+    where: { id: match.competitionId }
+  });
+  const currentPlayer = await prisma.player.findUnique({
+    where: { userId: currentUser.id },
+    select: { id: true }
+  });
+  const isParticipant = Boolean(
+    currentPlayer?.id &&
+      (match.homePlayerId === currentPlayer.id || match.awayPlayerId === currentPlayer.id)
+  );
+
+  if (competition.type === "tournament") {
+    if (await canManageClub(currentUser.id, competition.hostClubId)) {
+      return;
+    }
+    throw new Error("Solo el manager del club organizador puede modificar resultados de torneo.");
+  }
+
+  const managesHomeClub = await canManageClub(currentUser.id, match.homeClubIdAtMatchTime);
+  const managesAwayClub = await canManageClub(currentUser.id, match.awayClubIdAtMatchTime);
+
+  if (isParticipant || managesHomeClub || managesAwayClub) {
+    return;
+  }
+
+  throw new Error("No tienes permisos para modificar este resultado.");
 }
 
 export async function savePlayerAction(formData: FormData) {
@@ -492,6 +598,7 @@ export async function saveLeagueAction(formData: FormData) {
 export async function saveTournamentAction(formData: FormData) {
   const currentUser = await requireUser();
   const isAdmin = hasRole(currentUser, "admin");
+  const shouldGenerateDraw = formData.get("mode")?.toString() === "generate";
   const parsed = tournamentSchema.parse({
     competitionId: textValue(formData.get("competitionId")),
     name: textValue(formData.get("name")),
@@ -526,6 +633,16 @@ export async function saveTournamentAction(formData: FormData) {
 
   const season = await getDefaultSeason();
   const category = await getDefaultCategory();
+  const existingParticipants = parsed.competitionId
+    ? await prisma.competitionParticipant.findMany({
+        where: { competitionId: parsed.competitionId },
+        select: { playerId: true }
+      })
+    : [];
+  const previousPlayerIds = existingParticipants.map((participant) => participant.playerId).filter(Boolean).sort();
+  const nextPlayerIds = [...parsed.participantIds].sort();
+  const participantsChanged = previousPlayerIds.length !== nextPlayerIds.length ||
+    previousPlayerIds.some((playerId, index) => playerId !== nextPlayerIds[index]);
   const competition = parsed.competitionId
     ? await prisma.competition.update({
         where: { id: parsed.competitionId },
@@ -573,13 +690,16 @@ export async function saveTournamentAction(formData: FormData) {
   await prisma.tournamentRegistration.deleteMany({
     where: { competitionCategoryId: competitionCategory.id }
   });
-  await prisma.tournamentSeed.deleteMany({
-    where: { competitionCategoryId: competitionCategory.id }
-  });
-  await prisma.tournamentDrawEntry.deleteMany({
-    where: { competitionCategoryId: competitionCategory.id }
-  });
-  await prisma.match.deleteMany({ where: { competitionId: competition.id } });
+
+  if (shouldGenerateDraw || participantsChanged) {
+    await prisma.tournamentSeed.deleteMany({
+      where: { competitionCategoryId: competitionCategory.id }
+    });
+    await prisma.tournamentDrawEntry.deleteMany({
+      where: { competitionCategoryId: competitionCategory.id }
+    });
+    await prisma.match.deleteMany({ where: { competitionId: competition.id } });
+  }
 
   const players = await prisma.player.findMany({
     where: { id: { in: parsed.participantIds } },
@@ -604,6 +724,13 @@ export async function saveTournamentAction(formData: FormData) {
       status: "accepted"
     }))
   });
+
+  if (!shouldGenerateDraw) {
+    revalidatePath("/manager/tournaments");
+    revalidatePath(`/tournaments/${competition.id}`);
+    revalidatePath(`/tournaments/${competition.id}/edit`);
+    return;
+  }
 
   const seeds = parsed.seedPlayerIds
     .map((playerId, index) => players.find((player) => player.id === playerId) && { playerId, index })
@@ -687,6 +814,8 @@ export async function saveTournamentAction(formData: FormData) {
   }
 
   revalidatePath("/manager/tournaments");
+  revalidatePath(`/tournaments/${competition.id}`);
+  revalidatePath(`/tournaments/${competition.id}/edit`);
 }
 
 export async function saveTeamAction(formData: FormData) {
@@ -715,4 +844,76 @@ export async function saveTeamAction(formData: FormData) {
   });
 
   revalidatePath(`/teams/${parsed.teamId}`);
+}
+
+export async function saveMatchResultAction(formData: FormData) {
+  const currentUser = await requireUser();
+  const parsed = matchResultSchema.parse({
+    matchId: textValue(formData.get("matchId")),
+    setScores: textValue(formData.get("setScores"))
+  });
+
+  await assertCanEditMatchResult(parsed.matchId, currentUser);
+
+  const match = await prisma.match.findUniqueOrThrow({
+    where: { id: parsed.matchId },
+    select: {
+      id: true,
+      competitionId: true,
+      homePlayerId: true,
+      awayPlayerId: true
+    }
+  });
+
+  const { sets, homeSets, awaySets } = parseSetScores(parsed.setScores);
+  const winnerPlayerId = homeSets > awaySets ? match.homePlayerId : match.awayPlayerId;
+
+  await prisma.$transaction([
+    prisma.matchSet.deleteMany({ where: { matchId: match.id } }),
+    prisma.match.update({
+      where: { id: match.id },
+      data: {
+        status: "played",
+        playedAt: new Date(),
+        winnerPlayerId
+      }
+    }),
+    prisma.matchSet.createMany({
+      data: sets.map((set) => ({ ...set, matchId: match.id }))
+    })
+  ]);
+
+  revalidatePath(`/leagues/${match.competitionId}`);
+  revalidatePath(`/leagues/${match.competitionId}/edit`);
+  revalidatePath(`/tournaments/${match.competitionId}`);
+  revalidatePath(`/tournaments/${match.competitionId}/edit`);
+}
+
+export async function removePlayerFromClubAction(formData: FormData) {
+  const currentUser = await requireUser();
+  const isAdmin = hasRole(currentUser, "admin");
+  const parsed = removeClubPlayerSchema.parse({
+    membershipId: textValue(formData.get("membershipId")),
+    clubId: textValue(formData.get("clubId"))
+  });
+  const membership = await prisma.playerClubMembership.findUniqueOrThrow({
+    where: { id: parsed.membershipId },
+    include: { club: true }
+  });
+
+  if (membership.clubId !== parsed.clubId) {
+    throw new Error("La pertenencia no corresponde a este club.");
+  }
+
+  if (!isAdmin && membership.club.managerUserId !== currentUser.id) {
+    throw new Error("Solo puedes dar de baja jugadores de tu club.");
+  }
+
+  await prisma.playerClubMembership.update({
+    where: { id: membership.id },
+    data: { toDate: new Date() }
+  });
+
+  revalidatePath(`/clubs/${parsed.clubId}`);
+  revalidatePath(`/clubs/${parsed.clubId}/edit`);
 }

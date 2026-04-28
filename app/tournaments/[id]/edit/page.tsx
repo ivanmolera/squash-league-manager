@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { saveTournamentAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
+import { GenerateDrawButton } from "@/app/tournaments/generate-draw-button";
+import { TournamentMatches } from "@/app/tournaments/[id]/tournament-matches";
 import { getCurrentUser } from "@/src/lib/auth";
 import { prisma } from "@/src/lib/prisma";
 
@@ -30,6 +32,9 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
   const editableClubs = isAdmin ? clubs : clubs.filter((club) => club.managerUserId === currentUser?.id);
   const selectedParticipants = new Set(tournament.participants.map((participant) => participant.playerId).filter(Boolean));
   const selectedSeeds = new Set(tournament.categories.flatMap((category) => category.seeds).map((seed) => seed.playerId));
+  const seedCandidates = players.filter((player) => selectedParticipants.has(player.id));
+  const registrationDeadlineValue = dateInputValue(tournament.registrationDeadline);
+  const registrationStillOpen = tournament.registrationDeadline ? tournament.registrationDeadline >= new Date() : false;
 
   return (
     <main className="app-shell">
@@ -45,11 +50,11 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
           </select>
         </label>
         <div className="form-row">
-          <label>Límite inscripción<input name="registrationDeadline" type="date" defaultValue={dateInputValue(tournament.registrationDeadline)} required /></label>
+          <label>Límite inscripción<input name="registrationDeadline" type="date" defaultValue={registrationDeadlineValue} required /></label>
           <label>Inicio<input name="startsAt" type="date" defaultValue={dateInputValue(tournament.startsAt)} required /></label>
         </div>
         <label>Fin<input name="endsAt" type="date" defaultValue={dateInputValue(tournament.endsAt)} required /></label>
-        <fieldset className="check-grid">
+        <fieldset className="check-grid tall-check-grid">
           <legend>Jugadores inscritos</legend>
           {players.map((player) => (
             <label key={player.id}>
@@ -58,17 +63,26 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
             </label>
           ))}
         </fieldset>
+        <button type="submit" name="mode" value="save">Guardar torneo e inscritos</button>
         <fieldset className="check-grid">
           <legend>Cabezas de serie manuales</legend>
-          {players.map((player) => (
+          {seedCandidates.map((player) => (
             <label key={player.id}>
               <input type="checkbox" name="seedPlayerIds" value={player.id} defaultChecked={selectedSeeds.has(player.id)} />
               {player.lastName}, {player.firstName}
             </label>
           ))}
         </fieldset>
-        <button type="submit">Guardar y regenerar cuadro</button>
+        {registrationStillOpen ? (
+          <p className="warning-box">La fecha límite de inscripción todavía no ha pasado. Si generas el cuadro ahora, podrían quedar fuera jugadores inscritos después.</p>
+        ) : null}
+        <GenerateDrawButton
+          registrationDeadline={registrationDeadlineValue}
+          label="Guardar y generar cuadro"
+          message="La fecha límite de inscripción todavía no ha pasado. ¿Quieres generar el cuadro igualmente?"
+        />
       </form>
+      <TournamentMatches competitionId={tournament.id} canEdit={canEdit} />
     </main>
   );
 }
