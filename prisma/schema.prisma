@@ -110,6 +110,9 @@ model User {
   id          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   firebaseUid String               @unique @map("firebase_uid")
   email       String               @unique
+  emailVerified Boolean            @default(false) @map("email_verified")
+  phone       String?
+  preferredLocale String           @default("es") @map("preferred_locale")
   displayName String?              @map("display_name")
   createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime             @default(now()) @map("updated_at") @db.Timestamptz(6)
@@ -174,6 +177,7 @@ model Player {
   rosters               TeamRoster[]
   registrations         TournamentRegistration[]
   joinRequests          ClubJoinRequest[]
+  competitionParticipants CompetitionParticipant[]
 
   @@map("players")
 }
@@ -192,6 +196,7 @@ model Club {
   teams         Team[]
   memberships   PlayerClubMembership[]
   joinRequests  ClubJoinRequest[]
+  competitionParticipants CompetitionParticipant[]
 
   @@map("clubs")
 }
@@ -228,12 +233,14 @@ model Competition {
   type        CompetitionType
   status      CompetitionStatus      @default(draft)
   name        String
+  description String?
   startsAt    DateTime?              @map("starts_at") @db.Timestamptz(6)
   endsAt      DateTime?              @map("ends_at") @db.Timestamptz(6)
   hostClubId  String?                @map("host_club_id") @db.Uuid
   createdAt   DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime               @default(now()) @map("updated_at") @db.Timestamptz(6)
   categories  CompetitionCategory[]
+  participants CompetitionParticipant[]
 
   @@unique([seasonId, type, name])
   @@map("competitions")
@@ -247,9 +254,30 @@ model CompetitionCategory {
   createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
   competition   Competition       @relation(fields: [competitionId], references: [id], onDelete: Cascade)
   category      Category          @relation(fields: [categoryId], references: [id])
+  participants  CompetitionParticipant[]
 
   @@unique([competitionId, categoryId])
   @@map("competition_categories")
+}
+
+model CompetitionParticipant {
+  id                    String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  competitionId          String              @map("competition_id") @db.Uuid
+  competitionCategoryId  String              @map("competition_category_id") @db.Uuid
+  playerId              String?             @map("player_id") @db.Uuid
+  clubId                String?             @map("club_id") @db.Uuid
+  seedNumber            Int?                @map("seed_number")
+  createdByUserId       String?             @map("created_by_user_id") @db.Uuid
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  competition           Competition         @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  competitionCategory    CompetitionCategory @relation(fields: [competitionCategoryId], references: [id], onDelete: Cascade)
+  player                Player?             @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  club                  Club?               @relation(fields: [clubId], references: [id], onDelete: Cascade)
+
+  @@unique([competitionCategoryId, playerId])
+  @@unique([competitionCategoryId, clubId])
+  @@unique([competitionCategoryId, seedNumber])
+  @@map("competition_participants")
 }
 
 model PlayerClubMembership {
@@ -257,6 +285,7 @@ model PlayerClubMembership {
   playerId  String    @map("player_id") @db.Uuid
   clubId    String    @map("club_id") @db.Uuid
   seasonId  String    @map("season_id") @db.Uuid
+  clubNameAtThatTime String @map("club_name_at_that_time")
   fromDate  DateTime  @map("from_date") @db.Date
   toDate    DateTime? @map("to_date") @db.Date
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -273,6 +302,7 @@ model Team {
   seasonId   String       @map("season_id") @db.Uuid
   categoryId String       @map("category_id") @db.Uuid
   name       String
+  clubNameAtCreation String @map("club_name_at_creation")
   createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt  DateTime     @default(now()) @map("updated_at") @db.Timestamptz(6)
   club       Club         @relation(fields: [clubId], references: [id], onDelete: Cascade)
@@ -288,6 +318,9 @@ model TeamRoster {
   playerId   String    @map("player_id") @db.Uuid
   seasonId   String    @map("season_id") @db.Uuid
   categoryId String    @map("category_id") @db.Uuid
+  teamNameAtThatTime String @map("team_name_at_that_time")
+  clubNameAtThatTime String @map("club_name_at_that_time")
+  playerNameAtThatTime String @map("player_name_at_that_time")
   fromDate   DateTime  @map("from_date") @db.Date
   toDate     DateTime? @map("to_date") @db.Date
   team       Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
@@ -308,6 +341,10 @@ model TeamTie {
   playedAt               DateTime?   @map("played_at") @db.Timestamptz(6)
   venueClubId            String?     @map("venue_club_id") @db.Uuid
   status                 MatchStatus @default(scheduled)
+  homeTeamNameAtTime     String?     @map("home_team_name_at_time")
+  awayTeamNameAtTime     String?     @map("away_team_name_at_time")
+  homeClubNameAtTime     String?     @map("home_club_name_at_time")
+  awayClubNameAtTime     String?     @map("away_club_name_at_time")
   createdAt              DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime    @default(now()) @map("updated_at") @db.Timestamptz(6)
 
@@ -338,6 +375,12 @@ model Match {
   awayClubIdAtMatchTime  String?     @map("away_club_id_at_match_time") @db.Uuid
   homeTeamIdAtMatchTime  String?     @map("home_team_id_at_match_time") @db.Uuid
   awayTeamIdAtMatchTime  String?     @map("away_team_id_at_match_time") @db.Uuid
+  homePlayerNameAtMatchTime String?   @map("home_player_name_at_match_time")
+  awayPlayerNameAtMatchTime String?   @map("away_player_name_at_match_time")
+  homeClubNameAtMatchTime   String?   @map("home_club_name_at_match_time")
+  awayClubNameAtMatchTime   String?   @map("away_club_name_at_match_time")
+  homeTeamNameAtMatchTime   String?   @map("home_team_name_at_match_time")
+  awayTeamNameAtMatchTime   String?   @map("away_team_name_at_match_time")
   createdAt              DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime    @default(now()) @map("updated_at") @db.Timestamptz(6)
   sets                   MatchSet[]
@@ -362,6 +405,8 @@ model TournamentRegistration {
   competitionCategoryId     String             @map("competition_category_id") @db.Uuid
   playerId                 String             @map("player_id") @db.Uuid
   clubIdAtRegistration     String?            @map("club_id_at_registration") @db.Uuid
+  playerNameAtRegistration String             @map("player_name_at_registration")
+  clubNameAtRegistration   String?            @map("club_name_at_registration")
   status                   RegistrationStatus @default(pending)
   createdAt                DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                DateTime           @default(now()) @map("updated_at") @db.Timestamptz(6)
@@ -392,6 +437,7 @@ model TournamentSeed {
   id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   competitionCategoryId  String   @map("competition_category_id") @db.Uuid
   playerId              String   @map("player_id") @db.Uuid
+  playerNameAtTime      String   @map("player_name_at_time")
   seedNumber            Int      @map("seed_number")
   suggested             Boolean  @default(true)
   lockedByUserId        String?  @map("locked_by_user_id") @db.Uuid
@@ -406,6 +452,7 @@ model TournamentDrawEntry {
   id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   competitionCategoryId  String   @map("competition_category_id") @db.Uuid
   playerId              String?  @map("player_id") @db.Uuid
+  playerNameAtTime      String?  @map("player_name_at_time")
   seedNumber            Int?     @map("seed_number")
   bracketPosition       Int      @map("bracket_position")
   isBye                 Boolean  @default(false) @map("is_bye")

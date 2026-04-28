@@ -1,5 +1,6 @@
 import { ShieldCheck, Trophy, UsersRound, Warehouse } from "lucide-react";
 import { logoutAction } from "@/app/actions";
+import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
 
 const nextModules = [
@@ -26,6 +27,7 @@ export default async function DashboardPage() {
 
   return (
     <main className="app-shell">
+      <Navigation />
       <header className="topbar">
         <div>
           <p className="eyebrow">Panel inicial</p>

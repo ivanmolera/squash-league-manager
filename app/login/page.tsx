@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { Navigation } from "@/app/navigation";
 import { LoginForm } from "./login-form";
 
 export default function LoginPage() {
   return (
     <main className="auth-shell">
+      <Navigation />
       <section className="auth-panel">
         <p className="eyebrow">Squash League Manager</p>
         <h1>Acceso</h1>

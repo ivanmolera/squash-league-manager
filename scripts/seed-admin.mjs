@@ -12,11 +12,17 @@ async function main() {
   const user = await prisma.user.upsert({
     where: { email },
     update: {
-      displayName: "Ivan Molera"
+      displayName: "Ivan Molera",
+      emailVerified: true,
+      phone: "+34 600 000 001",
+      preferredLocale: "es"
     },
     create: {
       firebaseUid: `local:${email}`,
       email,
+      emailVerified: true,
+      phone: "+34 600 000 001",
+      preferredLocale: "es",
       displayName: "Ivan Molera"
     }
   });

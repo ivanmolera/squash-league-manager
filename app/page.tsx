@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Navigation } from "@/app/navigation";
 
 const modules = [
   {
@@ -18,6 +19,7 @@ const modules = [
 export default function Home() {
   return (
     <main className="app-shell">
+      <Navigation />
       <section className="public-hero">
         <p className="eyebrow">Squash League Manager</p>
         <h1>Consulta ligas, torneos, resultados y rankings de squash.</h1>
