@@ -787,11 +787,13 @@ async function createTeamLeague({ season, categoriesByKey, clubs }) {
 async function createTeamRubbers({ season, competition, competitionCategory, teamTie, homeTeam, awayTeam, roundNumber, scheduledAt, tieIndex }) {
   let homeRubbers = 0;
   let awayRubbers = 0;
+  const targetHomeRubbers = [4, 3, 2, 1, 0][(tieIndex + roundNumber) % 5];
+  const homeWinSlots = new Set([0, 2, 1, 3].slice(0, targetHomeRubbers));
 
   for (let rubberIndex = 0; rubberIndex < 4; rubberIndex += 1) {
     const homeRoster = homeTeam.rosters[rubberIndex % homeTeam.rosters.length];
     const awayRoster = awayTeam.rosters[rubberIndex % awayTeam.rosters.length];
-    const homeWins = (tieIndex + rubberIndex) % 2 === 0;
+    const homeWins = homeWinSlots.has(rubberIndex);
     const { sets, homeSets, awaySets } = matchSetScores(tieIndex * 4 + rubberIndex, homeWins);
 
     if (homeSets > awaySets) homeRubbers += 1;

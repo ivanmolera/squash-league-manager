@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
+import { categoryRestrictionLabel } from "@/src/lib/category-restrictions";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 import { LeagueStandings } from "./league-sections";
@@ -44,6 +45,17 @@ export default async function LeagueDetailPage({ params }: { params: Promise<{ i
           <p><strong>{t.matchFormat}:</strong> {league.bestOfSets === 3 ? t.bestOf3 : t.bestOf5}</p>
           <p><strong>{t.description}:</strong> {league.description ?? t.notProvidedFemale}</p>
           {league.hostClub ? <p><strong>{t.club}:</strong> <Link href={`/clubs/${league.hostClub.id}`}>{league.hostClub.name}</Link></p> : null}
+          <p><strong>{t.restrictions}:</strong></p>
+          {league.categories.map((competitionCategory) => (
+            <p key={competitionCategory.id}>
+              {competitionCategory.category.name}: {categoryRestrictionLabel(competitionCategory.category, {
+                male: t.male,
+                female: t.female,
+                other: t.other,
+                noRestrictions: t.noRestrictions
+              })}
+            </p>
+          ))}
           <p><strong>{t.season}:</strong> {league.season.name}</p>
           <p><strong>{t.registration}:</strong> {league.registrationDeadline?.toLocaleDateString("es-ES") ?? t.noDeadline}</p>
           <p><strong>{t.start}:</strong> {league.startsAt?.toLocaleDateString("es-ES") ?? t.noDate}</p>

@@ -24,11 +24,14 @@ export default async function LeaguesPage() {
     prisma.competition.findMany({
       where: { type: { in: ["individual_league", "team_league"] } },
       include: { participants: true },
-      orderBy: [{ startsAt: "asc" }, { name: "asc" }]
+      orderBy: [{ startsAt: "desc" }, { name: "asc" }]
     }),
     getCurrentUser()
   ]);
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
+  const now = new Date();
+  const activeLeagues = leagues.filter((league) => !league.endsAt || league.endsAt >= now);
+  const completedLeagues = leagues.filter((league) => league.endsAt && league.endsAt < now);
 
   return (
     <main className="app-shell">
@@ -53,30 +56,43 @@ export default async function LeaguesPage() {
         </section>
       ) : null}
 
-      <section className="list-panel full-width">
-        <h2>Ligas en curso</h2>
-        <div className="table-list">
-          {leagues.map((league) => {
-            const hasEnded = Boolean(league.endsAt && league.endsAt < new Date());
-
-            return (
-              <article className={`league-row${hasEnded ? " is-ended" : ""}`} key={league.id}>
-                <div>
-                  <strong><Link href={`/leagues/${league.id}`}>{league.name}</Link></strong>
-                  <span>{league.type === "individual_league" ? "Individual" : "Por equipos"}</span>
-                </div>
-                <p>
-                  <span>Inscripción: {league.registrationDeadline?.toLocaleDateString("es-ES") ?? "Sin límite"}</span>
-                  <span>Inicio: {league.startsAt?.toLocaleDateString("es-ES")}</span>
-                  <span>Fin: {league.endsAt?.toLocaleDateString("es-ES")}</span>
-                </p>
-                {isAdmin ? <Link className="secondary-link" href={`/leagues/${league.id}/edit`}>Editar</Link> : null}
-              </article>
-            );
-          })}
-        </div>
-      </section>
+      <LeagueList title="Ligas en curso" leagues={activeLeagues} isAdmin={isAdmin} />
+      <LeagueList title="Ligas completadas" leagues={completedLeagues} isAdmin={isAdmin} completed />
     </main>
+  );
+}
+
+function LeagueList({
+  title,
+  leagues,
+  isAdmin,
+  completed = false
+}: {
+  title: string;
+  leagues: Awaited<ReturnType<typeof prisma.competition.findMany>>;
+  isAdmin: boolean;
+  completed?: boolean;
+}) {
+  return (
+    <section className="list-panel full-width">
+      <h2>{title}</h2>
+      <div className="table-list">
+        {leagues.length ? leagues.map((league) => (
+          <article className={`league-row${completed ? " is-ended" : ""}`} key={league.id}>
+            <div>
+              <strong><Link href={`/leagues/${league.id}`}>{league.name}</Link></strong>
+              <span>{league.type === "individual_league" ? "Individual" : "Por equipos"}</span>
+            </div>
+            <p className="date-row">
+              <span>Inscripción: {league.registrationDeadline?.toLocaleDateString("es-ES") ?? "Sin límite"}</span>
+              <span>Inicio: {league.startsAt?.toLocaleDateString("es-ES")}</span>
+              <span>Fin: {league.endsAt?.toLocaleDateString("es-ES")}</span>
+            </p>
+            {isAdmin ? <Link className="secondary-link" href={`/leagues/${league.id}/edit`}>Editar</Link> : null}
+          </article>
+        )) : <p className="muted">No hay ligas.</p>}
+      </div>
+    </section>
   );
 }
 

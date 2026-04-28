@@ -120,13 +120,13 @@ function groupTeamTiesByDate(teamTies: TeamTie[]) {
 
 function scoreText(match: MatchWithSets, pendingLabel: string) {
   if (!match.sets.length) {
-    return pendingLabel;
+    return { main: pendingLabel, partials: "" };
   }
 
   const homeSets = match.sets.filter((set) => set.homePoints > set.awayPoints).length;
   const awaySets = match.sets.filter((set) => set.awayPoints > set.homePoints).length;
   const sets = match.sets.map((set) => `${set.homePoints}-${set.awayPoints}`).join(", ");
-  return `${homeSets}-${awaySets} (${sets})`;
+  return { main: `${homeSets}-${awaySets}`, partials: sets };
 }
 
 function dateTime(value: Date | null, locale: string, noDateLabel: string) {
@@ -204,9 +204,14 @@ export async function LeagueStandings({
                 ))}
               </tbody>
             </table>
-            <Link className="secondary-link inline-link" href={`/leagues/${competitionId}/categories/${group.id}/calendar`}>
-              {t.viewCategoryCalendar}
-            </Link>
+            <div className="form-actions">
+              <Link className="secondary-link inline-link" href={`/leagues/${competitionId}/categories/${group.id}/calendar`}>
+                {t.viewCategoryCalendar}
+              </Link>
+              <Link className="secondary-link inline-link" href={`/leagues/${competitionId}/categories/${group.id}/evolution`}>
+                {t.evolution}
+              </Link>
+            </div>
           </div>
         ))}
       </section>
@@ -281,9 +286,14 @@ export async function LeagueStandings({
               ))}
             </tbody>
           </table>
-          <Link className="secondary-link inline-link" href={`/leagues/${competitionId}/categories/${group.id}/calendar`}>
-            {t.viewCategoryCalendar}
-          </Link>
+          <div className="form-actions">
+            <Link className="secondary-link inline-link" href={`/leagues/${competitionId}/categories/${group.id}/calendar`}>
+              {t.viewCategoryCalendar}
+            </Link>
+            <Link className="secondary-link inline-link" href={`/leagues/${competitionId}/categories/${group.id}/evolution`}>
+              {t.evolution}
+            </Link>
+          </div>
         </div>
       ))}
     </section>
@@ -326,7 +336,15 @@ export async function LeagueCategoryCalendar({
                       <span>{t.venue}: {match.homeClubNameAtMatchTime ?? t.noVenue}</span>
                     </div>
                     <div className="compact-result">
-                      <span>{scoreText(match, t.pending)}</span>
+                      {(() => {
+                        const score = scoreText(match, t.pending);
+                        return (
+                          <div className="split-score">
+                            <strong>{score.main}</strong>
+                            {score.partials ? <span>{score.partials}</span> : null}
+                          </div>
+                        );
+                      })()}
                       {canEditLeagueMatch(match, editContext) ? <MatchResultForm match={match} labels={{ sets: t.sets, save: t.saveResult }} /> : null}
                     </div>
                   </div>
@@ -373,12 +391,17 @@ export async function LeagueCategoryCalendar({
                       <span>{t.venue}: {tie.homeClubNameAtTime ?? t.noVenue}</span>
                     </div>
                     <div className="compact-result">
-                      <span>{t.score}: {completed ? `${homeRubbers}-${awayRubbers}` : t.pending}</span>
+                      <span>{t.result}: {completed ? <strong>{homeRubbers}-{awayRubbers}</strong> : t.pending}</span>
                     </div>
                     <div className="rubber-list compact-rubbers">
                       {tieMatches.map((match) => (
                         <div className="rubber-row" key={match.id}>
-                          <p>{match.matchOrder}. {match.homePlayerNameAtMatchTime} vs {match.awayPlayerNameAtMatchTime}: {scoreText(match, t.pending)}</p>
+                          {(() => {
+                            const score = scoreText(match, t.pending);
+                            return (
+                              <p>{match.matchOrder}. {match.homePlayerNameAtMatchTime} vs {match.awayPlayerNameAtMatchTime}: <strong>{score.main}</strong>{score.partials ? ` · ${score.partials}` : ""}</p>
+                            );
+                          })()}
                           {canEditLeagueMatch(match, editContext) ? <MatchResultForm match={match} labels={{ sets: t.sets, save: t.saveResult }} /> : null}
                         </div>
                       ))}

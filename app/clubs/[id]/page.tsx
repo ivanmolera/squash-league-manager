@@ -7,23 +7,55 @@ import { prisma } from "@/src/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
+type ClubMembership = NonNullable<Awaited<ReturnType<typeof getClub>>>["memberships"][number];
+
+async function getClub(id: string) {
+  return prisma.club.findUnique({
+    where: { id },
+    include: {
+      manager: true,
+      teams: {
+        include: { rosters: { include: { player: true } } },
+        orderBy: [{ name: "asc" }]
+      },
+      memberships: {
+        include: { player: true, season: true },
+        orderBy: [
+          { season: { startsAt: "desc" } },
+          { player: { lastName: "asc" } },
+          { player: { firstName: "asc" } }
+        ]
+      }
+    }
+  });
+}
+
+function groupMembershipsBySeason(memberships: ClubMembership[]) {
+  return memberships.reduce<Array<{ seasonId: string; seasonName: string; startsAt: Date | null; memberships: ClubMembership[] }>>((groups, membership) => {
+    const group = groups.find((item) => item.seasonId === membership.seasonId);
+    if (group) {
+      group.memberships.push(membership);
+    } else {
+      groups.push({
+        seasonId: membership.seasonId,
+        seasonName: membership.season.name,
+        startsAt: membership.season.startsAt,
+        memberships: [membership]
+      });
+    }
+    return groups;
+  }, []);
+}
+
+function clubMapUrl(club: { name: string; address: string | null; city: string | null; province: string | null }) {
+  const query = [club.address, club.city, club.province, club.name].filter(Boolean).join(", ");
+  return query ? `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed` : null;
+}
+
 export default async function ClubDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [club, currentUser] = await Promise.all([
-    prisma.club.findUnique({
-      where: { id },
-      include: {
-        manager: true,
-        teams: {
-          include: { rosters: { include: { player: true } } },
-          orderBy: [{ name: "asc" }]
-        },
-        memberships: {
-          include: { player: true, season: true },
-          orderBy: [{ player: { lastName: "asc" } }, { player: { firstName: "asc" } }]
-        }
-      }
-    }),
+    getClub(id),
     getCurrentUser()
   ]);
   const { t } = await getDictionary();
@@ -33,6 +65,8 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
   const canEdit = isAdmin || club.managerUserId === currentUser?.id;
   const canSeeContact = canEdit || club.showContactPublic;
+  const membershipsBySeason = groupMembershipsBySeason(club.memberships);
+  const mapUrl = canSeeContact ? clubMapUrl(club) : null;
 
   return (
     <main className="app-shell">
@@ -52,6 +86,15 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
           <p><strong>{t.address}:</strong> {canSeeContact ? club.address ?? t.notProvidedFemale : t.privateFemaleValue}</p>
           <p><strong>{t.website}:</strong> {canSeeContact ? club.websiteUrl ?? t.notProvidedFemale : t.privateFemaleValue}</p>
           <p><strong>{t.assignedManager}:</strong> {club.manager?.displayName ?? club.manager?.email ?? t.noManager}</p>
+          {mapUrl ? (
+            <iframe
+              className="club-map"
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              src={mapUrl}
+              title={`${club.name} · ${t.location}`}
+            />
+          ) : null}
         </article>
         <article className="list-panel">
           <h2>{t.teams}</h2>
@@ -63,10 +106,15 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
         </article>
         <article className="list-panel">
           <h2>{t.clubPlayers}</h2>
-          {club.memberships.map((membership) => (
-            <p key={membership.id}>
-              <Link href={`/players/${membership.playerId}`}>{membership.player.lastName}, {membership.player.firstName}</Link> · {membership.season.name}
-            </p>
+          {membershipsBySeason.map((group) => (
+            <div className="standing-block" key={group.seasonId}>
+              <h3>{group.seasonName}</h3>
+              {group.memberships.map((membership) => (
+                <p key={membership.id}>
+                  <Link href={`/players/${membership.playerId}`}>{membership.player.lastName}, {membership.player.firstName}</Link>
+                </p>
+              ))}
+            </div>
           ))}
         </article>
       </section>

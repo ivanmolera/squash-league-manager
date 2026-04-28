@@ -6,17 +6,17 @@ type TournamentMatch = Awaited<ReturnType<typeof getTournamentMatches>>[number];
 type TournamentDraw = Awaited<ReturnType<typeof getTournamentDraws>>[number];
 type BracketMatchType = "tournament_knockout" | "tournament_consolation";
 
-async function getTournamentMatches(competitionId: string) {
+async function getTournamentMatches(competitionId: string, competitionCategoryId?: string) {
   return prisma.match.findMany({
-    where: { competitionId },
+    where: { competitionId, ...(competitionCategoryId ? { competitionCategoryId } : {}) },
     include: { competition: { select: { bestOfSets: true } }, sets: { orderBy: { setNumber: "asc" } } },
     orderBy: [{ roundNumber: "asc" }, { matchOrder: "asc" }, { bracketPosition: "asc" }]
   });
 }
 
-async function getTournamentDraws(competitionId: string) {
+async function getTournamentDraws(competitionId: string, competitionCategoryId?: string) {
   return prisma.competitionCategory.findMany({
-    where: { competitionId, format: "knockout" },
+    where: { competitionId, format: "knockout", ...(competitionCategoryId ? { id: competitionCategoryId } : {}) },
     include: {
       category: true,
       drawEntries: { orderBy: { bracketPosition: "asc" } }
@@ -30,13 +30,31 @@ function dateTime(value: Date | null, locale: string, noDateLabel: string) {
 }
 
 function scoreText(match: TournamentMatch, pendingLabel: string) {
+  const score = scoreParts(match, pendingLabel);
+  if (typeof score === "string") return score;
+  return score.partials ? `${score.main} (${score.partials})` : score.main;
+}
+
+function scoreParts(match: TournamentMatch, pendingLabel: string) {
   if (match.status === "bye") return "BYE";
-  if (!match.sets.length) return pendingLabel;
+  if (!match.sets.length) return { main: pendingLabel, partials: "" };
 
   const homeSets = match.sets.filter((set) => set.homePoints > set.awayPoints).length;
   const awaySets = match.sets.filter((set) => set.awayPoints > set.homePoints).length;
   const sets = match.sets.map((set) => `${set.homePoints}-${set.awayPoints}`).join(", ");
-  return `${homeSets}-${awaySets} (${sets})`;
+  return { main: `${homeSets}-${awaySets}`, partials: sets };
+}
+
+function ScoreDisplay({ match, pendingLabel }: { match: TournamentMatch; pendingLabel: string }) {
+  const score = scoreParts(match, pendingLabel);
+  if (typeof score === "string") return <>{score}</>;
+
+  return (
+    <>
+      <strong>{score.main}</strong>
+      {score.partials ? <span> ({score.partials})</span> : null}
+    </>
+  );
 }
 
 function playerName(name: string | null | undefined, isBye: boolean | undefined, pendingLabel: string) {
@@ -79,7 +97,7 @@ function BracketMatchBox({
         <span className="bracket-player-name">{awayName}</span>
         <span className="bracket-player-score">{awayWinner && match?.status === "bye" ? "W" : sideSets(match, "away")}</span>
       </div>
-      {showMatchScore && match ? <p>{scoreText(match, pendingLabel)}</p> : null}
+      {showMatchScore && match ? <p><ScoreDisplay match={match} pendingLabel={pendingLabel} /></p> : null}
     </div>
   );
 }
@@ -152,17 +170,25 @@ function TournamentBracket({
 
 export async function TournamentMatches({
   competitionId,
-  canEdit
+  competitionCategoryId,
+  canEdit,
+  showHeading = true
 }: {
   competitionId: string;
+  competitionCategoryId?: string;
   canEdit: boolean;
+  showHeading?: boolean;
 }) {
-  const [matches, draws, dictionary] = await Promise.all([getTournamentMatches(competitionId), getTournamentDraws(competitionId), getDictionary()]);
+  const [matches, draws, dictionary] = await Promise.all([
+    getTournamentMatches(competitionId, competitionCategoryId),
+    getTournamentDraws(competitionId, competitionCategoryId),
+    getDictionary()
+  ]);
   const { locale, t } = dictionary;
 
   return (
     <section className="list-panel full-width">
-      <h2>{t.tournament} · {t.calendar}</h2>
+      {showHeading ? <h2>{t.tournament} · {t.calendar}</h2> : null}
       {draws.some((draw) => draw.drawEntries.length) ? (
         <div className="bracket-list">
           {draws.flatMap((draw) => {
@@ -184,7 +210,7 @@ export async function TournamentMatches({
                 <strong>{match.matchType === "tournament_third_place" ? t.thirdPlaceMatch : `Ronda ${match.roundNumber ?? "-"}`} · {dateTime(match.scheduledAt, locale, t.noDate)}</strong>
                 <p>{match.homePlayerNameAtMatchTime ?? "BYE"} vs {match.awayPlayerNameAtMatchTime ?? "BYE"}</p>
                 <p>{t.venue}: {match.homeClubNameAtMatchTime ?? t.club}</p>
-                <p>{t.result}: {scoreText(match, t.pending)}</p>
+                <p>{t.result}: <ScoreDisplay match={match} pendingLabel={t.pending} /></p>
               </div>
               {canEdit && match.status !== "bye" && match.homePlayerId && match.awayPlayerId ? (
                 <MatchResultForm match={match} labels={{ sets: t.sets, save: t.saveResult }} />

@@ -2,25 +2,67 @@ import Link from "next/link";
 import { saveTournamentAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
+import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-export default async function TournamentsPage() {
-  const [categories, clubs, tournaments, currentUser] = await Promise.all([
+type TournamentTab = "upcoming" | "completed";
+
+function selectedTab(value: string | undefined): TournamentTab {
+  return value === "completed" ? "completed" : "upcoming";
+}
+
+function tournamentDateRange(tournament: { startsAt: Date | null; endsAt: Date | null }, locale: string, noDate: string) {
+  if (!tournament.startsAt && !tournament.endsAt) return noDate;
+  const start = tournament.startsAt?.toLocaleDateString(locale, { month: "short", day: "2-digit" }) ?? noDate;
+  const end = tournament.endsAt?.toLocaleDateString(locale, { month: "short", day: "2-digit" }) ?? start;
+  return `${start} - ${end}`;
+}
+
+function tournamentLocation(tournament: { hostClub: { city: string | null; province: string | null; name: string } | null }, noVenue: string) {
+  if (!tournament.hostClub) return noVenue;
+  if (tournament.hostClub.city && tournament.hostClub.province) return `${tournament.hostClub.city} (${tournament.hostClub.province})`;
+  return tournament.hostClub.city ?? tournament.hostClub.province ?? tournament.hostClub.name;
+}
+
+export default async function TournamentsPage({
+  searchParams
+}: {
+  searchParams?: Promise<{ tab?: string; seasonId?: string }>;
+}) {
+  const query = await searchParams;
+  const tab = selectedTab(query?.tab);
+  const [categories, clubs, seasons, currentUser, dictionary] = await Promise.all([
     prisma.category.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     prisma.club.findMany({ orderBy: [{ province: "asc" }, { name: "asc" }] }),
-    prisma.competition.findMany({
-      where: { type: "tournament" },
-      include: { participants: true, categories: { include: { category: true } } },
-      orderBy: [{ startsAt: "asc" }, { name: "asc" }]
-    }),
-    getCurrentUser()
+    prisma.season.findMany({ orderBy: [{ startsAt: "desc" }] }),
+    getCurrentUser(),
+    getDictionary()
   ]);
+  const { locale, t } = dictionary;
+  const today = new Date();
+  const selectedSeason = seasons.find((season) => season.id === query?.seasonId) ??
+    seasons.find((season) => season.startsAt <= today && season.endsAt >= today) ??
+    seasons[0];
+  const tournaments = selectedSeason ? await prisma.competition.findMany({
+    where: {
+      type: "tournament",
+      seasonId: selectedSeason.id,
+      ...(tab === "completed" ? { endsAt: { lt: today } } : { OR: [{ endsAt: null }, { endsAt: { gte: today } }] })
+    },
+    include: {
+      hostClub: true,
+      participants: true,
+      categories: { include: { category: true } }
+    },
+    orderBy: tab === "completed" ? [{ startsAt: "desc" }, { name: "asc" }] : [{ startsAt: "asc" }, { name: "asc" }]
+  }) : [];
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
   const isManager = Boolean(currentUser?.roles.some((role) => role.role === "manager"));
   const editableClubs = isAdmin ? clubs : clubs.filter((club) => club.managerUserId === currentUser?.id);
   const canEdit = isAdmin || isManager;
+  const tabHref = (nextTab: TournamentTab) => `/manager/tournaments?tab=${nextTab}${selectedSeason ? `&seasonId=${selectedSeason.id}` : ""}`;
 
   return (
     <main className="app-shell">
@@ -78,23 +120,47 @@ export default async function TournamentsPage() {
           </form>
         ) : null}
 
-        <section className="list-panel">
-          <h2>Torneos existentes</h2>
-          <div className="table-list">
-            {tournaments.map((tournament) => (
-              <article className="row-card" key={tournament.id}>
-                <strong><Link href={`/tournaments/${tournament.id}`}>{tournament.name}</Link></strong>
-                <span>{clubs.find((club) => club.id === tournament.hostClubId)?.name ?? "Sin sede"}</span>
-                <span>Juez árbitro: {tournament.refereeName ?? "Sin asignar"}</span>
-                <span>Ránking: {rankingScopeLabel(tournament.rankingScope)}</span>
-                <span>Mejor de {tournament.bestOfSets}</span>
-                <span>Inscripción: {tournament.registrationDeadline?.toLocaleDateString("es-ES") ?? "Sin límite"}</span>
-                <span>Inicio: {tournament.startsAt?.toLocaleDateString("es-ES")}</span>
-                {isAdmin || editableClubs.some((club) => club.id === tournament.hostClubId) ? (
-                  <Link className="secondary-link" href={`/tournaments/${tournament.id}/edit`}>Editar</Link>
-                ) : null}
-              </article>
-            ))}
+        <section className="list-panel tournament-list-panel">
+          <div className="tournament-toolbar">
+            <nav className="tournament-tabs" aria-label={t.tournaments}>
+              <Link className={tab === "upcoming" ? "is-active" : ""} href={tabHref("upcoming")}>{t.upcoming}</Link>
+              <Link className={tab === "completed" ? "is-active" : ""} href={tabHref("completed")}>{t.completed}</Link>
+            </nav>
+            <form className="season-filter" action="/manager/tournaments">
+              <input type="hidden" name="tab" value={tab} />
+              <select name="seasonId" defaultValue={selectedSeason?.id}>
+                {seasons.map((season) => <option key={season.id} value={season.id}>{season.name}</option>)}
+              </select>
+              <button type="submit">{t.filter}</button>
+            </form>
+          </div>
+          <div className="tournament-table">
+            <div className="tournament-table-head">
+              <span>{t.start}</span>
+              <span>{t.tournament}</span>
+              <span>{t.location}</span>
+              <span>{t.categories}</span>
+              <span>{t.registration}</span>
+              <span>{t.rankingType}</span>
+            </div>
+            {tournaments.map((tournament) => {
+              const canEditTournament = isAdmin || editableClubs.some((club) => club.id === tournament.hostClubId);
+              return (
+                <article className="tournament-table-row" key={tournament.id}>
+                  <div className="tournament-date-cell">{tournamentDateRange(tournament, locale, t.noDate)}</div>
+                  <div>
+                    <strong><Link href={`/tournaments/${tournament.id}`}>{tournament.name}</Link></strong>
+                    <span>{t.referee}: {tournament.refereeName ?? t.notProvided}</span>
+                    {canEditTournament ? <Link className="secondary-link inline-link" href={`/tournaments/${tournament.id}/edit`}>{t.edit}</Link> : null}
+                  </div>
+                  <span>{tournamentLocation(tournament, t.noVenue)}</span>
+                  <span>{tournament.categories.map((category) => category.category.name).join(", ") || t.notProvidedFemale}</span>
+                  <span>{tournament.registrationDeadline?.toLocaleDateString(locale) ?? t.noDeadline}</span>
+                  <span>{rankingScopeText(tournament.rankingScope, t)}</span>
+                </article>
+              );
+            })}
+            {!tournaments.length ? <p className="muted">{t.noMatches}</p> : null}
           </div>
         </section>
       </section>
@@ -102,9 +168,7 @@ export default async function TournamentsPage() {
   );
 }
 
-function rankingScopeLabel(scope: string) {
-  if (scope === "autonomic") return "Autonómico";
-  if (scope === "state") return "Estatal";
-  if (scope === "psa") return "PSA";
-  return "No puntúa";
+function rankingScopeText(scope: string, t: Record<string, string>) {
+  if (scope === "none") return t.none;
+  return `${t.scoresForRanking} ${t[scope] ?? scope}`;
 }

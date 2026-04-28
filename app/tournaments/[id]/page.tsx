@@ -4,6 +4,7 @@ import { registerSelfForTournamentAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { TournamentMatches } from "@/app/tournaments/[id]/tournament-matches";
 import { getCurrentUser } from "@/src/lib/auth";
+import { categoryRestrictionLabel } from "@/src/lib/category-restrictions";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 
@@ -62,11 +63,11 @@ export default async function TournamentDetailPage({ params }: { params: Promise
     ? await prisma.player.findUnique({ where: { userId: currentUser.id }, select: { id: true, gender: true, birthDate: true } })
     : null;
   const registrationOpen = tournament.registrationDeadline ? tournament.registrationDeadline >= new Date() : false;
-  const seeds = tournament.categories.flatMap((category) => category.seeds).sort((left, right) => left.seedNumber - right.seedNumber);
-  const drawEntries = tournament.categories
-    .flatMap((category) => category.drawEntries)
-    .filter((entry) => entry.bracketType === "main")
-    .sort((left, right) => left.bracketPosition - right.bracketPosition);
+  const seedsByCategory = new Map(
+    tournament.categories.flatMap((category) =>
+      category.seeds.map((seed) => [`${category.id}:${seed.playerId}`, seed.seedNumber] as const)
+    )
+  );
 
   return (
     <main className="app-shell">
@@ -79,33 +80,57 @@ export default async function TournamentDetailPage({ params }: { params: Promise
         {canEdit ? <Link className="primary-link" href={`/tournaments/${tournament.id}/edit`}>{t.edit}</Link> : null}
       </section>
       <section className="detail-grid">
-        <article className="list-panel">
+        <article className="list-panel full-width">
           <h2>{t.tournamentDetails}</h2>
           <p><strong>{t.club}:</strong> {tournament.hostClub ? <Link href={`/clubs/${tournament.hostClub.id}`}>{tournament.hostClub.name}</Link> : t.noVenue}</p>
           <p><strong>{t.referee}:</strong> {tournament.refereeName ?? t.notProvided}</p>
-          <p><strong>{t.rankingType}:</strong> {t[tournament.rankingScope as keyof typeof t]}</p>
+          <p><strong>{tournament.rankingScope === "none" ? t.rankingType : t.scoresForRanking}:</strong> {t[tournament.rankingScope as keyof typeof t]}</p>
           <p><strong>{t.matchFormat}:</strong> {tournament.bestOfSets === 3 ? t.bestOf3 : t.bestOf5}</p>
           <p><strong>{t.description}:</strong> {tournament.description ?? t.notProvidedFemale}</p>
-          <p><strong>{t.registration}:</strong> {tournament.registrationDeadline?.toLocaleDateString("es-ES") ?? t.noDeadline}</p>
-          <p><strong>{t.start}:</strong> {tournament.startsAt?.toLocaleDateString("es-ES") ?? t.noDate}</p>
-          <p><strong>{t.end}:</strong> {tournament.endsAt?.toLocaleDateString("es-ES") ?? t.noDate}</p>
+          <p><strong>{t.restrictions}:</strong></p>
+          {tournament.categories.map((competitionCategory) => (
+            <p key={competitionCategory.id}>
+              {competitionCategory.category.name}: {categoryRestrictionLabel(competitionCategory.category, {
+                male: t.male,
+                female: t.female,
+                other: t.other,
+                noRestrictions: t.noRestrictions
+              })}
+            </p>
+          ))}
+          <p className="date-row">
+            <span><strong>{t.registration}:</strong> {tournament.registrationDeadline?.toLocaleDateString("es-ES") ?? t.noDeadline}</span>
+            <span><strong>{t.start}:</strong> {tournament.startsAt?.toLocaleDateString("es-ES") ?? t.noDate}</span>
+            <span><strong>{t.end}:</strong> {tournament.endsAt?.toLocaleDateString("es-ES") ?? t.noDate}</span>
+          </p>
         </article>
-        <article className="list-panel">
-          <h2>Inscripción</h2>
-          {tournament.categories.map((competitionCategory) => {
-            const isRegistered = Boolean(currentPlayer && competitionCategory.registrations.some((registration) => registration.playerId === currentPlayer.id));
-            const isEligible = Boolean(
-              currentPlayer &&
-                canPlayerRegisterForCategory(currentPlayer, competitionCategory.category, tournament.startsAt ?? new Date())
-            );
+      </section>
+      <section className="tournament-category-list">
+        {tournament.categories.map((competitionCategory) => {
+          const isRegistered = Boolean(currentPlayer && competitionCategory.registrations.some((registration) => registration.playerId === currentPlayer.id));
+          const isEligible = Boolean(
+            currentPlayer &&
+              canPlayerRegisterForCategory(currentPlayer, competitionCategory.category, tournament.startsAt ?? new Date())
+          );
 
-            return (
-              <div className="standing-block" key={competitionCategory.id}>
-                <h3>{competitionCategory.category.name}</h3>
+          return (
+            <section className="tournament-category-section" key={competitionCategory.id}>
+              <article className="list-panel full-width">
+                <h2>{competitionCategory.category.name}</h2>
+                <p className="muted">{t.restrictions}: {categoryRestrictionLabel(competitionCategory.category, {
+                  male: t.male,
+                  female: t.female,
+                  other: t.other,
+                  noRestrictions: t.noRestrictions
+                })}</p>
+                <h3>{t.participants}</h3>
                 {competitionCategory.registrations.length ? competitionCategory.registrations.map((registration) => (
-                  <p key={registration.id}>
-                    <Link href={`/players/${registration.playerId}`}>{registration.playerNameAtRegistration}</Link> · {registration.clubNameAtRegistration ?? t.independent}
-                  </p>
+                  <div className="participant-line" key={registration.id}>
+                    <span><Link href={`/players/${registration.playerId}`}>{registration.playerNameAtRegistration}</Link> · {registration.clubNameAtRegistration ?? t.independent}</span>
+                    {seedsByCategory.has(`${competitionCategory.id}:${registration.playerId}`) ? (
+                      <span className="seed-badge">#{seedsByCategory.get(`${competitionCategory.id}:${registration.playerId}`)} {t.seeds}</span>
+                    ) : null}
+                  </div>
                 )) : <p className="muted">Sin inscritos.</p>}
                 {currentPlayer && registrationOpen && !isRegistered && isEligible ? (
                   <form className="compact-form" action={registerSelfForTournamentAction}>
@@ -113,22 +138,17 @@ export default async function TournamentDetailPage({ params }: { params: Promise
                     <button type="submit">Inscribirme</button>
                   </form>
                 ) : null}
-              </div>
-            );
-          })}
-        </article>
-        <article className="list-panel">
-          <h2>{t.seeds}</h2>
-          {seeds.length ? seeds.map((seed) => <p key={seed.id}>#{seed.seedNumber} {seed.playerNameAtTime}</p>) : <p>{t.noSeeds}</p>}
-        </article>
-        <article className="list-panel">
-          <h2>{t.draw}</h2>
-          {drawEntries.map((entry) => (
-            <p key={entry.id}>#{entry.bracketPosition} {entry.isBye ? "BYE" : entry.playerNameAtTime}</p>
-          ))}
-        </article>
+              </article>
+              <TournamentMatches
+                competitionId={tournament.id}
+                competitionCategoryId={competitionCategory.id}
+                canEdit={canEdit}
+                showHeading={false}
+              />
+            </section>
+          );
+        })}
       </section>
-      <TournamentMatches competitionId={tournament.id} canEdit={canEdit} />
     </main>
   );
 }

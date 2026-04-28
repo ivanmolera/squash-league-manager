@@ -325,6 +325,13 @@ function tournamentMatchDate(startsAt: Date | null, matchType: string, roundNumb
   return date;
 }
 
+function leagueMatchDate(startsAt: string, roundIndex: number) {
+  const date = new Date(startsAt);
+  date.setDate(date.getDate() + roundIndex * 14);
+  date.setHours(19, 0, 0, 0);
+  return date;
+}
+
 function playerSide(match: {
   homePlayerId: string | null;
   awayPlayerId: string | null;
@@ -1069,6 +1076,7 @@ export async function saveLeagueAction(formData: FormData) {
           matchType: "individual_league",
           roundNumber: roundIndex + 1,
           matchOrder: matchIndex + 1,
+          scheduledAt: leagueMatchDate(parsed.startsAt, roundIndex),
           status: "scheduled",
           homePlayerId: home.id,
           awayPlayerId: away.id,
@@ -1132,6 +1140,7 @@ export async function saveLeagueAction(formData: FormData) {
           seasonId: season.id,
           competitionId: competition.id,
           competitionCategoryId: competitionCategory.id,
+          scheduledAt: leagueMatchDate(parsed.startsAt, roundIndex),
           homeTeamId: home.id,
           awayTeamId: away.id,
           status: "scheduled",
