@@ -26,6 +26,7 @@ const lastNames = [
   "Pons", "Roca", "Mas", "Duran", "Bosch", "Marin", "Gil", "Mora"
 ];
 const rackets = ["Tecnifibre", "Dunlop", "Head", "Karakal", "Prince", "Oliver"];
+const provinces = ["Barcelona", "Girona", "Tarragona", "Lleida"];
 
 function pick(items, index) {
   return items[index % items.length];
@@ -108,12 +109,14 @@ async function main() {
       where: { name: clubName },
       update: {
         city: pick(["Barcelona", "Girona", "Tarragona", "Lleida"], clubIndex),
+        province: pick(provinces, clubIndex),
         address: `Carrer Central ${clubIndex + 10}`,
         managerUserId: manager.id
       },
       create: {
         name: clubName,
         city: pick(["Barcelona", "Girona", "Tarragona", "Lleida"], clubIndex),
+        province: pick(provinces, clubIndex),
         address: `Carrer Central ${clubIndex + 10}`,
         managerUserId: manager.id
       }

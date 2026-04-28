@@ -170,6 +170,8 @@ model Player {
   racketBrand           String?                   @map("racket_brand")
   profilePhotoUrl       String?                   @map("profile_photo_url")
   genericProfileVariant String                    @default("neutral") @map("generic_profile_variant")
+  showContactPublic     Boolean                   @default(true) @map("show_contact_public")
+  showPhysicalPublic    Boolean                   @default(true) @map("show_physical_public")
   createdAt             DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime                  @default(now()) @map("updated_at") @db.Timestamptz(6)
   user                  User?                     @relation(fields: [userId], references: [id], onDelete: SetNull)
@@ -186,9 +188,11 @@ model Club {
   id            String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name          String                 @unique
   city          String?
+  province      String?
   address       String?
   websiteUrl    String?                @map("website_url")
   logoUrl       String?                @map("logo_url")
+  showContactPublic Boolean            @default(true) @map("show_contact_public")
   managerUserId String?                @unique @map("manager_user_id") @db.Uuid
   createdAt     DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime               @default(now()) @map("updated_at") @db.Timestamptz(6)
@@ -197,6 +201,7 @@ model Club {
   memberships   PlayerClubMembership[]
   joinRequests  ClubJoinRequest[]
   competitionParticipants CompetitionParticipant[]
+  hostedCompetitions Competition[]
 
   @@map("clubs")
 }
@@ -209,6 +214,8 @@ model Season {
   status    SeasonStatus @default(draft)
   createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime     @default(now()) @map("updated_at") @db.Timestamptz(6)
+  memberships PlayerClubMembership[]
+  competitions Competition[]
 
   @@map("seasons")
 }
@@ -234,11 +241,14 @@ model Competition {
   status      CompetitionStatus      @default(draft)
   name        String
   description String?
+  registrationDeadline DateTime?        @map("registration_deadline") @db.Timestamptz(6)
   startsAt    DateTime?              @map("starts_at") @db.Timestamptz(6)
   endsAt      DateTime?              @map("ends_at") @db.Timestamptz(6)
   hostClubId  String?                @map("host_club_id") @db.Uuid
   createdAt   DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime               @default(now()) @map("updated_at") @db.Timestamptz(6)
+  season      Season                 @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  hostClub    Club?                  @relation(fields: [hostClubId], references: [id], onDelete: SetNull)
   categories  CompetitionCategory[]
   participants CompetitionParticipant[]
 
@@ -255,6 +265,9 @@ model CompetitionCategory {
   competition   Competition       @relation(fields: [competitionId], references: [id], onDelete: Cascade)
   category      Category          @relation(fields: [categoryId], references: [id])
   participants  CompetitionParticipant[]
+  registrations TournamentRegistration[]
+  seeds         TournamentSeed[]
+  drawEntries   TournamentDrawEntry[]
 
   @@unique([competitionId, categoryId])
   @@map("competition_categories")
@@ -291,6 +304,7 @@ model PlayerClubMembership {
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   player    Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
   club      Club      @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  season    Season    @relation(fields: [seasonId], references: [id], onDelete: Cascade)
 
   @@unique([playerId, clubId, seasonId])
   @@map("player_club_memberships")
@@ -303,6 +317,7 @@ model Team {
   categoryId String       @map("category_id") @db.Uuid
   name       String
   clubNameAtCreation String @map("club_name_at_creation")
+  showRosterPublic Boolean @default(true) @map("show_roster_public")
   createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt  DateTime     @default(now()) @map("updated_at") @db.Timestamptz(6)
   club       Club         @relation(fields: [clubId], references: [id], onDelete: Cascade)
@@ -410,6 +425,7 @@ model TournamentRegistration {
   status                   RegistrationStatus @default(pending)
   createdAt                DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                DateTime           @default(now()) @map("updated_at") @db.Timestamptz(6)
+  competitionCategory      CompetitionCategory @relation(fields: [competitionCategoryId], references: [id], onDelete: Cascade)
   player                   Player             @relation(fields: [playerId], references: [id], onDelete: Cascade)
 
   @@unique([competitionCategoryId, playerId])
@@ -442,6 +458,7 @@ model TournamentSeed {
   suggested             Boolean  @default(true)
   lockedByUserId        String?  @map("locked_by_user_id") @db.Uuid
   createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  competitionCategory    CompetitionCategory @relation(fields: [competitionCategoryId], references: [id], onDelete: Cascade)
 
   @@unique([competitionCategoryId, playerId])
   @@unique([competitionCategoryId, seedNumber])
@@ -457,6 +474,7 @@ model TournamentDrawEntry {
   bracketPosition       Int      @map("bracket_position")
   isBye                 Boolean  @default(false) @map("is_bye")
   createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  competitionCategory    CompetitionCategory @relation(fields: [competitionCategoryId], references: [id], onDelete: Cascade)
 
   @@unique([competitionCategoryId, bracketPosition])
   @@map("tournament_draw_entries")

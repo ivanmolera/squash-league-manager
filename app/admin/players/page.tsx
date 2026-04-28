@@ -1,11 +1,13 @@
+import Link from "next/link";
 import { savePlayerAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
+import { getCurrentUser } from "@/src/lib/auth";
 import { prisma } from "@/src/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export default async function PlayersPage() {
-  const [players, clubs] = await Promise.all([
+  const [players, clubs, currentUser] = await Promise.all([
     prisma.player.findMany({
       include: {
         user: true,
@@ -13,8 +15,12 @@ export default async function PlayersPage() {
       },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
     }),
-    prisma.club.findMany({ orderBy: { name: "asc" } })
+    prisma.club.findMany({ orderBy: [{ province: "asc" }, { name: "asc" }] }),
+    getCurrentUser()
   ]);
+  const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
+  const ownPlayerId = players.find((player) => player.userId === currentUser?.id)?.id;
+  const canCreateOwnProfile = Boolean(currentUser && !ownPlayerId);
 
   return (
     <main className="app-shell">
@@ -26,30 +32,32 @@ export default async function PlayersPage() {
       </section>
 
       <section className="work-grid">
-        <form className="admin-form" action={savePlayerAction}>
-          <h2>Nuevo perfil</h2>
-          <PlayerFields clubs={clubs} />
-          <button type="submit">Crear jugador</button>
-        </form>
+        {isAdmin || canCreateOwnProfile ? (
+          <form className="admin-form" action={savePlayerAction}>
+            <h2>{isAdmin ? "Nuevo perfil" : "Crear mi perfil"}</h2>
+            <PlayerFields clubs={clubs} currentUserEmail={currentUser?.email} isAdmin={isAdmin} />
+            <button type="submit">Crear jugador</button>
+          </form>
+        ) : (
+          <section className="list-panel">
+            <h2>Solo lectura</h2>
+            <p className="muted">Inicia sesion para modificar tu perfil.</p>
+          </section>
+        )}
 
         <div className="list-panel">
-          <h2>Perfiles existentes</h2>
+          <h2>Listado de jugadores</h2>
           {players.map((player) => (
-            <form className="compact-form" action={savePlayerAction} key={player.id}>
-              <input type="hidden" name="playerId" value={player.id} />
-              <PlayerFields
-                clubs={clubs}
-                player={{
-                  ...player,
-                  email: player.user?.email ?? "",
-                  phone: player.user?.phone ?? "",
-                  emailVerified: player.user?.emailVerified ?? false,
-                  preferredLocale: player.user?.preferredLocale ?? "es",
-                  clubId: player.memberships[0]?.clubId ?? ""
-                }}
-              />
-              <button type="submit">Guardar cambios</button>
-            </form>
+            isAdmin || player.id === ownPlayerId ? (
+              <article className="row-card" key={player.id}>
+                <strong><Link href={`/players/${player.id}`}>{player.lastName}, {player.firstName}</Link></strong>
+                <Link className="secondary-link" href={`/players/${player.id}/edit`}>Editar</Link>
+              </article>
+            ) : (
+              <article className="row-card simple-row" key={player.id}>
+                <strong><Link href={`/players/${player.id}`}>{player.lastName}, {player.firstName}</Link></strong>
+              </article>
+            )
           ))}
         </div>
       </section>
@@ -70,13 +78,19 @@ type PlayerFieldData = {
   weightKg?: unknown;
   racketBrand?: string | null;
   clubId?: string;
+  showContactPublic?: boolean;
+  showPhysicalPublic?: boolean;
 };
 
 function PlayerFields({
   clubs,
+  currentUserEmail,
+  isAdmin,
   player
 }: {
   clubs: Array<{ id: string; name: string }>;
+  currentUserEmail?: string;
+  isAdmin: boolean;
   player?: PlayerFieldData;
 }) {
   return (
@@ -86,8 +100,8 @@ function PlayerFields({
         <label>Apellidos<input name="lastName" defaultValue={player?.lastName ?? ""} required /></label>
       </div>
       <div className="form-row">
-        <label>Email<input name="email" type="email" defaultValue={player?.email ?? ""} required /></label>
-        <label>Telefono<input name="phone" defaultValue={player?.phone ?? ""} required /></label>
+        <label>Email<input name="email" type="email" defaultValue={player?.email ?? currentUserEmail ?? ""} readOnly={!isAdmin} required /></label>
+        <label>Telefono<input name="phone" defaultValue={player?.phone ?? ""} /></label>
       </div>
       <div className="form-row">
         <label>Idioma
@@ -98,15 +112,23 @@ function PlayerFields({
           </select>
         </label>
         <label>Club
-          <select name="clubId" defaultValue={player?.clubId ?? ""}>
+          <select name="clubId" defaultValue={player?.clubId ?? ""} disabled={!isAdmin}>
             <option value="">Sin club</option>
             {clubs.map((club) => <option key={club.id} value={club.id}>{club.name}</option>)}
           </select>
         </label>
       </div>
       <label className="check-line">
-        <input name="emailVerified" type="checkbox" defaultChecked={player?.emailVerified ?? false} />
+        <input name="emailVerified" type="checkbox" defaultChecked={player?.emailVerified ?? false} disabled={!isAdmin} />
         Email validado
+      </label>
+      <label className="check-line">
+        <input name="showContactPublic" type="checkbox" defaultChecked={player?.showContactPublic ?? true} />
+        Mostrar email/telefono publicamente
+      </label>
+      <label className="check-line">
+        <input name="showPhysicalPublic" type="checkbox" defaultChecked={player?.showPhysicalPublic ?? true} />
+        Mostrar altura/peso publicamente
       </label>
       <div className="form-row">
         <label>Sexo

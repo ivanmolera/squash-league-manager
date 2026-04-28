@@ -3,6 +3,7 @@
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { getCurrentUser } from "@/src/lib/auth";
 import { prisma } from "@/src/lib/prisma";
 import { generateRoundRobin, nextPowerOfTwo, shuffle } from "@/src/lib/schedule";
 
@@ -13,7 +14,7 @@ const playerSchema = z.object({
   firstName: z.string().min(2),
   lastName: z.string().min(2),
   email: z.string().email(),
-  phone: z.string().min(6),
+  phone: z.string().optional(),
   emailVerified: z.coerce.boolean().default(false),
   preferredLocale: z.enum(["ca", "es", "en"]).default("es"),
   gender: z.enum(["male", "female", "other", "not_specified"]),
@@ -21,6 +22,8 @@ const playerSchema = z.object({
   heightCm: z.coerce.number().int().min(90).max(240).optional().or(z.literal("")),
   weightKg: z.coerce.number().min(20).max(250).optional().or(z.literal("")),
   racketBrand: z.string().optional(),
+  showContactPublic: z.coerce.boolean().default(false),
+  showPhysicalPublic: z.coerce.boolean().default(false),
   clubId: z.string().uuid().optional().or(z.literal(""))
 });
 
@@ -28,8 +31,10 @@ const clubSchema = z.object({
   clubId: z.string().uuid().optional().or(z.literal("")),
   name: z.string().min(3),
   city: z.string().optional(),
+  province: z.string().optional(),
   address: z.string().optional(),
   websiteUrl: z.string().url().optional().or(z.literal("")),
+  showContactPublic: z.coerce.boolean().default(false),
   managerUserId: z.string().uuid().optional().or(z.literal(""))
 });
 
@@ -38,6 +43,7 @@ const competitionSchema = z.object({
   name: z.string().min(3),
   description: z.string().optional(),
   type: z.enum(["individual_league", "team_league"]),
+  registrationDeadline: z.string().min(10),
   startsAt: z.string().min(10),
   endsAt: z.string().min(10),
   participantIds: z.array(z.string().uuid()).default([])
@@ -48,10 +54,17 @@ const tournamentSchema = z.object({
   name: z.string().min(3),
   description: z.string().optional(),
   hostClubId: z.string().uuid(),
+  registrationDeadline: z.string().min(10),
   startsAt: z.string().min(10),
   endsAt: z.string().min(10),
   participantIds: z.array(z.string().uuid()).default([]),
   seedPlayerIds: z.array(z.string().uuid()).default([])
+});
+
+const teamSchema = z.object({
+  teamId: z.string().uuid(),
+  name: z.string().min(3),
+  showRosterPublic: z.coerce.boolean().default(false)
 });
 
 function textValue(value: unknown) {
@@ -60,6 +73,30 @@ function textValue(value: unknown) {
 
 function toArray(formData: FormData, key: string) {
   return formData.getAll(key).map(String).filter(Boolean);
+}
+
+function hasRole(user: Awaited<ReturnType<typeof getCurrentUser>>, role: "admin" | "manager" | "player") {
+  return Boolean(user?.roles.some((assignment) => assignment.role === role));
+}
+
+async function requireUser() {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    throw new Error("Debes iniciar sesion para modificar datos.");
+  }
+
+  return user;
+}
+
+async function requireAdmin() {
+  const user = await requireUser();
+
+  if (!hasRole(user, "admin")) {
+    throw new Error("Solo un usuario admin puede realizar esta accion.");
+  }
+
+  return user;
 }
 
 async function getDefaultSeason() {
@@ -103,6 +140,8 @@ async function ensureCredential(userId: string) {
 }
 
 export async function savePlayerAction(formData: FormData) {
+  const currentUser = await requireUser();
+  const isAdmin = hasRole(currentUser, "admin");
   const parsed = playerSchema.parse({
     playerId: textValue(formData.get("playerId")),
     firstName: textValue(formData.get("firstName")),
@@ -116,27 +155,52 @@ export async function savePlayerAction(formData: FormData) {
     heightCm: textValue(formData.get("heightCm")) ?? "",
     weightKg: textValue(formData.get("weightKg")) ?? "",
     racketBrand: textValue(formData.get("racketBrand")),
+    showContactPublic: formData.get("showContactPublic") === "on",
+    showPhysicalPublic: formData.get("showPhysicalPublic") === "on",
     clubId: textValue(formData.get("clubId")) ?? ""
   });
 
-  const displayName = `${parsed.firstName} ${parsed.lastName}`;
-  const user = await prisma.user.upsert({
-    where: { email: parsed.email },
-    update: {
-      displayName,
-      phone: parsed.phone,
-      emailVerified: parsed.emailVerified,
-      preferredLocale: parsed.preferredLocale
-    },
-    create: {
-      firebaseUid: `local:${parsed.email}`,
-      email: parsed.email,
-      displayName,
-      phone: parsed.phone,
-      emailVerified: parsed.emailVerified,
-      preferredLocale: parsed.preferredLocale
+  if (!isAdmin) {
+    const ownPlayer = await prisma.player.findUnique({
+      where: { userId: currentUser.id }
+    });
+
+    if (parsed.playerId && ownPlayer?.id !== parsed.playerId) {
+      throw new Error("Solo puedes modificar tu propio perfil.");
     }
-  });
+
+    if (!parsed.playerId && ownPlayer) {
+      throw new Error("Tu usuario ya tiene un perfil de jugador.");
+    }
+  }
+
+  const displayName = `${parsed.firstName} ${parsed.lastName}`;
+  const user = isAdmin
+    ? await prisma.user.upsert({
+        where: { email: parsed.email },
+        update: {
+          displayName,
+          phone: parsed.phone,
+          emailVerified: parsed.emailVerified,
+          preferredLocale: parsed.preferredLocale
+        },
+        create: {
+          firebaseUid: `local:${parsed.email}`,
+          email: parsed.email,
+          displayName,
+          phone: parsed.phone,
+          emailVerified: parsed.emailVerified,
+          preferredLocale: parsed.preferredLocale
+        }
+      })
+    : await prisma.user.update({
+        where: { id: currentUser.id },
+        data: {
+          displayName,
+          phone: parsed.phone,
+          preferredLocale: parsed.preferredLocale
+        }
+      });
 
   await ensureCredential(user.id);
   await prisma.userRoleAssignment.upsert({
@@ -156,7 +220,9 @@ export async function savePlayerAction(formData: FormData) {
           dominantHand: parsed.dominantHand,
           heightCm: parsed.heightCm || null,
           weightKg: parsed.weightKg || null,
-          racketBrand: parsed.racketBrand
+          racketBrand: parsed.racketBrand,
+          showContactPublic: parsed.showContactPublic,
+          showPhysicalPublic: parsed.showPhysicalPublic
         }
       })
     : await prisma.player.create({
@@ -168,11 +234,13 @@ export async function savePlayerAction(formData: FormData) {
           dominantHand: parsed.dominantHand,
           heightCm: parsed.heightCm || null,
           weightKg: parsed.weightKg || null,
-          racketBrand: parsed.racketBrand
+          racketBrand: parsed.racketBrand,
+          showContactPublic: parsed.showContactPublic,
+          showPhysicalPublic: parsed.showPhysicalPublic
         }
       });
 
-  if (parsed.clubId) {
+  if (isAdmin && parsed.clubId) {
     const season = await getDefaultSeason();
     const club = await prisma.club.findUniqueOrThrow({ where: { id: parsed.clubId } });
     await prisma.playerClubMembership.upsert({
@@ -198,14 +266,32 @@ export async function savePlayerAction(formData: FormData) {
 }
 
 export async function saveClubAction(formData: FormData) {
+  const currentUser = await requireUser();
+  const isAdmin = hasRole(currentUser, "admin");
   const parsed = clubSchema.parse({
     clubId: textValue(formData.get("clubId")),
     name: textValue(formData.get("name")),
     city: textValue(formData.get("city")),
+    province: textValue(formData.get("province")),
     address: textValue(formData.get("address")),
     websiteUrl: textValue(formData.get("websiteUrl")) ?? "",
+    showContactPublic: formData.get("showContactPublic") === "on",
     managerUserId: textValue(formData.get("managerUserId")) ?? ""
   });
+
+  if (!isAdmin) {
+    if (!parsed.clubId) {
+      throw new Error("Solo un admin puede crear clubes.");
+    }
+
+    const managedClub = await prisma.club.findUniqueOrThrow({
+      where: { id: parsed.clubId }
+    });
+
+    if (managedClub.managerUserId !== currentUser.id) {
+      throw new Error("Solo puedes modificar el club que administras.");
+    }
+  }
 
   const club = parsed.clubId
     ? await prisma.club.update({
@@ -213,22 +299,26 @@ export async function saveClubAction(formData: FormData) {
         data: {
           name: parsed.name,
           city: parsed.city,
+          province: parsed.province,
           address: parsed.address,
           websiteUrl: parsed.websiteUrl || null,
-          managerUserId: parsed.managerUserId || null
+          showContactPublic: parsed.showContactPublic,
+          managerUserId: isAdmin ? parsed.managerUserId || null : undefined
         }
       })
     : await prisma.club.create({
         data: {
           name: parsed.name,
           city: parsed.city,
+          province: parsed.province,
           address: parsed.address,
           websiteUrl: parsed.websiteUrl || null,
+          showContactPublic: parsed.showContactPublic,
           managerUserId: parsed.managerUserId || null
         }
       });
 
-  if (parsed.managerUserId) {
+  if (isAdmin && parsed.managerUserId) {
     await prisma.userRoleAssignment.upsert({
       where: { userId_role: { userId: parsed.managerUserId, role: "manager" } },
       update: {},
@@ -248,11 +338,13 @@ export async function saveClubAction(formData: FormData) {
 }
 
 export async function saveLeagueAction(formData: FormData) {
+  await requireAdmin();
   const parsed = competitionSchema.parse({
     competitionId: textValue(formData.get("competitionId")),
     name: textValue(formData.get("name")),
     description: textValue(formData.get("description")),
     type: textValue(formData.get("type")) ?? "individual_league",
+    registrationDeadline: textValue(formData.get("registrationDeadline")),
     startsAt: textValue(formData.get("startsAt")),
     endsAt: textValue(formData.get("endsAt")),
     participantIds: toArray(formData, "participantIds")
@@ -267,6 +359,7 @@ export async function saveLeagueAction(formData: FormData) {
           name: parsed.name,
           description: parsed.description,
           type: parsed.type,
+          registrationDeadline: new Date(parsed.registrationDeadline),
           startsAt: new Date(parsed.startsAt),
           endsAt: new Date(parsed.endsAt)
         }
@@ -278,6 +371,7 @@ export async function saveLeagueAction(formData: FormData) {
           description: parsed.description,
           type: parsed.type,
           status: "draft",
+          registrationDeadline: new Date(parsed.registrationDeadline),
           startsAt: new Date(parsed.startsAt),
           endsAt: new Date(parsed.endsAt)
         }
@@ -396,16 +490,39 @@ export async function saveLeagueAction(formData: FormData) {
 }
 
 export async function saveTournamentAction(formData: FormData) {
+  const currentUser = await requireUser();
+  const isAdmin = hasRole(currentUser, "admin");
   const parsed = tournamentSchema.parse({
     competitionId: textValue(formData.get("competitionId")),
     name: textValue(formData.get("name")),
     description: textValue(formData.get("description")),
     hostClubId: textValue(formData.get("hostClubId")),
+    registrationDeadline: textValue(formData.get("registrationDeadline")),
     startsAt: textValue(formData.get("startsAt")),
     endsAt: textValue(formData.get("endsAt")),
     participantIds: toArray(formData, "participantIds"),
     seedPlayerIds: toArray(formData, "seedPlayerIds")
   });
+
+  if (!isAdmin) {
+    const managedClub = await prisma.club.findUniqueOrThrow({
+      where: { id: parsed.hostClubId }
+    });
+
+    if (managedClub.managerUserId !== currentUser.id) {
+      throw new Error("Solo puedes crear o modificar torneos de tu club.");
+    }
+
+    if (parsed.competitionId) {
+      const existing = await prisma.competition.findUniqueOrThrow({
+        where: { id: parsed.competitionId }
+      });
+
+      if (existing.hostClubId !== parsed.hostClubId) {
+        throw new Error("No puedes mover un torneo a otro club.");
+      }
+    }
+  }
 
   const season = await getDefaultSeason();
   const category = await getDefaultCategory();
@@ -416,6 +533,7 @@ export async function saveTournamentAction(formData: FormData) {
           name: parsed.name,
           description: parsed.description,
           hostClubId: parsed.hostClubId,
+          registrationDeadline: new Date(parsed.registrationDeadline),
           startsAt: new Date(parsed.startsAt),
           endsAt: new Date(parsed.endsAt)
         }
@@ -428,6 +546,7 @@ export async function saveTournamentAction(formData: FormData) {
           name: parsed.name,
           description: parsed.description,
           hostClubId: parsed.hostClubId,
+          registrationDeadline: new Date(parsed.registrationDeadline),
           startsAt: new Date(parsed.startsAt),
           endsAt: new Date(parsed.endsAt)
         }
@@ -568,4 +687,32 @@ export async function saveTournamentAction(formData: FormData) {
   }
 
   revalidatePath("/manager/tournaments");
+}
+
+export async function saveTeamAction(formData: FormData) {
+  const currentUser = await requireUser();
+  const isAdmin = hasRole(currentUser, "admin");
+  const parsed = teamSchema.parse({
+    teamId: textValue(formData.get("teamId")),
+    name: textValue(formData.get("name")),
+    showRosterPublic: formData.get("showRosterPublic") === "on"
+  });
+  const team = await prisma.team.findUniqueOrThrow({
+    where: { id: parsed.teamId },
+    include: { club: true }
+  });
+
+  if (!isAdmin && team.club.managerUserId !== currentUser.id) {
+    throw new Error("Solo puedes modificar equipos de tu club.");
+  }
+
+  await prisma.team.update({
+    where: { id: parsed.teamId },
+    data: {
+      name: parsed.name,
+      showRosterPublic: parsed.showRosterPublic
+    }
+  });
+
+  revalidatePath(`/teams/${parsed.teamId}`);
 }
