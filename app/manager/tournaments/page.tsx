@@ -73,7 +73,7 @@ export default async function TournamentsPage({
         <p className="muted">Inicia sesión como manager o admin para crear torneos.</p>
       </section>
 
-      <section className={canEdit ? "work-grid" : "centered-list"}>
+      <section className="tournament-page-stack">
         {canEdit ? (
           <form className="admin-form wide-form" action={saveTournamentAction}>
             <h2>Nuevo torneo</h2>
@@ -120,7 +120,7 @@ export default async function TournamentsPage({
           </form>
         ) : null}
 
-        <section className="list-panel tournament-list-panel">
+        <section className="tournament-list-panel">
           <div className="tournament-toolbar">
             <nav className="tournament-tabs" aria-label={t.tournaments}>
               <Link className={tab === "upcoming" ? "is-active" : ""} href={tabHref("upcoming")}>{t.upcoming}</Link>

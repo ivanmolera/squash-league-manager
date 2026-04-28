@@ -380,6 +380,13 @@ h1 {
   padding: 18px;
 }
 
+.edit-stack {
+  display: grid;
+  gap: 18px;
+  margin: 0 auto;
+  max-width: 720px;
+}
+
 .admin-form h2,
 .compact-form h2,
 .list-panel h2 {
@@ -649,8 +656,15 @@ h1 {
   gap: 12px;
 }
 
+.tournament-page-stack {
+  display: grid;
+  gap: 22px;
+}
+
 .tournament-list-panel {
-  overflow-x: auto;
+  display: grid;
+  gap: 16px;
+  width: 100%;
 }
 
 .tournament-toolbar {
@@ -715,13 +729,13 @@ h1 {
 
 .tournament-table {
   display: grid;
-  min-width: 920px;
+  width: 100%;
 }
 
 .tournament-table-head,
 .tournament-table-row {
   display: grid;
-  grid-template-columns: 150px minmax(260px, 1.8fr) minmax(160px, 0.8fr) minmax(180px, 1fr) 130px minmax(150px, 0.8fr);
+  grid-template-columns: minmax(88px, 0.65fr) minmax(180px, 1.8fr) minmax(112px, 0.9fr) minmax(128px, 1fr) minmax(98px, 0.75fr) minmax(120px, 0.95fr);
 }
 
 .tournament-table-head {
@@ -736,6 +750,8 @@ h1 {
 .tournament-table-row > * {
   border-right: 1px solid #e5e7eb;
   padding: 16px 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .tournament-table-head span:last-child,
@@ -1133,15 +1149,6 @@ h1 {
   font-weight: 900;
 }
 
-.player-donut p {
-  align-self: end;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
-  margin: 0;
-}
-
 .stat-metric-grid {
   display: grid;
   gap: 10px;
@@ -1428,6 +1435,31 @@ h1 {
   .season-filter {
     display: grid;
     grid-template-columns: 1fr auto;
+  }
+
+  .tournament-table {
+    gap: 10px;
+  }
+
+  .tournament-table-head {
+    display: none;
+  }
+
+  .tournament-table-row {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    grid-template-columns: 1fr;
+  }
+
+  .tournament-table-row > * {
+    border-right: 0;
+    border-top: 1px solid var(--line);
+    padding: 10px 12px;
+  }
+
+  .tournament-table-row > *:first-child {
+    border-top: 0;
   }
 
   .matchday-card header {

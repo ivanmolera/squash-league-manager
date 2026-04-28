@@ -30,6 +30,16 @@ const playerSchema = z.object({
   receivesMatchCommunications: z.coerce.boolean().default(false)
 });
 
+const playerPasswordSchema = z.object({
+  playerId: z.string().uuid(),
+  currentPassword: z.string().optional(),
+  newPassword: z.string().min(8, "La nueva contraseña debe tener al menos 8 caracteres."),
+  confirmPassword: z.string().min(8)
+}).refine((value) => value.newPassword === value.confirmPassword, {
+  message: "Las contraseñas no coinciden.",
+  path: ["confirmPassword"]
+});
+
 const clubSchema = z.object({
   clubId: z.string().uuid().optional().or(z.literal("")),
   name: z.string().min(3),
@@ -892,6 +902,59 @@ export async function savePlayerAction(formData: FormData) {
   }
 
   revalidatePath("/admin/players");
+  revalidatePath(`/players/${player.id}`);
+  revalidatePath(`/players/${player.id}/edit`);
+}
+
+export async function changePlayerPasswordAction(formData: FormData) {
+  const currentUser = await requireUser();
+  const isAdmin = hasRole(currentUser, "admin");
+  const parsed = playerPasswordSchema.parse({
+    playerId: textValue(formData.get("playerId")),
+    currentPassword: textValue(formData.get("currentPassword")),
+    newPassword: textValue(formData.get("newPassword")),
+    confirmPassword: textValue(formData.get("confirmPassword"))
+  });
+  const player = await prisma.player.findUnique({
+    where: { id: parsed.playerId },
+    include: { user: { include: { credential: true } } }
+  });
+
+  if (!player?.userId || !player.user) {
+    throw new Error("Este jugador no tiene usuario asociado.");
+  }
+
+  if (!isAdmin && player.userId !== currentUser.id) {
+    throw new Error("Solo puedes modificar tu propia contraseña.");
+  }
+
+  if (!isAdmin) {
+    if (!player.user.credential) {
+      throw new Error("No hay credenciales locales configuradas para este usuario.");
+    }
+
+    const currentPasswordOk = parsed.currentPassword
+      ? await bcrypt.compare(parsed.currentPassword, player.user.credential.passwordHash)
+      : false;
+
+    if (!currentPasswordOk) {
+      throw new Error("La contraseña actual no es correcta.");
+    }
+  }
+
+  const passwordHash = await bcrypt.hash(parsed.newPassword, 12);
+  await prisma.authCredential.upsert({
+    where: { userId: player.userId },
+    update: {
+      passwordHash,
+      passwordChangedAt: new Date()
+    },
+    create: {
+      userId: player.userId,
+      passwordHash
+    }
+  });
+
   revalidatePath(`/players/${player.id}`);
   revalidatePath(`/players/${player.id}/edit`);
 }

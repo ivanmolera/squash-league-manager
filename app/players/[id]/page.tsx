@@ -309,7 +309,6 @@ function DonutChart({ won, lost, labels }: { won: number; lost: number; labels: 
         <strong>{wonPercentage}%</strong>
         <span>{labels.won}</span>
       </div>
-      <p><span>{labels.won}: {won}</span><span>{labels.lost}: {lost}</span></p>
     </div>
   );
 }
