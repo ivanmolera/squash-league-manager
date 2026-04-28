@@ -1,4 +1,4 @@
-import { saveMatchResultAction } from "@/app/admin/actions";
+import { MatchResultForm } from "@/app/match-result-form";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 
@@ -8,7 +8,7 @@ type TournamentDraw = Awaited<ReturnType<typeof getTournamentDraws>>[number];
 async function getTournamentMatches(competitionId: string) {
   return prisma.match.findMany({
     where: { competitionId },
-    include: { sets: { orderBy: { setNumber: "asc" } } },
+    include: { competition: { select: { bestOfSets: true } }, sets: { orderBy: { setNumber: "asc" } } },
     orderBy: [{ roundNumber: "asc" }, { matchOrder: "asc" }, { bracketPosition: "asc" }]
   });
 }
@@ -38,43 +38,26 @@ function scoreText(match: TournamentMatch, pendingLabel: string) {
   return `${homeSets}-${awaySets} (${sets})`;
 }
 
-function defaultSetInput(match: TournamentMatch) {
-  return match.sets.map((set) => `${set.homePoints}-${set.awayPoints}`).join(", ");
-}
+function TournamentBracket({ title, entries, pendingLabel }: { title: string; entries: TournamentDraw["drawEntries"]; pendingLabel: string }) {
+  if (!entries.length) return null;
 
-function ResultForm({ match, labels }: { match: TournamentMatch; labels: { sets: string; save: string } }) {
-  return (
-    <form className="result-form" action={saveMatchResultAction}>
-      <input type="hidden" name="matchId" value={match.id} />
-      <label>
-        {labels.sets}
-        <input name="setScores" defaultValue={defaultSetInput(match)} placeholder="11-8, 11-9, 11-7" />
-      </label>
-      <button type="submit">{labels.save}</button>
-    </form>
-  );
-}
-
-function TournamentBracket({ draw }: { draw: TournamentDraw }) {
-  if (!draw.drawEntries.length) return null;
-
-  const bracketSize = draw.drawEntries.length;
+  const bracketSize = entries.length;
   const rounds = Math.ceil(Math.log2(Math.max(bracketSize, 2)));
 
   return (
     <div className="bracket-block">
-      <h3>{draw.category.name}</h3>
+      <h3>{title}</h3>
       <div className="bracket-scroll">
         <div className="bracket">
           <div className="bracket-round first-round">
             {Array.from({ length: bracketSize / 2 }, (_, index) => {
-              const home = draw.drawEntries[index * 2];
-              const away = draw.drawEntries[index * 2 + 1];
+              const home = entries[index * 2];
+              const away = entries[index * 2 + 1];
 
               return (
                 <div className="bracket-pair" key={index}>
-                  <span>{home?.isBye ? "BYE" : home?.playerNameAtTime ?? "BYE"}</span>
-                  <span>{away?.isBye ? "BYE" : away?.playerNameAtTime ?? "BYE"}</span>
+                  <span>{home?.isBye ? "BYE" : home?.playerNameAtTime ?? pendingLabel}</span>
+                  <span>{away?.isBye ? "BYE" : away?.playerNameAtTime ?? pendingLabel}</span>
                 </div>
               );
             })}
@@ -110,7 +93,14 @@ export async function TournamentMatches({
       <h2>{t.tournament} · {t.calendar}</h2>
       {draws.some((draw) => draw.drawEntries.length) ? (
         <div className="bracket-list">
-          {draws.map((draw) => <TournamentBracket draw={draw} key={draw.id} />)}
+          {draws.flatMap((draw) => {
+            const mainEntries = draw.drawEntries.filter((entry) => entry.bracketType === "main");
+            const consolationEntries = draw.drawEntries.filter((entry) => entry.bracketType === "consolation");
+            return [
+              <TournamentBracket title={`${draw.category.name} · ${t.mainDraw}`} entries={mainEntries} pendingLabel={t.pending} key={`${draw.id}-main`} />,
+              <TournamentBracket title={`${draw.category.name} · ${t.consolationDraw}`} entries={consolationEntries} pendingLabel={t.pending} key={`${draw.id}-consolation`} />
+            ];
+          })}
         </div>
       ) : null}
       {matches.length ? (
@@ -118,13 +108,13 @@ export async function TournamentMatches({
           {matches.map((match) => (
             <article className="match-card" key={match.id}>
               <div>
-                <strong>Ronda {match.roundNumber ?? "-"} · {dateTime(match.scheduledAt, locale, t.noDate)}</strong>
+                <strong>{match.matchType === "tournament_third_place" ? t.thirdPlaceMatch : `Ronda ${match.roundNumber ?? "-"}`} · {dateTime(match.scheduledAt, locale, t.noDate)}</strong>
                 <p>{match.homePlayerNameAtMatchTime ?? "BYE"} vs {match.awayPlayerNameAtMatchTime ?? "BYE"}</p>
                 <p>{t.venue}: {match.homeClubNameAtMatchTime ?? t.club}</p>
                 <p>{t.result}: {scoreText(match, t.pending)}</p>
               </div>
               {canEdit && match.status !== "bye" && match.homePlayerId && match.awayPlayerId ? (
-                <ResultForm match={match} labels={{ sets: t.sets, save: t.saveResult }} />
+                <MatchResultForm match={match} labels={{ sets: t.sets, save: t.saveResult }} />
               ) : null}
             </article>
           ))}

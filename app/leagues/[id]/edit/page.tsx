@@ -42,6 +42,12 @@ export default async function EditLeaguePage({ params }: { params: Promise<{ id:
         <input type="hidden" name="type" value={league.type} />
         <label>Nombre<input name="name" defaultValue={league.name} required /></label>
         <label>Descripción<textarea name="description" rows={3} defaultValue={league.description ?? ""} /></label>
+        <label>Formato de partido
+          <select name="bestOfSets" defaultValue={league.bestOfSets}>
+            <option value="5">Al mejor de 5 sets</option>
+            <option value="3">Al mejor de 3 sets</option>
+          </select>
+        </label>
         <div className="form-row">
           <label>Límite inscripción<input name="registrationDeadline" type="date" defaultValue={dateInputValue(league.registrationDeadline)} required /></label>
           <label>Inicio<input name="startsAt" type="date" defaultValue={dateInputValue(league.startsAt)} required /></label>

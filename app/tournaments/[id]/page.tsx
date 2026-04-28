@@ -50,6 +50,8 @@ export default async function TournamentDetailPage({ params }: { params: Promise
         <article className="list-panel">
           <h2>{t.tournamentDetails}</h2>
           <p><strong>{t.club}:</strong> {tournament.hostClub ? <Link href={`/clubs/${tournament.hostClub.id}`}>{tournament.hostClub.name}</Link> : t.noVenue}</p>
+          <p><strong>{t.referee}:</strong> {tournament.refereeName ?? t.notProvided}</p>
+          <p><strong>{t.matchFormat}:</strong> {tournament.bestOfSets === 3 ? t.bestOf3 : t.bestOf5}</p>
           <p><strong>{t.description}:</strong> {tournament.description ?? t.notProvidedFemale}</p>
           <p><strong>{t.registration}:</strong> {tournament.registrationDeadline?.toLocaleDateString("es-ES") ?? t.noDeadline}</p>
           <p><strong>{t.start}:</strong> {tournament.startsAt?.toLocaleDateString("es-ES") ?? t.noDate}</p>

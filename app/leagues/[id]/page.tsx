@@ -40,6 +40,7 @@ export default async function LeagueDetailPage({ params }: { params: Promise<{ i
         <article className="list-panel full-width">
           <h2>{t.leagueDetails}</h2>
           <p><strong>{t.type}:</strong> {t[league.type as keyof typeof t]}</p>
+          <p><strong>{t.matchFormat}:</strong> {league.bestOfSets === 3 ? t.bestOf3 : t.bestOf5}</p>
           <p><strong>{t.description}:</strong> {league.description ?? t.notProvidedFemale}</p>
           <p><strong>{t.season}:</strong> {league.season.name}</p>
           <p><strong>{t.registration}:</strong> {league.registrationDeadline?.toLocaleDateString("es-ES") ?? t.noDeadline}</p>

@@ -44,6 +44,7 @@ const competitionSchema = z.object({
   name: z.string().min(3),
   description: z.string().optional(),
   type: z.enum(["individual_league", "team_league"]),
+  bestOfSets: z.coerce.number().int().refine((value) => value === 3 || value === 5),
   registrationDeadline: z.string().min(10),
   startsAt: z.string().min(10),
   endsAt: z.string().min(10),
@@ -55,6 +56,8 @@ const tournamentSchema = z.object({
   name: z.string().min(3),
   description: z.string().optional(),
   hostClubId: z.string().uuid(),
+  refereeName: z.string().optional(),
+  bestOfSets: z.coerce.number().int().refine((value) => value === 3 || value === 5),
   registrationDeadline: z.string().min(10),
   startsAt: z.string().min(10),
   endsAt: z.string().min(10),
@@ -71,8 +74,7 @@ const teamSchema = z.object({
 });
 
 const matchResultSchema = z.object({
-  matchId: z.string().uuid(),
-  setScores: z.string().min(5)
+  matchId: z.string().uuid()
 });
 
 const removeClubPlayerSchema = z.object({
@@ -178,46 +180,282 @@ async function ensureCredential(userId: string) {
   });
 }
 
-function parseSetScores(value: string) {
-  const sets = value
-    .split(/[,\n;]/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .map((item, index) => {
-      const match = item.match(/^(\d{1,2})\s*[-/]\s*(\d{1,2})$/);
+function parsePointValue(value: FormDataEntryValue | null) {
+  const text = value?.toString();
+  if (!text) return null;
+  const number = Number(text);
+  if (!Number.isInteger(number) || number < 0 || number > 60) {
+    throw new Error("Selecciona puntuaciones de set válidas.");
+  }
+  return number;
+}
 
-      if (!match) {
-        throw new Error("Introduce los sets con formato 11-8, 11-9, 11-7.");
-      }
-
-      const homePoints = Number(match[1]);
-      const awayPoints = Number(match[2]);
-      const winnerPoints = Math.max(homePoints, awayPoints);
-      const pointDiff = Math.abs(homePoints - awayPoints);
-
-      if (homePoints === awayPoints || winnerPoints < 11 || pointDiff < 2) {
-        throw new Error("Cada set debe ganarse con al menos 11 puntos y 2 puntos de diferencia.");
-      }
-
-      return { setNumber: index + 1, homePoints, awayPoints };
-    });
-
-  if (sets.length < 3 || sets.length > 5) {
-    throw new Error("Un partido debe tener entre 3 y 5 sets.");
+function parseSetScores(formData: FormData, bestOfSets: number) {
+  if (bestOfSets !== 3 && bestOfSets !== 5) {
+    throw new Error("La competición debe ser al mejor de 3 o de 5 sets.");
   }
 
-  const homeSets = sets.filter((set) => set.homePoints > set.awayPoints).length;
-  const awaySets = sets.filter((set) => set.awayPoints > set.homePoints).length;
+  const targetSets = bestOfSets === 3 ? 2 : 3;
+  const sets = Array.from({ length: bestOfSets }, (_, index) => {
+    const homePoints = parsePointValue(formData.get(`set${index + 1}HomePoints`));
+    const awayPoints = parsePointValue(formData.get(`set${index + 1}AwayPoints`));
 
-  if (homeSets !== 3 && awaySets !== 3) {
-    throw new Error("El resultado debe dejar un ganador con 3 sets.");
+    if (homePoints === null && awayPoints === null) return null;
+    if (homePoints === null || awayPoints === null) {
+      throw new Error("Completa los dos valores de cada set jugado.");
+    }
+
+    const winnerPoints = Math.max(homePoints, awayPoints);
+    const pointDiff = Math.abs(homePoints - awayPoints);
+
+    if (homePoints === awayPoints || winnerPoints < 11 || pointDiff < 2) {
+      throw new Error("Cada set debe ganarse con al menos 11 puntos y 2 puntos de diferencia.");
+    }
+
+    return { setNumber: index + 1, homePoints, awayPoints };
+  }).filter((set): set is { setNumber: number; homePoints: number; awayPoints: number } => Boolean(set));
+
+  if (sets.length < targetSets || sets.length > bestOfSets) {
+    throw new Error(`Un partido al mejor de ${bestOfSets} debe tener entre ${targetSets} y ${bestOfSets} sets.`);
   }
 
-  if (sets.length > homeSets + awaySets) {
-    throw new Error("Resultado de sets no válido.");
+  let homeSets = 0;
+  let awaySets = 0;
+  for (const [index, set] of sets.entries()) {
+    if (set.homePoints > set.awayPoints) homeSets += 1;
+    if (set.awayPoints > set.homePoints) awaySets += 1;
+
+    const isFinalSet = index === sets.length - 1;
+    if (!isFinalSet && (homeSets === targetSets || awaySets === targetSets)) {
+      throw new Error("No se pueden añadir sets después de que un jugador haya ganado el partido.");
+    }
+  }
+
+  if (homeSets !== targetSets && awaySets !== targetSets) {
+    throw new Error(`El resultado debe dejar un ganador con ${targetSets} sets.`);
   }
 
   return { sets, homeSets, awaySets };
+}
+
+function seededBracketPositions(bracketSize: number) {
+  const positions = [
+    0,
+    bracketSize - 1,
+    bracketSize / 2 - 1,
+    bracketSize / 2,
+    bracketSize / 4 - 1,
+    bracketSize - bracketSize / 4,
+    bracketSize / 4,
+    bracketSize - bracketSize / 4 - 1
+  ];
+
+  return Array.from(new Set(positions.filter((position) => Number.isInteger(position) && position >= 0 && position < bracketSize)));
+}
+
+function buildSeededBracketEntries<T extends { id: string }>(players: T[], seeds: Array<{ playerId: string; index: number }>, bracketSize: number) {
+  const entries = Array<T | null>(bracketSize).fill(null);
+  const seedPositions = seededBracketPositions(bracketSize);
+  const seededPlayers = seeds
+    .map((seed) => players.find((player) => player.id === seed.playerId) && { seed, player: players.find((item) => item.id === seed.playerId)! })
+    .filter(Boolean) as Array<{ seed: { playerId: string; index: number }; player: T }>;
+
+  for (const { player } of seededPlayers) {
+    const position = seedPositions.shift();
+    if (position === undefined) break;
+    entries[position] = player;
+  }
+
+  const placedPlayerIds = new Set(entries.filter((player): player is T => Boolean(player)).map((player) => player.id));
+  const remaining = shuffle(players.filter((player) => !placedPlayerIds.has(player.id)));
+  for (let index = 0; index < entries.length; index += 1) {
+    if (!entries[index]) {
+      entries[index] = remaining.shift() ?? null;
+    }
+  }
+
+  return entries;
+}
+
+function playerSide(match: {
+  homePlayerId: string | null;
+  awayPlayerId: string | null;
+  homePlayerNameAtMatchTime: string | null;
+  awayPlayerNameAtMatchTime: string | null;
+}, playerId: string | null) {
+  if (!playerId) return null;
+  if (match.homePlayerId === playerId) {
+    return { playerId, playerName: match.homePlayerNameAtMatchTime };
+  }
+  if (match.awayPlayerId === playerId) {
+    return { playerId, playerName: match.awayPlayerNameAtMatchTime };
+  }
+  return null;
+}
+
+async function setTournamentMatchSide({
+  competitionId,
+  competitionCategoryId,
+  matchType,
+  roundNumber,
+  bracketPosition,
+  side,
+  playerId,
+  playerName
+}: {
+  competitionId: string;
+  competitionCategoryId: string;
+  matchType: "tournament_knockout" | "tournament_consolation" | "tournament_third_place";
+  roundNumber: number;
+  bracketPosition: number;
+  side: "home" | "away";
+  playerId: string;
+  playerName: string | null;
+}) {
+  const existing = await prisma.match.findFirst({
+    where: { competitionId, competitionCategoryId, matchType, roundNumber, bracketPosition },
+    select: { id: true }
+  });
+  const sideData = side === "home"
+    ? { homePlayerId: playerId, homePlayerNameAtMatchTime: playerName }
+    : { awayPlayerId: playerId, awayPlayerNameAtMatchTime: playerName };
+
+  if (existing) {
+    await prisma.match.update({ where: { id: existing.id }, data: sideData });
+    return;
+  }
+
+  const competition = await prisma.competition.findUniqueOrThrow({
+    where: { id: competitionId },
+    select: { seasonId: true }
+  });
+
+  await prisma.match.create({
+    data: {
+      seasonId: competition.seasonId,
+      competitionId,
+      competitionCategoryId,
+      matchType,
+      roundNumber,
+      bracketPosition,
+      status: "scheduled",
+      ...sideData
+    }
+  });
+}
+
+async function advanceTournamentResult(matchId: string, winnerPlayerId: string | null) {
+  const match = await prisma.match.findUniqueOrThrow({
+    where: { id: matchId },
+    select: {
+      id: true,
+      competitionId: true,
+      competitionCategoryId: true,
+      matchType: true,
+      roundNumber: true,
+      bracketPosition: true,
+      homePlayerId: true,
+      awayPlayerId: true,
+      homePlayerNameAtMatchTime: true,
+      awayPlayerNameAtMatchTime: true
+    }
+  });
+
+  if (!winnerPlayerId || !match.roundNumber || !match.bracketPosition) return;
+  if (match.matchType !== "tournament_knockout" && match.matchType !== "tournament_consolation") return;
+  const progressionMatchType = match.matchType;
+
+  const winner = playerSide(match, winnerPlayerId);
+  const loserPlayerId = winnerPlayerId === match.homePlayerId ? match.awayPlayerId : match.homePlayerId;
+  const loser = playerSide(match, loserPlayerId);
+  if (!winner) return;
+
+  const drawEntries = match.matchType === "tournament_knockout"
+    ? await prisma.tournamentDrawEntry.findMany({
+        where: { competitionCategoryId: match.competitionCategoryId, bracketType: "main" },
+        select: { id: true }
+      })
+    : await prisma.tournamentDrawEntry.findMany({
+        where: { competitionCategoryId: match.competitionCategoryId, bracketType: "consolation" },
+        select: { id: true, playerId: true }
+      });
+  const bracketSize = drawEntries.length;
+  const totalRounds = Math.ceil(Math.log2(Math.max(bracketSize, 2)));
+
+  if (match.matchType === "tournament_knockout" && match.roundNumber === 1 && loser && bracketSize >= 8) {
+    await prisma.tournamentDrawEntry.updateMany({
+      where: {
+        competitionCategoryId: match.competitionCategoryId,
+        bracketType: "consolation",
+        bracketPosition: match.bracketPosition
+      },
+      data: {
+        playerId: loser.playerId,
+        playerNameAtTime: loser.playerName,
+        isBye: false
+      }
+    });
+
+    const consolationPosition = match.bracketPosition;
+    const siblingPosition = consolationPosition % 2 === 1 ? consolationPosition + 1 : consolationPosition - 1;
+    const sibling = await prisma.tournamentDrawEntry.findFirst({
+      where: {
+        competitionCategoryId: match.competitionCategoryId,
+        bracketType: "consolation",
+        bracketPosition: siblingPosition,
+        playerId: { not: null }
+      }
+    });
+
+    if (sibling) {
+      await setTournamentMatchSide({
+        competitionId: match.competitionId,
+        competitionCategoryId: match.competitionCategoryId,
+        matchType: "tournament_consolation",
+        roundNumber: 1,
+        bracketPosition: Math.ceil(consolationPosition / 2),
+        side: consolationPosition % 2 === 1 ? "home" : "away",
+        playerId: loser.playerId,
+        playerName: loser.playerName
+      });
+      await setTournamentMatchSide({
+        competitionId: match.competitionId,
+        competitionCategoryId: match.competitionCategoryId,
+        matchType: "tournament_consolation",
+        roundNumber: 1,
+        bracketPosition: Math.ceil(consolationPosition / 2),
+        side: siblingPosition % 2 === 1 ? "home" : "away",
+        playerId: sibling.playerId!,
+        playerName: sibling.playerNameAtTime
+      });
+    }
+  }
+
+  if (match.roundNumber < totalRounds) {
+    await setTournamentMatchSide({
+      competitionId: match.competitionId,
+      competitionCategoryId: match.competitionCategoryId,
+      matchType: progressionMatchType,
+      roundNumber: match.roundNumber + 1,
+      bracketPosition: Math.ceil(match.bracketPosition / 2),
+      side: match.bracketPosition % 2 === 1 ? "home" : "away",
+      playerId: winner.playerId,
+      playerName: winner.playerName
+    });
+  }
+
+  if (match.matchType === "tournament_knockout" && match.roundNumber === totalRounds - 1 && loser) {
+    await setTournamentMatchSide({
+      competitionId: match.competitionId,
+      competitionCategoryId: match.competitionCategoryId,
+      matchType: "tournament_third_place",
+      roundNumber: totalRounds,
+      bracketPosition: 1,
+      side: match.bracketPosition % 2 === 1 ? "home" : "away",
+      playerId: loser.playerId,
+      playerName: loser.playerName
+    });
+  }
 }
 
 async function canManageClub(userId: string, clubId?: string | null) {
@@ -553,6 +791,7 @@ export async function saveLeagueAction(formData: FormData) {
     name: textValue(formData.get("name")),
     description: textValue(formData.get("description")),
     type: textValue(formData.get("type")) ?? "individual_league",
+    bestOfSets: textValue(formData.get("bestOfSets")) ?? "5",
     registrationDeadline: textValue(formData.get("registrationDeadline")),
     startsAt: textValue(formData.get("startsAt")),
     endsAt: textValue(formData.get("endsAt")),
@@ -568,6 +807,7 @@ export async function saveLeagueAction(formData: FormData) {
           name: parsed.name,
           description: parsed.description,
           type: parsed.type,
+          bestOfSets: parsed.bestOfSets,
           registrationDeadline: new Date(parsed.registrationDeadline),
           startsAt: new Date(parsed.startsAt),
           endsAt: new Date(parsed.endsAt)
@@ -579,6 +819,7 @@ export async function saveLeagueAction(formData: FormData) {
           name: parsed.name,
           description: parsed.description,
           type: parsed.type,
+          bestOfSets: parsed.bestOfSets,
           status: "draft",
           registrationDeadline: new Date(parsed.registrationDeadline),
           startsAt: new Date(parsed.startsAt),
@@ -707,6 +948,8 @@ export async function saveTournamentAction(formData: FormData) {
     name: textValue(formData.get("name")),
     description: textValue(formData.get("description")),
     hostClubId: textValue(formData.get("hostClubId")),
+    refereeName: textValue(formData.get("refereeName")),
+    bestOfSets: textValue(formData.get("bestOfSets")) ?? "5",
     registrationDeadline: textValue(formData.get("registrationDeadline")),
     startsAt: textValue(formData.get("startsAt")),
     endsAt: textValue(formData.get("endsAt")),
@@ -746,6 +989,8 @@ export async function saveTournamentAction(formData: FormData) {
           name: parsed.name,
           description: parsed.description,
           hostClubId: parsed.hostClubId,
+          refereeName: parsed.refereeName,
+          bestOfSets: parsed.bestOfSets,
           registrationDeadline: new Date(parsed.registrationDeadline),
           startsAt: new Date(parsed.startsAt),
           endsAt: new Date(parsed.endsAt)
@@ -759,6 +1004,8 @@ export async function saveTournamentAction(formData: FormData) {
           name: parsed.name,
           description: parsed.description,
           hostClubId: parsed.hostClubId,
+          refereeName: parsed.refereeName,
+          bestOfSets: parsed.bestOfSets,
           registrationDeadline: new Date(parsed.registrationDeadline),
           startsAt: new Date(parsed.startsAt),
           endsAt: new Date(parsed.endsAt)
@@ -816,6 +1063,9 @@ export async function saveTournamentAction(formData: FormData) {
         return categoryId === competitionCategory.id ? playerId : null;
       })
       .filter(Boolean) as string[];
+    if (seedPlayerIds.length > 8) {
+      throw new Error("Selecciona como máximo 8 cabezas de serie por categoría.");
+    }
     const seeds = seedPlayerIds
       .map((playerId, index) => players.find((player) => player.id === playerId) && { playerId, index })
       .filter(Boolean) as Array<{ playerId: string; index: number }>;
@@ -869,16 +1119,12 @@ export async function saveTournamentAction(formData: FormData) {
       });
     } else {
       const bracketSize = nextPowerOfTwo(players.length);
-      const seededPlayers = seeds
-        .map((seed) => players.find((player) => player.id === seed.playerId))
-        .filter((player): player is typeof players[number] => Boolean(player));
-      const remaining = shuffle(players.filter((player) => !seeds.some((seed) => seed.playerId === player.id)));
-      const ordered = [...seededPlayers, ...remaining] as typeof players;
-      const entries = Array.from({ length: bracketSize }, (_, index) => ordered[index] ?? null);
+      const entries = buildSeededBracketEntries(players, seeds, bracketSize);
 
       await prisma.tournamentDrawEntry.createMany({
         data: entries.map((player, index) => ({
           competitionCategoryId: competitionCategory.id,
+          bracketType: "main",
           playerId: player?.id ?? null,
           playerNameAtTime: player ? `${player.firstName} ${player.lastName}` : null,
           seedNumber: player
@@ -888,6 +1134,19 @@ export async function saveTournamentAction(formData: FormData) {
           isBye: !player
         }))
       });
+
+      if (bracketSize >= 8) {
+        await prisma.tournamentDrawEntry.createMany({
+          data: Array.from({ length: bracketSize / 2 }, (_, index) => ({
+            competitionCategoryId: competitionCategory.id,
+            bracketType: "consolation",
+            playerId: null,
+            playerNameAtTime: `Perdedor partido ${index + 1}`,
+            bracketPosition: index + 1,
+            isBye: false
+          }))
+        });
+      }
 
       await prisma.match.createMany({
         data: Array.from({ length: bracketSize / 2 }, (_, index) => {
@@ -909,6 +1168,20 @@ export async function saveTournamentAction(formData: FormData) {
           };
         })
       });
+
+      if (bracketSize >= 4) {
+        await prisma.match.create({
+          data: {
+            seasonId: season.id,
+            competitionId: competition.id,
+            competitionCategoryId: competitionCategory.id,
+            matchType: "tournament_third_place" as const,
+            roundNumber: Math.ceil(Math.log2(bracketSize)),
+            bracketPosition: 1,
+            status: "scheduled" as const
+          }
+        });
+      }
     }
   }
 
@@ -984,8 +1257,7 @@ export async function saveTeamAction(formData: FormData) {
 export async function saveMatchResultAction(formData: FormData) {
   const currentUser = await requireUser();
   const parsed = matchResultSchema.parse({
-    matchId: textValue(formData.get("matchId")),
-    setScores: textValue(formData.get("setScores"))
+    matchId: textValue(formData.get("matchId"))
   });
 
   await assertCanEditMatchResult(parsed.matchId, currentUser);
@@ -996,11 +1268,12 @@ export async function saveMatchResultAction(formData: FormData) {
       id: true,
       competitionId: true,
       homePlayerId: true,
-      awayPlayerId: true
+      awayPlayerId: true,
+      competition: { select: { bestOfSets: true } }
     }
   });
 
-  const { sets, homeSets, awaySets } = parseSetScores(parsed.setScores);
+  const { sets, homeSets, awaySets } = parseSetScores(formData, match.competition.bestOfSets);
   const winnerPlayerId = homeSets > awaySets ? match.homePlayerId : match.awayPlayerId;
 
   await prisma.$transaction([
@@ -1017,6 +1290,8 @@ export async function saveMatchResultAction(formData: FormData) {
       data: sets.map((set) => ({ ...set, matchId: match.id }))
     })
   ]);
+
+  await advanceTournamentResult(match.id, winnerPlayerId);
 
   revalidatePath(`/leagues/${match.competitionId}`);
   revalidatePath(`/leagues/${match.competitionId}/edit`);

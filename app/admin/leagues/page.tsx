@@ -65,6 +65,7 @@ export default async function LeaguesPage() {
               <div>
                 <strong><Link href={`/leagues/${league.id}`}>{league.name}</Link></strong>
                 <span>{league.type === "individual_league" ? "Individual" : "Por equipos"}</span>
+                <span>Mejor de {league.bestOfSets}</span>
               </div>
               <p>
                 <span>Inscripción: {league.registrationDeadline?.toLocaleDateString("es-ES") ?? "Sin límite"}</span>
@@ -96,6 +97,12 @@ function LeagueForm({
       <input type="hidden" name="type" value={type} />
       <label>Nombre<input name="name" required /></label>
       <label>Descripción<textarea name="description" rows={3} /></label>
+      <label>Formato de partido
+        <select name="bestOfSets" defaultValue="5">
+          <option value="5">Al mejor de 5 sets</option>
+          <option value="3">Al mejor de 3 sets</option>
+        </select>
+      </label>
       <div className="form-row">
         <label>Límite inscripción<input name="registrationDeadline" type="date" required /></label>
         <label>Inicio<input name="startsAt" type="date" required /></label>

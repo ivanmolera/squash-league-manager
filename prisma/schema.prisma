@@ -73,6 +73,8 @@ enum MatchType {
   team_rubber
   tournament_knockout
   tournament_round_robin
+  tournament_consolation
+  tournament_third_place
 
   @@map("match_type")
 }
@@ -241,6 +243,8 @@ model Competition {
   status      CompetitionStatus      @default(draft)
   name        String
   description String?
+  bestOfSets  Int                    @default(5) @map("best_of_sets")
+  refereeName String?                @map("referee_name")
   registrationDeadline DateTime?        @map("registration_deadline") @db.Timestamptz(6)
   startsAt    DateTime?              @map("starts_at") @db.Timestamptz(6)
   endsAt      DateTime?              @map("ends_at") @db.Timestamptz(6)
@@ -251,6 +255,7 @@ model Competition {
   hostClub    Club?                  @relation(fields: [hostClubId], references: [id], onDelete: SetNull)
   categories  CompetitionCategory[]
   participants CompetitionParticipant[]
+  matches      Match[]
 
   @@unique([seasonId, type, name])
   @@map("competitions")
@@ -398,6 +403,7 @@ model Match {
   awayTeamNameAtMatchTime   String?   @map("away_team_name_at_match_time")
   createdAt              DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime    @default(now()) @map("updated_at") @db.Timestamptz(6)
+  competition            Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
   sets                   MatchSet[]
 
   @@map("matches")
@@ -468,6 +474,7 @@ model TournamentSeed {
 model TournamentDrawEntry {
   id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   competitionCategoryId  String   @map("competition_category_id") @db.Uuid
+  bracketType           String   @default("main") @map("bracket_type")
   playerId              String?  @map("player_id") @db.Uuid
   playerNameAtTime      String?  @map("player_name_at_time")
   seedNumber            Int?     @map("seed_number")
@@ -476,7 +483,7 @@ model TournamentDrawEntry {
   createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   competitionCategory    CompetitionCategory @relation(fields: [competitionCategoryId], references: [id], onDelete: Cascade)
 
-  @@unique([competitionCategoryId, bracketPosition])
+  @@unique([competitionCategoryId, bracketType, bracketPosition])
   @@map("tournament_draw_entries")
 }
 

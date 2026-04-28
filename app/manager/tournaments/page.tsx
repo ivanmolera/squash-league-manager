@@ -38,6 +38,13 @@ export default async function TournamentsPage() {
             <h2>Nuevo torneo</h2>
             <label>Nombre<input name="name" required /></label>
             <label>Descripción<textarea name="description" rows={3} /></label>
+            <label>Juez árbitro<input name="refereeName" /></label>
+            <label>Formato de partido
+              <select name="bestOfSets" defaultValue="5">
+                <option value="5">Al mejor de 5 sets</option>
+                <option value="3">Al mejor de 3 sets</option>
+              </select>
+            </label>
             <label>Club sede
               <select name="hostClubId" required>
                 {editableClubs.map((club) => <option key={club.id} value={club.id}>{club.name}</option>)}
@@ -75,6 +82,8 @@ export default async function TournamentsPage() {
               <article className="row-card" key={tournament.id}>
                 <strong><Link href={`/tournaments/${tournament.id}`}>{tournament.name}</Link></strong>
                 <span>{clubs.find((club) => club.id === tournament.hostClubId)?.name ?? "Sin sede"}</span>
+                <span>Juez árbitro: {tournament.refereeName ?? "Sin asignar"}</span>
+                <span>Mejor de {tournament.bestOfSets}</span>
                 <span>Inscripción: {tournament.registrationDeadline?.toLocaleDateString("es-ES") ?? "Sin límite"}</span>
                 <span>Inicio: {tournament.startsAt?.toLocaleDateString("es-ES")}</span>
                 {isAdmin || editableClubs.some((club) => club.id === tournament.hostClubId) ? (

@@ -67,6 +67,13 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
         <input type="hidden" name="competitionId" value={tournament.id} />
         <label>Nombre<input name="name" defaultValue={tournament.name} required /></label>
         <label>Descripción<textarea name="description" rows={3} defaultValue={tournament.description ?? ""} /></label>
+        <label>Juez árbitro<input name="refereeName" defaultValue={tournament.refereeName ?? ""} /></label>
+        <label>Formato de partido
+          <select name="bestOfSets" defaultValue={tournament.bestOfSets}>
+            <option value="5">Al mejor de 5 sets</option>
+            <option value="3">Al mejor de 3 sets</option>
+          </select>
+        </label>
         <label>Club sede
           <select name="hostClubId" defaultValue={tournament.hostClubId ?? ""} required>
             {editableClubs.map((club) => <option key={club.id} value={club.id}>{club.name}</option>)}

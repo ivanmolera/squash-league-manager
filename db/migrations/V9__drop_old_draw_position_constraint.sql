@@ -1,0 +1,2 @@
+ALTER TABLE tournament_draw_entries
+  DROP CONSTRAINT IF EXISTS tournament_draw_entries_competition_category_id_bracket_pos_key;

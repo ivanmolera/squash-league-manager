@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { saveMatchResultAction } from "@/app/admin/actions";
+import { MatchResultForm } from "@/app/match-result-form";
 import { getCurrentUser } from "@/src/lib/auth";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
@@ -41,7 +41,7 @@ type TeamTie = Awaited<ReturnType<typeof getTeamTies>>[number];
 async function getLeagueMatches(competitionId: string, competitionCategoryId?: string) {
   return prisma.match.findMany({
     where: { competitionId, ...(competitionCategoryId ? { competitionCategoryId } : {}) },
-    include: { sets: { orderBy: { setNumber: "asc" } } },
+    include: { competition: { select: { bestOfSets: true } }, sets: { orderBy: { setNumber: "asc" } } },
     orderBy: [{ roundNumber: "asc" }, { matchOrder: "asc" }, { bracketPosition: "asc" }]
   });
 }
@@ -129,25 +129,8 @@ function scoreText(match: MatchWithSets, pendingLabel: string) {
   return `${homeSets}-${awaySets} (${sets})`;
 }
 
-function defaultSetInput(match: MatchWithSets) {
-  return match.sets.map((set) => `${set.homePoints}-${set.awayPoints}`).join(", ");
-}
-
 function dateTime(value: Date | null, locale: string, noDateLabel: string) {
   return value ? value.toLocaleString(locale, { dateStyle: "short", timeStyle: "short" }) : noDateLabel;
-}
-
-function ResultForm({ match, labels }: { match: MatchWithSets; labels: { sets: string; save: string } }) {
-  return (
-    <form className="result-form" action={saveMatchResultAction}>
-      <input type="hidden" name="matchId" value={match.id} />
-      <label>
-        {labels.sets}
-        <input name="setScores" defaultValue={defaultSetInput(match)} placeholder="11-8, 11-9, 11-7" />
-      </label>
-      <button type="submit">{labels.save}</button>
-    </form>
-  );
 }
 
 export async function LeagueStandings({
@@ -344,7 +327,7 @@ export async function LeagueCategoryCalendar({
                     </div>
                     <div className="compact-result">
                       <span>{scoreText(match, t.pending)}</span>
-                      {canEditLeagueMatch(match, editContext) ? <ResultForm match={match} labels={{ sets: t.sets, save: t.saveResult }} /> : null}
+                      {canEditLeagueMatch(match, editContext) ? <MatchResultForm match={match} labels={{ sets: t.sets, save: t.saveResult }} /> : null}
                     </div>
                   </div>
                 ))}
@@ -396,7 +379,7 @@ export async function LeagueCategoryCalendar({
                       {tieMatches.map((match) => (
                         <div className="rubber-row" key={match.id}>
                           <p>{match.matchOrder}. {match.homePlayerNameAtMatchTime} vs {match.awayPlayerNameAtMatchTime}: {scoreText(match, t.pending)}</p>
-                          {canEditLeagueMatch(match, editContext) ? <ResultForm match={match} labels={{ sets: t.sets, save: t.saveResult }} /> : null}
+                          {canEditLeagueMatch(match, editContext) ? <MatchResultForm match={match} labels={{ sets: t.sets, save: t.saveResult }} /> : null}
                         </div>
                       ))}
                     </div>

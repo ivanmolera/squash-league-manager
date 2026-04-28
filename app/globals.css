@@ -768,6 +768,38 @@ h1 {
   grid-template-columns: minmax(180px, 1fr) auto;
 }
 
+.structured-result-form {
+  align-items: start;
+  grid-template-columns: minmax(240px, 1fr) auto;
+}
+
+.structured-result-form fieldset {
+  border: 0;
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+}
+
+.structured-result-form legend {
+  font-size: 0.82rem;
+  font-weight: 900;
+  margin-bottom: 2px;
+}
+
+.set-score-row {
+  align-items: center;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: 48px minmax(56px, 1fr) auto minmax(56px, 1fr);
+}
+
+.set-score-row span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
 .result-form label {
   display: grid;
   font-size: 0.82rem;
@@ -775,9 +807,11 @@ h1 {
   gap: 6px;
 }
 
-.result-form input {
+.result-form input,
+.result-form select {
   border: 1px solid var(--line);
   border-radius: 8px;
+  background: white;
   font: inherit;
   min-height: 38px;
   padding: 8px 10px;
