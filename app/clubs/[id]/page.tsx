@@ -11,7 +11,17 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
   const [club, currentUser] = await Promise.all([
     prisma.club.findUnique({
       where: { id },
-      include: { manager: true, teams: { include: { rosters: { include: { player: true } }, } } }
+      include: {
+        manager: true,
+        teams: {
+          include: { rosters: { include: { player: true } } },
+          orderBy: [{ name: "asc" }]
+        },
+        memberships: {
+          include: { player: true, season: true },
+          orderBy: [{ player: { lastName: "asc" } }, { player: { firstName: "asc" } }]
+        }
+      }
     }),
     getCurrentUser()
   ]);
@@ -46,6 +56,14 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
           {club.teams.map((team) => (
             <p key={team.id}>
               <Link href={`/teams/${team.id}`}>{team.name}</Link> · {team.rosters.length} jugadores
+            </p>
+          ))}
+        </article>
+        <article className="list-panel">
+          <h2>Jugadores del club</h2>
+          {club.memberships.map((membership) => (
+            <p key={membership.id}>
+              <Link href={`/players/${membership.playerId}`}>{membership.player.lastName}, {membership.player.firstName}</Link> · {membership.season.name}
             </p>
           ))}
         </article>

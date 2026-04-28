@@ -487,6 +487,8 @@ model IndividualRankingSnapshot {
   competitionCategoryId  String   @map("competition_category_id") @db.Uuid
   playerId              String   @map("player_id") @db.Uuid
   clubIdAtThatTime      String?  @map("club_id_at_that_time") @db.Uuid
+  playerNameAtThatTime  String   @map("player_name_at_that_time")
+  clubNameAtThatTime    String?  @map("club_name_at_that_time")
   position              Int
   matchesWon            Int      @default(0) @map("matches_won")
   matchesLost           Int      @default(0) @map("matches_lost")
@@ -510,6 +512,8 @@ model TeamRankingSnapshot {
   competitionCategoryId  String   @map("competition_category_id") @db.Uuid
   teamId                String   @map("team_id") @db.Uuid
   clubId                String   @map("club_id") @db.Uuid
+  teamNameAtThatTime    String   @map("team_name_at_that_time")
+  clubNameAtThatTime    String   @map("club_name_at_that_time")
   position              Int
   tiesWon               Int      @default(0) @map("ties_won")
   tiesDrawn             Int      @default(0) @map("ties_drawn")

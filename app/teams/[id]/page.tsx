@@ -13,7 +13,10 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
       where: { id },
       include: {
         club: true,
-        rosters: { include: { player: true }, orderBy: [{ playerNameAtThatTime: "asc" }] }
+        rosters: {
+          include: { player: true },
+          orderBy: [{ player: { lastName: "asc" } }, { player: { firstName: "asc" } }]
+        }
       }
     }),
     getCurrentUser()

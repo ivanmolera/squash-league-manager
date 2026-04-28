@@ -101,12 +101,12 @@ async function requireAdmin() {
 
 async function getDefaultSeason() {
   return prisma.season.upsert({
-    where: { name: "2026/27" },
+    where: { name: "2025/26" },
     update: {},
     create: {
-      name: "2026/27",
-      startsAt: new Date("2026-09-01"),
-      endsAt: new Date("2027-06-30"),
+      name: "2025/26",
+      startsAt: new Date("2025-09-01"),
+      endsAt: new Date("2026-06-30"),
       status: "active"
     }
   });
