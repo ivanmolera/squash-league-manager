@@ -80,6 +80,7 @@ a {
   display: flex;
   gap: 8px;
   margin-left: auto;
+  position: relative;
 }
 
 .locale-form label {
@@ -90,7 +91,6 @@ a {
 }
 
 .locale-form select,
-.locale-form button,
 .admin-form input,
 .admin-form select,
 .admin-form textarea,
@@ -105,11 +105,19 @@ a {
   padding: 8px 10px;
 }
 
-.locale-form button {
-  background: var(--accent);
-  color: white;
-  cursor: pointer;
+.locale-warning {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  color: #9a3412;
+  font-size: 0.78rem;
   font-weight: 800;
+  max-width: 240px;
+  padding: 8px 10px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 5;
 }
 
 .intro {
@@ -414,6 +422,47 @@ h1 {
   font-weight: 700;
 }
 
+.cookie-banner {
+  align-items: center;
+  background: var(--foreground);
+  border-radius: 8px;
+  bottom: 18px;
+  box-shadow: 0 16px 40px rgba(23, 32, 38, 0.22);
+  color: white;
+  display: flex;
+  gap: 18px;
+  left: 50%;
+  max-width: 920px;
+  padding: 18px;
+  position: fixed;
+  transform: translateX(-50%);
+  width: calc(100% - 36px);
+  z-index: 20;
+}
+
+.cookie-banner h2 {
+  font-size: 1rem;
+  margin: 0 0 6px;
+}
+
+.cookie-banner p {
+  line-height: 1.5;
+  margin: 0;
+}
+
+.cookie-banner button {
+  background: var(--accent);
+  border: 0;
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  flex: 0 0 auto;
+  font: inherit;
+  font-weight: 900;
+  min-height: 42px;
+  padding: 10px 14px;
+}
+
 @media (max-width: 640px) {
   .topbar {
     display: grid;
@@ -438,5 +487,23 @@ h1 {
   .locale-form {
     margin-left: 0;
     width: 100%;
+  }
+
+  .locale-form label {
+    width: 100%;
+  }
+
+  .locale-form select {
+    width: 100%;
+  }
+
+  .locale-warning {
+    left: 0;
+    right: auto;
+  }
+
+  .cookie-banner {
+    align-items: stretch;
+    display: grid;
   }
 }

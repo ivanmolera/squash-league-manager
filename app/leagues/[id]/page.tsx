@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
+import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +26,7 @@ export default async function LeagueDetailPage({ params }: { params: Promise<{ i
     }),
     getCurrentUser()
   ]);
+  const { t } = await getDictionary();
 
   if (!league || !["individual_league", "team_league"].includes(league.type)) notFound();
 
@@ -44,23 +46,23 @@ export default async function LeagueDetailPage({ params }: { params: Promise<{ i
       <Navigation />
       <section className="detail-header">
         <div>
-          <p className="eyebrow">Liga</p>
+          <p className="eyebrow">{t.league}</p>
           <h1>{league.name}</h1>
         </div>
-        {isAdmin ? <Link className="primary-link" href={`/leagues/${league.id}/edit`}>Editar</Link> : null}
+        {isAdmin ? <Link className="primary-link" href={`/leagues/${league.id}/edit`}>{t.edit}</Link> : null}
       </section>
       <section className="detail-grid">
         <article className="list-panel">
-          <h2>Datos de la liga</h2>
-          <p><strong>Tipo:</strong> {league.type === "individual_league" ? "Individual" : "Equipos"}</p>
-          <p><strong>Descripcion:</strong> {league.description ?? "No informada"}</p>
-          <p><strong>Temporada:</strong> {league.season.name}</p>
-          <p><strong>Limite inscripcion:</strong> {league.registrationDeadline?.toLocaleDateString("es-ES") ?? "Sin limite"}</p>
-          <p><strong>Inicio:</strong> {league.startsAt?.toLocaleDateString("es-ES") ?? "Sin fecha"}</p>
-          <p><strong>Fin:</strong> {league.endsAt?.toLocaleDateString("es-ES") ?? "Sin fecha"}</p>
+          <h2>{t.leagueDetails}</h2>
+          <p><strong>{t.type}:</strong> {t[league.type as keyof typeof t]}</p>
+          <p><strong>{t.description}:</strong> {league.description ?? t.notProvidedFemale}</p>
+          <p><strong>{t.season}:</strong> {league.season.name}</p>
+          <p><strong>{t.registration}:</strong> {league.registrationDeadline?.toLocaleDateString("es-ES") ?? t.noDeadline}</p>
+          <p><strong>{t.start}:</strong> {league.startsAt?.toLocaleDateString("es-ES") ?? t.noDate}</p>
+          <p><strong>{t.end}:</strong> {league.endsAt?.toLocaleDateString("es-ES") ?? t.noDate}</p>
         </article>
         <article className="list-panel">
-          <h2>Participantes</h2>
+          <h2>{t.participants}</h2>
           {participants.map((participant) => (
             <p key={participant.id}>
               <span>{participant.competitionCategory.category.name}</span> ·{" "}
@@ -68,7 +70,7 @@ export default async function LeagueDetailPage({ params }: { params: Promise<{ i
                 <Link href={`/players/${participant.player.id}`}>{participant.player.lastName}, {participant.player.firstName}</Link>
               ) : participant.club ? (
                 <Link href={`/clubs/${participant.club.id}`}>{participant.club.name}</Link>
-              ) : "Participante sin datos"}
+              ) : t.notProvided}
             </p>
           ))}
         </article>

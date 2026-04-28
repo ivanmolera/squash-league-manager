@@ -20,7 +20,7 @@ export default async function ClubsPage() {
       <section className="page-heading">
         <p className="eyebrow">Admin</p>
         <h1>Clubes</h1>
-        <p className="muted">Alta y modificacion de clubes, con manager unico por club.</p>
+        <p className="muted">Alta y modificación de clubes, con manager único por club.</p>
       </section>
       <section className="work-grid">
         {isAdmin ? (
@@ -42,14 +42,14 @@ export default async function ClubsPage() {
               <article className="row-card" key={club.id}>
                 <strong><Link href={`/clubs/${club.id}`}>{club.name}</Link></strong>
                 <span>{club.province ?? "Sin provincia"}</span>
-                <span>{club.address ?? "Sin direccion"}</span>
+                <span>{club.address ?? "Sin dirección"}</span>
                 <Link className="secondary-link" href={`/clubs/${club.id}/edit`}>Editar</Link>
               </article>
             ) : (
               <article className="row-card" key={club.id}>
                 <strong><Link href={`/clubs/${club.id}`}>{club.name}</Link></strong>
                 <span>{club.province ?? "Sin provincia"}</span>
-                <span>{club.address ?? "Sin direccion"}</span>
+                <span>{club.address ?? "Sin dirección"}</span>
               </article>
             )
           ))}
@@ -77,7 +77,7 @@ function ClubFields({
       </div>
       <div className="form-row">
         <label>Web<input name="websiteUrl" type="url" defaultValue={club?.websiteUrl ?? ""} /></label>
-        <label>Direccion<input name="address" defaultValue={club?.address ?? ""} /></label>
+        <label>Dirección<input name="address" defaultValue={club?.address ?? ""} /></label>
       </div>
       <label>Manager
         <select name="managerUserId" defaultValue={club?.managerUserId ?? ""} disabled={!isAdmin}>
@@ -91,7 +91,7 @@ function ClubFields({
       </label>
       <label className="check-line">
         <input name="showContactPublic" type="checkbox" defaultChecked={club?.showContactPublic ?? true} />
-        Mostrar datos de contacto publicamente
+        Mostrar datos de contacto públicamente
       </label>
     </>
   );

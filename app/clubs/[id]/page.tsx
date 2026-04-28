@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
+import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +26,7 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
     }),
     getCurrentUser()
   ]);
+  const { t } = await getDictionary();
 
   if (!club) notFound();
 
@@ -37,30 +39,30 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
       <Navigation />
       <section className="detail-header">
         <div>
-          <p className="eyebrow">Club</p>
+          <p className="eyebrow">{t.club}</p>
           <h1>{club.name}</h1>
         </div>
-        {canEdit ? <Link className="primary-link" href={`/clubs/${club.id}/edit`}>Editar</Link> : null}
+        {canEdit ? <Link className="primary-link" href={`/clubs/${club.id}/edit`}>{t.edit}</Link> : null}
       </section>
       <section className="detail-grid">
         <article className="list-panel">
-          <h2>Datos del club</h2>
-          <p><strong>Provincia:</strong> {club.province ?? "No informada"}</p>
-          <p><strong>Ciudad:</strong> {club.city ?? "No informada"}</p>
-          <p><strong>Direccion:</strong> {canSeeContact ? club.address ?? "No informada" : "Privada"}</p>
-          <p><strong>Web:</strong> {canSeeContact ? club.websiteUrl ?? "No informada" : "Privada"}</p>
-          <p><strong>Manager:</strong> {club.manager?.displayName ?? club.manager?.email ?? "No asignado"}</p>
+          <h2>{t.clubDetails}</h2>
+          <p><strong>{t.province}:</strong> {club.province ?? t.notProvidedFemale}</p>
+          <p><strong>{t.city}:</strong> {club.city ?? t.notProvidedFemale}</p>
+          <p><strong>{t.address}:</strong> {canSeeContact ? club.address ?? t.notProvidedFemale : t.privateFemaleValue}</p>
+          <p><strong>{t.website}:</strong> {canSeeContact ? club.websiteUrl ?? t.notProvidedFemale : t.privateFemaleValue}</p>
+          <p><strong>{t.assignedManager}:</strong> {club.manager?.displayName ?? club.manager?.email ?? t.noManager}</p>
         </article>
         <article className="list-panel">
-          <h2>Equipos</h2>
+          <h2>{t.teams}</h2>
           {club.teams.map((team) => (
             <p key={team.id}>
-              <Link href={`/teams/${team.id}`}>{team.name}</Link> · {team.rosters.length} jugadores
+              <Link href={`/teams/${team.id}`}>{team.name}</Link> · {team.rosters.length} {t.players.toLowerCase()}
             </p>
           ))}
         </article>
         <article className="list-panel">
-          <h2>Jugadores del club</h2>
+          <h2>{t.clubPlayers}</h2>
           {club.memberships.map((membership) => (
             <p key={membership.id}>
               <Link href={`/players/${membership.playerId}`}>{membership.player.lastName}, {membership.player.firstName}</Link> · {membership.season.name}

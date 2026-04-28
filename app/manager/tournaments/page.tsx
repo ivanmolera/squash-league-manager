@@ -36,14 +36,14 @@ export default async function TournamentsPage() {
           <form className="admin-form wide-form" action={saveTournamentAction}>
             <h2>Nuevo torneo</h2>
             <label>Nombre<input name="name" required /></label>
-            <label>Descripcion<textarea name="description" rows={3} /></label>
+            <label>Descripción<textarea name="description" rows={3} /></label>
             <label>Club sede
               <select name="hostClubId" required>
                 {editableClubs.map((club) => <option key={club.id} value={club.id}>{club.name}</option>)}
               </select>
             </label>
             <div className="form-row">
-              <label>Limite inscripcion<input name="registrationDeadline" type="date" required /></label>
+              <label>Límite inscripción<input name="registrationDeadline" type="date" required /></label>
               <label>Inicio<input name="startsAt" type="date" required /></label>
             </div>
             <div className="form-row">
@@ -72,7 +72,7 @@ export default async function TournamentsPage() {
         ) : (
           <section className="list-panel">
             <h2>Solo lectura</h2>
-            <p className="muted">Inicia sesion como manager o admin para crear torneos.</p>
+            <p className="muted">Inicia sesión como manager o admin para crear torneos.</p>
           </section>
         )}
 
@@ -83,7 +83,7 @@ export default async function TournamentsPage() {
               <article className="row-card" key={tournament.id}>
                 <strong><Link href={`/tournaments/${tournament.id}`}>{tournament.name}</Link></strong>
                 <span>{clubs.find((club) => club.id === tournament.hostClubId)?.name ?? "Sin sede"}</span>
-                <span>Inscripcion: {tournament.registrationDeadline?.toLocaleDateString("es-ES") ?? "Sin limite"}</span>
+                <span>Inscripción: {tournament.registrationDeadline?.toLocaleDateString("es-ES") ?? "Sin límite"}</span>
                 <span>Inicio: {tournament.startsAt?.toLocaleDateString("es-ES")}</span>
                 {isAdmin || editableClubs.some((club) => club.id === tournament.hostClubId) ? (
                   <Link className="secondary-link" href={`/tournaments/${tournament.id}/edit`}>Editar</Link>

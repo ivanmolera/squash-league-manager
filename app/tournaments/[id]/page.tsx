@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
+import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,7 @@ export default async function TournamentDetailPage({ params }: { params: Promise
     }),
     getCurrentUser()
   ]);
+  const { t } = await getDictionary();
 
   if (!tournament || tournament.type !== "tournament") notFound();
 
@@ -46,35 +48,35 @@ export default async function TournamentDetailPage({ params }: { params: Promise
       <Navigation />
       <section className="detail-header">
         <div>
-          <p className="eyebrow">Torneo</p>
+          <p className="eyebrow">{t.tournament}</p>
           <h1>{tournament.name}</h1>
         </div>
-        {canEdit ? <Link className="primary-link" href={`/tournaments/${tournament.id}/edit`}>Editar</Link> : null}
+        {canEdit ? <Link className="primary-link" href={`/tournaments/${tournament.id}/edit`}>{t.edit}</Link> : null}
       </section>
       <section className="detail-grid">
         <article className="list-panel">
-          <h2>Datos del torneo</h2>
-          <p><strong>Club sede:</strong> {tournament.hostClub ? <Link href={`/clubs/${tournament.hostClub.id}`}>{tournament.hostClub.name}</Link> : "Sin sede"}</p>
-          <p><strong>Descripcion:</strong> {tournament.description ?? "No informada"}</p>
-          <p><strong>Limite inscripcion:</strong> {tournament.registrationDeadline?.toLocaleDateString("es-ES") ?? "Sin limite"}</p>
-          <p><strong>Inicio:</strong> {tournament.startsAt?.toLocaleDateString("es-ES") ?? "Sin fecha"}</p>
-          <p><strong>Fin:</strong> {tournament.endsAt?.toLocaleDateString("es-ES") ?? "Sin fecha"}</p>
+          <h2>{t.tournamentDetails}</h2>
+          <p><strong>{t.club}:</strong> {tournament.hostClub ? <Link href={`/clubs/${tournament.hostClub.id}`}>{tournament.hostClub.name}</Link> : t.noVenue}</p>
+          <p><strong>{t.description}:</strong> {tournament.description ?? t.notProvidedFemale}</p>
+          <p><strong>{t.registration}:</strong> {tournament.registrationDeadline?.toLocaleDateString("es-ES") ?? t.noDeadline}</p>
+          <p><strong>{t.start}:</strong> {tournament.startsAt?.toLocaleDateString("es-ES") ?? t.noDate}</p>
+          <p><strong>{t.end}:</strong> {tournament.endsAt?.toLocaleDateString("es-ES") ?? t.noDate}</p>
         </article>
         <article className="list-panel">
-          <h2>Participantes</h2>
+          <h2>{t.participants}</h2>
           {participants.map((participant) => (
             <p key={participant.id}>
               <span>{participant.competitionCategory.category.name}</span> ·{" "}
-              {participant.player ? <Link href={`/players/${participant.player.id}`}>{participant.player.lastName}, {participant.player.firstName}</Link> : "Jugador sin datos"}
+              {participant.player ? <Link href={`/players/${participant.player.id}`}>{participant.player.lastName}, {participant.player.firstName}</Link> : t.notProvided}
             </p>
           ))}
         </article>
         <article className="list-panel">
-          <h2>Cabezas de serie</h2>
-          {seeds.length ? seeds.map((seed) => <p key={seed.id}>#{seed.seedNumber} {seed.playerNameAtTime}</p>) : <p>Sin cabezas de serie.</p>}
+          <h2>{t.seeds}</h2>
+          {seeds.length ? seeds.map((seed) => <p key={seed.id}>#{seed.seedNumber} {seed.playerNameAtTime}</p>) : <p>{t.noSeeds}</p>}
         </article>
         <article className="list-panel">
-          <h2>Cuadro</h2>
+          <h2>{t.draw}</h2>
           {drawEntries.map((entry) => (
             <p key={entry.id}>#{entry.bracketPosition} {entry.isBye ? "BYE" : entry.playerNameAtTime}</p>
           ))}

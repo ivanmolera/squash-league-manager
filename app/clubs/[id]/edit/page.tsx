@@ -26,9 +26,9 @@ export default async function EditClubPage({ params }: { params: Promise<{ id: s
         <label>Nombre<input name="name" defaultValue={club.name} required /></label>
         <label>Ciudad<input name="city" defaultValue={club.city ?? ""} /></label>
         <label>Provincia<input name="province" defaultValue={club.province ?? ""} /></label>
-        <label>Direccion<input name="address" defaultValue={club.address ?? ""} /></label>
+        <label>Dirección<input name="address" defaultValue={club.address ?? ""} /></label>
         <label>Web<input name="websiteUrl" type="url" defaultValue={club.websiteUrl ?? ""} /></label>
-        <label className="check-line"><input name="showContactPublic" type="checkbox" defaultChecked={club.showContactPublic} /> Mostrar datos de contacto publicamente</label>
+        <label className="check-line"><input name="showContactPublic" type="checkbox" defaultChecked={club.showContactPublic} /> Mostrar datos de contacto públicamente</label>
         <label>Manager
           <select name="managerUserId" defaultValue={club.managerUserId ?? ""} disabled={!isAdmin}>
             <option value="">Sin manager</option>

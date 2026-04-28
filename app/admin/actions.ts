@@ -83,7 +83,7 @@ async function requireUser() {
   const user = await getCurrentUser();
 
   if (!user) {
-    throw new Error("Debes iniciar sesion para modificar datos.");
+    throw new Error("Debes iniciar sesión para modificar datos.");
   }
 
   return user;

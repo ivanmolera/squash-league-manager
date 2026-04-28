@@ -1,43 +1,33 @@
 import Link from "next/link";
 import { Navigation } from "@/app/navigation";
+import { getDictionary } from "@/src/lib/i18n";
 
-const modules = [
-  {
-    title: "Competiciones",
-    text: "Ligas individuales, ligas por equipos y torneos con categorias."
-  },
-  {
-    title: "Resultados",
-    text: "Partidos al mejor de 5 sets, WO, BYE y auditoria de cambios."
-  },
-  {
-    title: "Historico",
-    text: "Temporadas cerradas, rankings guardados y nombres historicos."
-  }
-];
+export default async function Home() {
+  const { t } = await getDictionary();
+  const modules = [
+    { title: t.moduleCompetitions, text: t.moduleCompetitionsText },
+    { title: t.moduleResults, text: t.moduleResultsText },
+    { title: t.moduleHistory, text: t.moduleHistoryText }
+  ];
 
-export default function Home() {
   return (
     <main className="app-shell">
       <Navigation />
       <section className="public-hero">
         <p className="eyebrow">Squash League Manager</p>
-        <h1>Consulta ligas, torneos, resultados y rankings de squash.</h1>
-        <p className="muted">
-          Esta primera version deja preparada la base publica de consulta y el
-          acceso admin para gestionar los datos.
-        </p>
+        <h1>{t.homeTitle}</h1>
+        <p className="muted">{t.homeText}</p>
         <div className="hero-actions">
           <Link className="primary-link" href="/dashboard">
-            Ver app
+            {t.viewApp}
           </Link>
           <Link className="secondary-link" href="/login">
-            Acceso admin
+            {t.adminAccess}
           </Link>
         </div>
       </section>
 
-      <section className="module-grid" aria-label="Modulos publicos">
+      <section className="module-grid" aria-label={t.publicAccess}>
         {modules.map((module) => (
           <article className="module" key={module.title}>
             <h2>{module.title}</h2>

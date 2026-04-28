@@ -23,7 +23,7 @@ export default async function EditTeamPage({ params }: { params: Promise<{ id: s
         <h1>Editar equipo</h1>
         <input type="hidden" name="teamId" value={team.id} />
         <label>Nombre<input name="name" defaultValue={team.name} required /></label>
-        <label className="check-line"><input name="showRosterPublic" type="checkbox" defaultChecked={team.showRosterPublic} /> Mostrar plantilla publicamente</label>
+        <label className="check-line"><input name="showRosterPublic" type="checkbox" defaultChecked={team.showRosterPublic} /> Mostrar plantilla públicamente</label>
         <button type="submit">Guardar</button>
       </form>
     </main>

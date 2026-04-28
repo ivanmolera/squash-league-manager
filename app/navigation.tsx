@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { setLocaleAction } from "@/app/actions";
+import { LanguageSelector } from "@/app/language-selector";
 import { getDictionary } from "@/src/lib/i18n";
 
 export async function Navigation() {
@@ -13,17 +13,12 @@ export async function Navigation() {
       <Link href="/admin/clubs">{t.clubs}</Link>
       <Link href="/admin/leagues">{t.leagues}</Link>
       <Link href="/manager/tournaments">{t.tournaments}</Link>
-      <form action={setLocaleAction} className="locale-form">
-        <label>
-          {t.language}
-          <select name="locale" defaultValue={locale}>
-            <option value="ca">CA</option>
-            <option value="es">ES</option>
-            <option value="en">EN</option>
-          </select>
-        </label>
-        <button type="submit">OK</button>
-      </form>
+      <LanguageSelector
+        locale={locale}
+        label={t.language}
+        help={t.languageHelp}
+        consentMessage={t.acceptCookiesToChangeLanguage}
+      />
     </nav>
   );
 }

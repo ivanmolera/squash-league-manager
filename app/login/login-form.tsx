@@ -6,23 +6,27 @@ import { loginAction, type LoginState } from "./actions";
 
 const initialState: LoginState = {};
 
-export function LoginForm() {
+export function LoginForm({
+  labels
+}: {
+  labels: { email: string; password: string; signingIn: string; signIn: string };
+}) {
   const [state, formAction, isPending] = useActionState(loginAction, initialState);
 
   return (
     <form className="auth-form" action={formAction}>
       <label>
-        Email
+        {labels.email}
         <input name="email" type="email" autoComplete="email" required />
       </label>
       <label>
-        Password
+        {labels.password}
         <input name="password" type="password" autoComplete="current-password" required />
       </label>
       {state.error ? <p className="form-error">{state.error}</p> : null}
       <button type="submit" disabled={isPending}>
         <LogIn aria-hidden="true" size={18} />
-        {isPending ? "Entrando..." : "Entrar"}
+        {isPending ? labels.signingIn : labels.signIn}
       </button>
     </form>
   );

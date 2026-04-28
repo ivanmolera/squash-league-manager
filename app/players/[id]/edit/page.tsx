@@ -25,7 +25,7 @@ export default async function EditPlayerPage({ params }: { params: Promise<{ id:
         <label>Nombre<input name="firstName" defaultValue={player.firstName} required /></label>
         <label>Apellidos<input name="lastName" defaultValue={player.lastName} required /></label>
         <label>Email<input name="email" type="email" defaultValue={player.user?.email ?? ""} readOnly={!isAdmin} required /></label>
-        <label>Telefono<input name="phone" defaultValue={player.user?.phone ?? ""} /></label>
+        <label>Teléfono<input name="phone" defaultValue={player.user?.phone ?? ""} /></label>
         <label>Idioma
           <select name="preferredLocale" defaultValue={player.user?.preferredLocale ?? "es"}>
             <option value="ca">CA</option><option value="es">ES</option><option value="en">EN</option>
@@ -44,8 +44,8 @@ export default async function EditPlayerPage({ params }: { params: Promise<{ id:
         <label>Altura<input name="heightCm" type="number" defaultValue={player.heightCm ?? ""} /></label>
         <label>Peso<input name="weightKg" type="number" step="0.1" defaultValue={String(player.weightKg ?? "")} /></label>
         <label>Raqueta<input name="racketBrand" defaultValue={player.racketBrand ?? ""} /></label>
-        <label className="check-line"><input name="showContactPublic" type="checkbox" defaultChecked={player.showContactPublic} /> Mostrar email/telefono publicamente</label>
-        <label className="check-line"><input name="showPhysicalPublic" type="checkbox" defaultChecked={player.showPhysicalPublic} /> Mostrar altura/peso publicamente</label>
+        <label className="check-line"><input name="showContactPublic" type="checkbox" defaultChecked={player.showContactPublic} /> Mostrar email/teléfono públicamente</label>
+        <label className="check-line"><input name="showPhysicalPublic" type="checkbox" defaultChecked={player.showPhysicalPublic} /> Mostrar altura/peso públicamente</label>
         {isAdmin ? <label className="check-line"><input name="emailVerified" type="checkbox" defaultChecked={player.user?.emailVerified ?? false} /> Email validado</label> : null}
         <button type="submit">Guardar</button>
       </form>

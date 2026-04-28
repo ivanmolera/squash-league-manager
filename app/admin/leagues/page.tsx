@@ -25,7 +25,7 @@ export default async function LeaguesPage() {
       <section className="page-heading">
         <p className="eyebrow">Admin</p>
         <h1>Ligas</h1>
-        <p className="muted">Creacion, modificacion y generacion automatica de jornadas.</p>
+        <p className="muted">Creación, modificación y generación automática de jornadas.</p>
       </section>
 
       {isAdmin ? (
@@ -42,7 +42,7 @@ export default async function LeaguesPage() {
       ) : (
         <section className="list-panel">
           <h2>Solo lectura</h2>
-          <p className="muted">Inicia sesion como admin para crear o modificar ligas.</p>
+          <p className="muted">Inicia sesión como admin para crear o modificar ligas.</p>
         </section>
       )}
 
@@ -53,7 +53,7 @@ export default async function LeaguesPage() {
             <article className="row-card" key={league.id}>
               <strong><Link href={`/leagues/${league.id}`}>{league.name}</Link></strong>
               <span>{league.type === "individual_league" ? "Individual" : "Equipos"}</span>
-              <span>Inscripcion: {league.registrationDeadline?.toLocaleDateString("es-ES") ?? "Sin limite"}</span>
+              <span>Inscripción: {league.registrationDeadline?.toLocaleDateString("es-ES") ?? "Sin límite"}</span>
               <span>Inicio: {league.startsAt?.toLocaleDateString("es-ES")}</span>
               <span>Fin: {league.endsAt?.toLocaleDateString("es-ES")}</span>
               {isAdmin ? <Link className="secondary-link" href={`/leagues/${league.id}/edit`}>Editar</Link> : null}
@@ -79,9 +79,9 @@ function LeagueForm({
       <h2>{title}</h2>
       <input type="hidden" name="type" value={type} />
       <label>Nombre<input name="name" required /></label>
-      <label>Descripcion<textarea name="description" rows={3} /></label>
+      <label>Descripción<textarea name="description" rows={3} /></label>
       <div className="form-row">
-        <label>Limite inscripcion<input name="registrationDeadline" type="date" required /></label>
+        <label>Límite inscripción<input name="registrationDeadline" type="date" required /></label>
         <label>Inicio<input name="startsAt" type="date" required /></label>
       </div>
       <div className="form-row">

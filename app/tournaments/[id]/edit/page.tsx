@@ -38,14 +38,14 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
         <h1>Editar torneo</h1>
         <input type="hidden" name="competitionId" value={tournament.id} />
         <label>Nombre<input name="name" defaultValue={tournament.name} required /></label>
-        <label>Descripcion<textarea name="description" rows={3} defaultValue={tournament.description ?? ""} /></label>
+        <label>Descripción<textarea name="description" rows={3} defaultValue={tournament.description ?? ""} /></label>
         <label>Club sede
           <select name="hostClubId" defaultValue={tournament.hostClubId ?? ""} required>
             {editableClubs.map((club) => <option key={club.id} value={club.id}>{club.name}</option>)}
           </select>
         </label>
         <div className="form-row">
-          <label>Limite inscripcion<input name="registrationDeadline" type="date" defaultValue={dateInputValue(tournament.registrationDeadline)} required /></label>
+          <label>Límite inscripción<input name="registrationDeadline" type="date" defaultValue={dateInputValue(tournament.registrationDeadline)} required /></label>
           <label>Inicio<input name="startsAt" type="date" defaultValue={dateInputValue(tournament.startsAt)} required /></label>
         </div>
         <label>Fin<input name="endsAt" type="date" defaultValue={dateInputValue(tournament.endsAt)} required /></label>

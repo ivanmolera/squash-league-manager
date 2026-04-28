@@ -28,7 +28,7 @@ export default async function PlayersPage() {
       <section className="page-heading">
         <p className="eyebrow">Admin</p>
         <h1>Jugadores</h1>
-        <p className="muted">Alta y modificacion de perfiles con email validado, telefono e idioma.</p>
+        <p className="muted">Alta y modificación de perfiles con email validado, teléfono e idioma.</p>
       </section>
 
       <section className="work-grid">
@@ -41,7 +41,7 @@ export default async function PlayersPage() {
         ) : (
           <section className="list-panel">
             <h2>Solo lectura</h2>
-            <p className="muted">Inicia sesion para modificar tu perfil.</p>
+            <p className="muted">Inicia sesión para modificar tu perfil.</p>
           </section>
         )}
 
@@ -101,7 +101,7 @@ function PlayerFields({
       </div>
       <div className="form-row">
         <label>Email<input name="email" type="email" defaultValue={player?.email ?? currentUserEmail ?? ""} readOnly={!isAdmin} required /></label>
-        <label>Telefono<input name="phone" defaultValue={player?.phone ?? ""} /></label>
+        <label>Teléfono<input name="phone" defaultValue={player?.phone ?? ""} /></label>
       </div>
       <div className="form-row">
         <label>Idioma
@@ -124,11 +124,11 @@ function PlayerFields({
       </label>
       <label className="check-line">
         <input name="showContactPublic" type="checkbox" defaultChecked={player?.showContactPublic ?? true} />
-        Mostrar email/telefono publicamente
+        Mostrar email/teléfono públicamente
       </label>
       <label className="check-line">
         <input name="showPhysicalPublic" type="checkbox" defaultChecked={player?.showPhysicalPublic ?? true} />
-        Mostrar altura/peso publicamente
+        Mostrar altura/peso públicamente
       </label>
       <div className="form-row">
         <label>Sexo
