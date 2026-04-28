@@ -60,6 +60,15 @@ enum CompetitionStatus {
   @@map("competition_status")
 }
 
+enum RankingScope {
+  none
+  autonomic
+  state
+  psa
+
+  @@map("ranking_scope")
+}
+
 enum CompetitionFormat {
   league
   knockout
@@ -174,6 +183,7 @@ model Player {
   genericProfileVariant String                    @default("neutral") @map("generic_profile_variant")
   showContactPublic     Boolean                   @default(true) @map("show_contact_public")
   showPhysicalPublic    Boolean                   @default(true) @map("show_physical_public")
+  receivesMatchCommunications Boolean             @default(false) @map("receives_match_communications")
   createdAt             DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime                  @default(now()) @map("updated_at") @db.Timestamptz(6)
   user                  User?                     @relation(fields: [userId], references: [id], onDelete: SetNull)
@@ -245,6 +255,7 @@ model Competition {
   description String?
   bestOfSets  Int                    @default(5) @map("best_of_sets")
   refereeName String?                @map("referee_name")
+  rankingScope RankingScope          @default(none) @map("ranking_scope")
   registrationDeadline DateTime?        @map("registration_deadline") @db.Timestamptz(6)
   startsAt    DateTime?              @map("starts_at") @db.Timestamptz(6)
   endsAt      DateTime?              @map("ends_at") @db.Timestamptz(6)

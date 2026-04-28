@@ -34,6 +34,7 @@ export default async function TournamentDetailPage({ params }: { params: Promise
   const seeds = tournament.categories.flatMap((category) => category.seeds).sort((left, right) => left.seedNumber - right.seedNumber);
   const drawEntries = tournament.categories
     .flatMap((category) => category.drawEntries)
+    .filter((entry) => entry.bracketType === "main")
     .sort((left, right) => left.bracketPosition - right.bracketPosition);
 
   return (
@@ -51,6 +52,7 @@ export default async function TournamentDetailPage({ params }: { params: Promise
           <h2>{t.tournamentDetails}</h2>
           <p><strong>{t.club}:</strong> {tournament.hostClub ? <Link href={`/clubs/${tournament.hostClub.id}`}>{tournament.hostClub.name}</Link> : t.noVenue}</p>
           <p><strong>{t.referee}:</strong> {tournament.refereeName ?? t.notProvided}</p>
+          <p><strong>{t.rankingType}:</strong> {t[tournament.rankingScope as keyof typeof t]}</p>
           <p><strong>{t.matchFormat}:</strong> {tournament.bestOfSets === 3 ? t.bestOf3 : t.bestOf5}</p>
           <p><strong>{t.description}:</strong> {tournament.description ?? t.notProvidedFemale}</p>
           <p><strong>{t.registration}:</strong> {tournament.registrationDeadline?.toLocaleDateString("es-ES") ?? t.noDeadline}</p>

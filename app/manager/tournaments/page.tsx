@@ -39,6 +39,14 @@ export default async function TournamentsPage() {
             <label>Nombre<input name="name" required /></label>
             <label>Descripción<textarea name="description" rows={3} /></label>
             <label>Juez árbitro<input name="refereeName" /></label>
+            <label>Tipo de ránking
+              <select name="rankingScope" defaultValue="none">
+                <option value="none">No puntúa para ránking</option>
+                <option value="autonomic">Ránking autonómico</option>
+                <option value="state">Ránking estatal</option>
+                <option value="psa">Ránking PSA</option>
+              </select>
+            </label>
             <label>Formato de partido
               <select name="bestOfSets" defaultValue="5">
                 <option value="5">Al mejor de 5 sets</option>
@@ -83,6 +91,7 @@ export default async function TournamentsPage() {
                 <strong><Link href={`/tournaments/${tournament.id}`}>{tournament.name}</Link></strong>
                 <span>{clubs.find((club) => club.id === tournament.hostClubId)?.name ?? "Sin sede"}</span>
                 <span>Juez árbitro: {tournament.refereeName ?? "Sin asignar"}</span>
+                <span>Ránking: {rankingScopeLabel(tournament.rankingScope)}</span>
                 <span>Mejor de {tournament.bestOfSets}</span>
                 <span>Inscripción: {tournament.registrationDeadline?.toLocaleDateString("es-ES") ?? "Sin límite"}</span>
                 <span>Inicio: {tournament.startsAt?.toLocaleDateString("es-ES")}</span>
@@ -97,4 +106,11 @@ export default async function TournamentsPage() {
       <BackToTopButton />
     </main>
   );
+}
+
+function rankingScopeLabel(scope: string) {
+  if (scope === "autonomic") return "Autonómico";
+  if (scope === "state") return "Estatal";
+  if (scope === "psa") return "PSA";
+  return "No puntúa";
 }

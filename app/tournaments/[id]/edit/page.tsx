@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { registerPlayerForTournamentAction, saveTournamentAction } from "@/app/admin/actions";
+import { registerPlayerForTournamentAction, saveTournamentAction, saveTournamentSeedsAction, suggestTournamentSeedsAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { GenerateDrawButton } from "@/app/tournaments/generate-draw-button";
 import { TournamentMatches } from "@/app/tournaments/[id]/tournament-matches";
@@ -18,7 +18,21 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
     prisma.competition.findUnique({
       where: { id },
       include: {
-        participants: { include: { player: true, club: true, competitionCategory: { include: { category: true } } } },
+        participants: {
+          include: {
+            player: {
+              include: {
+                memberships: {
+                  where: { toDate: null },
+                  include: { club: true },
+                  orderBy: { fromDate: "desc" },
+                  take: 1
+                }
+              }
+            },
+            competitionCategory: { include: { category: true } }
+          }
+        },
         categories: { include: { category: true, seeds: true } },
         hostClub: true
       }
@@ -68,6 +82,14 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
         <label>Nombre<input name="name" defaultValue={tournament.name} required /></label>
         <label>Descripción<textarea name="description" rows={3} defaultValue={tournament.description ?? ""} /></label>
         <label>Juez árbitro<input name="refereeName" defaultValue={tournament.refereeName ?? ""} /></label>
+        <label>Tipo de ránking
+          <select name="rankingScope" defaultValue={tournament.rankingScope}>
+            <option value="none">No puntúa para ránking</option>
+            <option value="autonomic">Ránking autonómico</option>
+            <option value="state">Ránking estatal</option>
+            <option value="psa">Ránking PSA</option>
+          </select>
+        </label>
         <label>Formato de partido
           <select name="bestOfSets" defaultValue={tournament.bestOfSets}>
             <option value="5">Al mejor de 5 sets</option>
@@ -94,26 +116,6 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
           ))}
         </fieldset>
         <button type="submit" name="mode" value="save">Guardar torneo</button>
-        {tournament.categories.map((competitionCategory) => {
-          const participants = participantsByCategory.get(competitionCategory.id) ?? [];
-
-          return (
-            <fieldset className="check-grid" key={competitionCategory.id}>
-              <legend>Cabezas de serie · {competitionCategory.category.name}</legend>
-              {participants.length ? participants.map((participant) => participant.player ? (
-                <label key={participant.id}>
-                  <input
-                    type="checkbox"
-                    name="seedEntries"
-                    value={`${competitionCategory.id}:${participant.player.id}`}
-                    defaultChecked={selectedSeeds.has(`${competitionCategory.id}:${participant.player.id}`)}
-                  />
-                  {participant.player.lastName}, {participant.player.firstName}
-                </label>
-              ) : null) : <p className="muted">No hay jugadores inscritos en esta categoría.</p>}
-            </fieldset>
-          );
-        })}
         {registrationStillOpen ? (
           <p className="warning-box">La fecha límite de inscripción todavía no ha pasado. Si generas el cuadro ahora, podrían quedar fuera jugadores inscritos después.</p>
         ) : null}
@@ -129,37 +131,52 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
         />
       </form>
       <section className="list-panel full-width">
-        <h2>Inscribir jugador</h2>
-        <form className="compact-form" action={registerPlayerForTournamentAction}>
-          <div className="form-row">
-            <label>Categoría
-              <select name="competitionCategoryId" required>
-                {tournament.categories.map((competitionCategory) => (
-                  <option key={competitionCategory.id} value={competitionCategory.id}>{competitionCategory.category.name}</option>
-                ))}
-              </select>
-            </label>
-            <label>Jugador
-              <select name="playerId" required>
-                {players.map((player) => (
-                  <option key={player.id} value={player.id}>
-                    {player.lastName}, {player.firstName} · {player.memberships[0]?.clubNameAtThatTime ?? "Independiente"}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <button type="submit">Inscribir jugador</button>
-        </form>
+        <h2>Categorías del torneo</h2>
         {tournament.categories.map((competitionCategory) => {
           const participants = participantsByCategory.get(competitionCategory.id) ?? [];
 
           return (
-            <div className="standing-block" key={competitionCategory.id}>
+            <div className="category-config-card" key={competitionCategory.id}>
               <h3>{competitionCategory.category.name}</h3>
+              <div className="category-config-grid">
+                <form className="compact-form" action={saveTournamentSeedsAction}>
+                  <input type="hidden" name="competitionCategoryId" value={competitionCategory.id} />
+                  <fieldset className="check-grid">
+                    <legend>Cabezas de serie</legend>
+                    {participants.length ? participants.map((participant) => participant.player ? (
+                      <label key={participant.id}>
+                        <input
+                          type="checkbox"
+                          name="seedPlayerIds"
+                          value={participant.player.id}
+                          defaultChecked={selectedSeeds.has(`${competitionCategory.id}:${participant.player.id}`)}
+                        />
+                        {participant.player.lastName}, {participant.player.firstName}
+                      </label>
+                    ) : null) : <p className="muted">No hay jugadores inscritos en esta categoría.</p>}
+                  </fieldset>
+                  <div className="form-actions">
+                    <button type="submit">Guardar cabezas de serie</button>
+                    <button type="submit" formAction={suggestTournamentSeedsAction}>Seleccionar por ránking</button>
+                  </div>
+                </form>
+                <form className="compact-form" action={registerPlayerForTournamentAction}>
+                  <input type="hidden" name="competitionCategoryId" value={competitionCategory.id} />
+                  <label>Inscribir jugador
+                    <select name="playerId" required>
+                      {players.map((player) => (
+                        <option key={player.id} value={player.id}>
+                          {player.lastName}, {player.firstName} · {player.memberships[0]?.clubNameAtThatTime ?? "Independiente"}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button type="submit">Inscribir jugador</button>
+                </form>
+              </div>
               {participants.length ? participants.map((participant) => (
                 <p key={participant.id}>
-                  {participant.player ? `${participant.player.lastName}, ${participant.player.firstName}` : "Jugador sin datos"} · {participant.club?.name ?? "Independiente"}
+                  {participant.player ? `${participant.player.lastName}, ${participant.player.firstName}` : "Jugador sin datos"} · {participant.player?.memberships[0]?.clubNameAtThatTime ?? "Independiente"}
                 </p>
               )) : <p className="muted">Sin inscritos.</p>}
             </div>

@@ -48,6 +48,7 @@ export default async function EditPlayerPage({ params }: { params: Promise<{ id:
         <label>Raqueta<input name="racketBrand" defaultValue={player.racketBrand ?? ""} /></label>
         <label className="check-line"><input name="showContactPublic" type="checkbox" defaultChecked={player.showContactPublic} /> Mostrar email/teléfono públicamente</label>
         <label className="check-line"><input name="showPhysicalPublic" type="checkbox" defaultChecked={player.showPhysicalPublic} /> Mostrar altura/peso públicamente</label>
+        <label className="check-line"><input name="receivesMatchCommunications" type="checkbox" defaultChecked={player.receivesMatchCommunications} /> Acepto recibir comunicaciones sobre horarios de mis partidos</label>
         {isAdmin ? <label className="check-line"><input name="emailVerified" type="checkbox" defaultChecked={player.user?.emailVerified ?? false} /> Email validado</label> : null}
         <button type="submit">Guardar</button>
       </form>

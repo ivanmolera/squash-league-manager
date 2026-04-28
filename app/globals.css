@@ -410,6 +410,30 @@ h1 {
   margin-top: 12px;
 }
 
+.category-config-card {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 12px;
+  padding-top: 16px;
+}
+
+.category-config-card h3 {
+  margin: 0;
+}
+
+.category-config-grid {
+  align-items: start;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(280px, 1.2fr) minmax(240px, 0.8fr);
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .warning-box {
   background: #fff7ed;
   border: 1px solid #fed7aa;
@@ -925,6 +949,7 @@ h1 {
   .work-grid,
   .detail-grid,
   .form-row,
+  .category-config-grid,
   .row-card,
   .compact-match-row,
   .result-form {

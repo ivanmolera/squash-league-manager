@@ -91,6 +91,7 @@ type PlayerFieldData = {
   clubId?: string;
   showContactPublic?: boolean;
   showPhysicalPublic?: boolean;
+  receivesMatchCommunications?: boolean;
 };
 
 function PlayerFields({
@@ -142,6 +143,10 @@ function PlayerFields({
       <label className="check-line">
         <input name="showPhysicalPublic" type="checkbox" defaultChecked={player?.showPhysicalPublic ?? true} />
         Mostrar altura/peso públicamente
+      </label>
+      <label className="check-line">
+        <input name="receivesMatchCommunications" type="checkbox" defaultChecked={player?.receivesMatchCommunications ?? false} />
+        Acepto recibir comunicaciones sobre horarios de mis partidos
       </label>
       <div className="form-row">
         <label>Sexo
