@@ -782,8 +782,7 @@ h1 {
   gap: 8px;
 }
 
-.season-filter select,
-.season-filter button {
+.season-filter select {
   border: 1px solid var(--line);
   border-radius: 8px;
   font: inherit;
@@ -795,12 +794,6 @@ h1 {
 .season-filter select {
   background: white;
   min-width: 180px;
-}
-
-.season-filter button {
-  background: var(--accent);
-  color: white;
-  cursor: pointer;
 }
 
 .tournament-table {
@@ -854,7 +847,10 @@ h1 {
 .tournament-date-cell {
   color: var(--ink);
   font-weight: 950;
-  text-transform: uppercase;
+}
+
+.tournament-date-cell span {
+  color: inherit;
 }
 
 .league-row .secondary-link {
@@ -1492,7 +1488,7 @@ h1 {
 
   .season-filter {
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr;
   }
 
   .tournament-table {

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { saveTournamentAction } from "@/app/admin/actions";
+import { SeasonFilter } from "@/app/manager/tournaments/season-filter";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
 import { getDictionary } from "@/src/lib/i18n";
@@ -13,17 +14,18 @@ function selectedTab(value: string | undefined): TournamentTab {
   return value === "completed" ? "completed" : "upcoming";
 }
 
-function tournamentDateRange(tournament: { startsAt: Date | null; endsAt: Date | null }, locale: string, noDate: string) {
-  if (!tournament.startsAt && !tournament.endsAt) return noDate;
-  const start = tournament.startsAt?.toLocaleDateString(locale, { month: "short", day: "2-digit" }) ?? noDate;
-  const end = tournament.endsAt?.toLocaleDateString(locale, { month: "short", day: "2-digit" }) ?? start;
-  return `${start} - ${end}`;
+function tournamentDateLabel(value: Date | null, locale: string, noDate: string) {
+  if (!value) return noDate;
+  const parts = new Intl.DateTimeFormat(locale, { day: "numeric", month: "long" }).formatToParts(value);
+  const day = parts.find((part) => part.type === "day")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  return day && month ? `${day} ${month}` : value.toLocaleDateString(locale);
 }
 
-function tournamentLocation(tournament: { hostClub: { city: string | null; province: string | null; name: string } | null }, noVenue: string) {
-  if (!tournament.hostClub) return noVenue;
-  if (tournament.hostClub.city && tournament.hostClub.province) return `${tournament.hostClub.city} (${tournament.hostClub.province})`;
-  return tournament.hostClub.city ?? tournament.hostClub.province ?? tournament.hostClub.name;
+function tournamentDateLabels(tournament: { startsAt: Date | null; endsAt: Date | null }, locale: string, noDate: string) {
+  const start = tournamentDateLabel(tournament.startsAt, locale, noDate);
+  const end = tournament.endsAt ? tournamentDateLabel(tournament.endsAt, locale, noDate) : start;
+  return { start, end };
 }
 
 export default async function TournamentsPage({
@@ -70,7 +72,6 @@ export default async function TournamentsPage({
       <section className="page-heading">
         <p className="eyebrow">Manager</p>
         <h1>Torneos</h1>
-        <p className="muted">Inicia sesión como manager o admin para crear torneos.</p>
       </section>
 
       <section className="tournament-page-stack">
@@ -126,17 +127,11 @@ export default async function TournamentsPage({
               <Link className={tab === "upcoming" ? "is-active" : ""} href={tabHref("upcoming")}>{t.upcoming}</Link>
               <Link className={tab === "completed" ? "is-active" : ""} href={tabHref("completed")}>{t.completed}</Link>
             </nav>
-            <form className="season-filter" action="/manager/tournaments">
-              <input type="hidden" name="tab" value={tab} />
-              <select name="seasonId" defaultValue={selectedSeason?.id}>
-                {seasons.map((season) => <option key={season.id} value={season.id}>{season.name}</option>)}
-              </select>
-              <button type="submit">{t.filter}</button>
-            </form>
+            <SeasonFilter seasons={seasons} selectedSeasonId={selectedSeason?.id} tab={tab} label={t.seasonSelector} />
           </div>
           <div className="tournament-table">
             <div className="tournament-table-head">
-              <span>{t.start}</span>
+              <span>{t.start}/{t.end}</span>
               <span>{t.tournament}</span>
               <span>{t.location}</span>
               <span>{t.categories}</span>
@@ -145,15 +140,19 @@ export default async function TournamentsPage({
             </div>
             {tournaments.map((tournament) => {
               const canEditTournament = isAdmin || editableClubs.some((club) => club.id === tournament.hostClubId);
+              const dates = tournamentDateLabels(tournament, locale, t.noDate);
               return (
                 <article className="tournament-table-row" key={tournament.id}>
-                  <div className="tournament-date-cell">{tournamentDateRange(tournament, locale, t.noDate)}</div>
+                  <div className="tournament-date-cell">
+                    <span>{dates.start}</span>
+                    <span>{dates.end}</span>
+                  </div>
                   <div>
                     <strong><Link href={`/tournaments/${tournament.id}`}>{tournament.name}</Link></strong>
                     <span>{t.referee}: {tournament.refereeName ?? t.notProvided}</span>
                     {canEditTournament ? <Link className="secondary-link inline-link" href={`/tournaments/${tournament.id}/edit`}>{t.edit}</Link> : null}
                   </div>
-                  <span>{tournamentLocation(tournament, t.noVenue)}</span>
+                  <span>{tournament.hostClub ? <Link href={`/clubs/${tournament.hostClub.id}`}>{tournament.hostClub.name}</Link> : t.noVenue}</span>
                   <span>{tournament.categories.map((category) => category.category.name).join(", ") || t.notProvidedFemale}</span>
                   <span>{tournament.registrationDeadline?.toLocaleDateString(locale) ?? t.noDeadline}</span>
                   <span>{rankingScopeText(tournament.rankingScope, t)}</span>
