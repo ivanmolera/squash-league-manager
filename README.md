@@ -55,7 +55,6 @@ Ver `docs/data-model.md` para el resumen del dominio.
 El seed inicial crea:
 
 - email: `ivan.molera@gmail.com`
-- password: `Test1234`
 - rol: `admin`
 
 ```bash
