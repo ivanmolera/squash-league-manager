@@ -2,6 +2,7 @@
 
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getCurrentUser } from "@/src/lib/auth";
 import { prisma } from "@/src/lib/prisma";
@@ -1621,22 +1622,37 @@ export async function saveTeamAction(formData: FormData) {
   });
   const team = await prisma.team.findUniqueOrThrow({
     where: { id: parsed.teamId },
-    include: { club: true }
+    include: { club: true, rosters: { select: { playerId: true } } }
   });
 
   if (!isAdmin && team.club.managerUserId !== currentUser.id) {
     throw new Error("Solo puedes modificar equipos de tu club.");
   }
 
-  await prisma.team.update({
-    where: { id: parsed.teamId },
-    data: {
-      name: parsed.name,
-      showRosterPublic: parsed.showRosterPublic
-    }
+  await prisma.$transaction(async (tx) => {
+    await tx.team.update({
+      where: { id: parsed.teamId },
+      data: {
+        name: parsed.name,
+        showRosterPublic: parsed.showRosterPublic
+      }
+    });
+
+    await tx.teamRoster.updateMany({
+      where: {
+        teamId: parsed.teamId,
+        seasonId: team.seasonId
+      },
+      data: {
+        teamNameAtThatTime: parsed.name
+      }
+    });
   });
 
   revalidatePath(`/teams/${parsed.teamId}`);
+  revalidatePath(`/teams/${parsed.teamId}/edit`);
+  team.rosters.forEach((roster) => revalidatePath(`/players/${roster.playerId}`));
+  redirect(`/teams/${parsed.teamId}`);
 }
 
 export async function saveMatchResultAction(formData: FormData) {

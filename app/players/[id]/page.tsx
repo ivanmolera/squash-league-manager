@@ -365,7 +365,14 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ i
   const [player, currentUser] = await Promise.all([
     prisma.player.findUnique({
       where: { id },
-      include: { user: true, memberships: { include: { club: true, season: true } } }
+      include: {
+        user: true,
+        memberships: { include: { club: true, season: true } },
+        rosters: {
+          include: { team: { include: { club: true } } },
+          orderBy: [{ teamNameAtThatTime: "asc" }]
+        }
+      }
     }),
     getCurrentUser()
   ]);
@@ -414,6 +421,17 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ i
               <span><Link href={`/clubs/${membership.club.id}`}>{membership.clubNameAtThatTime}</Link> · {membership.season.name}</span>
             </p>
           )) : <p>{t.independent}</p>}
+        </article>
+        <article className="list-panel">
+          <h2>{t.teams}</h2>
+          {player.rosters.length ? player.rosters.map((roster) => (
+            <p className="club-reference-line" key={roster.id}>
+              <ClubCrest logoUrl={roster.team.club.logoUrl} clubName={roster.clubNameAtThatTime} size="tiny" />
+              <span>
+                <Link href={`/teams/${roster.teamId}`}>{roster.teamNameAtThatTime}</Link> · {roster.clubNameAtThatTime}
+              </span>
+            </p>
+          )) : <p>{t.notProvided}</p>}
         </article>
       </section>
       <section className="list-panel full-width">
