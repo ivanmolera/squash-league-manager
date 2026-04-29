@@ -3,6 +3,7 @@ import { saveClubAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { ClubCrest } from "@/src/components/club-crest";
 import { getCurrentUser } from "@/src/lib/auth";
+import { formatUserManagerName } from "@/src/lib/names";
 import { prisma } from "@/src/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function ClubsPage() {
   const [clubs, managers, currentUser] = await Promise.all([
     prisma.club.findMany({ include: { manager: true }, orderBy: [{ province: "asc" }, { name: "asc" }] }),
-    prisma.user.findMany({ orderBy: { email: "asc" } }),
+    prisma.user.findMany({ include: { player: true }, orderBy: { email: "asc" } }),
     getCurrentUser()
   ]);
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
@@ -61,7 +62,7 @@ function ClubFields({
   isAdmin
 }: {
   club?: { name?: string; city?: string | null; province?: string | null; address?: string | null; websiteUrl?: string | null; logoUrl?: string | null; managerUserId?: string | null; showContactPublic?: boolean };
-  managers: Array<{ id: string; email: string; displayName: string | null }>;
+  managers: Array<{ id: string; email: string; displayName: string | null; player?: { firstName: string; lastName: string } | null }>;
   isAdmin: boolean;
 }) {
   return (
@@ -84,7 +85,7 @@ function ClubFields({
           <option value="">Sin manager</option>
           {managers.map((manager) => (
             <option key={manager.id} value={manager.id}>
-              {manager.displayName ?? manager.email}
+              {formatUserManagerName(manager)}
             </option>
           ))}
         </select>

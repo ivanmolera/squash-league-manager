@@ -1,4 +1,5 @@
 import { prisma } from "@/src/lib/prisma";
+import { formatPlayerListName } from "@/src/lib/names";
 
 export type RankingScope = "autonomic" | "state" | "psa";
 
@@ -101,7 +102,7 @@ export async function getTournamentRankingRows(scope: RankingScope, playerIds?: 
 
     for (const participant of competition.participants) {
       if (!participant.playerId || !participant.player) continue;
-      const row = ensure(participant.playerId, `${participant.player.firstName} ${participant.player.lastName}`);
+      const row = ensure(participant.playerId, formatPlayerListName(participant.player));
       row.tournaments.set(competition.id, row.tournaments.get(competition.id) ?? 0);
     }
 

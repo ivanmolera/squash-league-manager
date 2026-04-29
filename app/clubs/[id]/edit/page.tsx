@@ -3,6 +3,7 @@ import { removePlayerFromClubAction, saveClubAction } from "@/app/admin/actions"
 import { Navigation } from "@/app/navigation";
 import { ClubCrest } from "@/src/components/club-crest";
 import { getCurrentUser } from "@/src/lib/auth";
+import { formatUserManagerName } from "@/src/lib/names";
 import { prisma } from "@/src/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +27,7 @@ export default async function EditClubPage({ params }: { params: Promise<{ id: s
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
   if (!isAdmin && club.managerUserId !== currentUser?.id) notFound();
   const managers = club.memberships
-    .map((membership) => membership.player.user)
+    .map((membership) => membership.player.user ? { ...membership.player.user, player: membership.player } : null)
     .filter(Boolean)
     .filter((user, index, users) => users.findIndex((item) => item?.id === user?.id) === index);
 
@@ -51,7 +52,7 @@ export default async function EditClubPage({ params }: { params: Promise<{ id: s
             <select name="managerUserId" defaultValue={club.managerUserId ?? ""} disabled={!isAdmin}>
               <option value="">Sin manager</option>
               {managers.map((manager) => (
-                manager ? <option key={manager.id} value={manager.id}>{manager.displayName ?? manager.email}</option> : null
+                manager ? <option key={manager.id} value={manager.id}>{formatUserManagerName(manager)}</option> : null
               ))}
             </select>
           </label>
