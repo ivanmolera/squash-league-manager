@@ -362,7 +362,7 @@ function PlayerRankingEvolutionChart({ series, labels }: { series: RankingEvolut
 
 export default async function PlayerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [player, currentUser] = await Promise.all([
+  const [player, currentUser, openSeasons] = await Promise.all([
     prisma.player.findUnique({
       where: { id },
       include: {
@@ -374,12 +374,17 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ i
         }
       }
     }),
-    getCurrentUser()
+    getCurrentUser(),
+    prisma.season.findMany({
+      where: { status: { not: "closed" } },
+      select: { id: true }
+    })
   ]);
   const { locale, t } = await getDictionary();
 
   if (!player) notFound();
 
+  const openSeasonIds = new Set(openSeasons.map((season) => season.id));
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
   const canEdit = isAdmin || player.userId === currentUser?.id;
   const canSeeContact = canEdit || player.showContactPublic;
@@ -415,23 +420,33 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ i
         </article>
         <article className="list-panel">
           <h2>{t.clubs}</h2>
-          {player.memberships.length ? player.memberships.map((membership) => (
-            <p className="club-reference-line" key={membership.id}>
-              <ClubCrest logoUrl={membership.club.logoUrl} clubName={membership.clubNameAtThatTime} size="tiny" />
-              <span><Link href={`/clubs/${membership.club.id}`}>{membership.clubNameAtThatTime}</Link> · {membership.season.name}</span>
-            </p>
-          )) : <p>{t.independent}</p>}
+          {player.memberships.length ? player.memberships.map((membership) => {
+            const clubName = membership.season.status === "closed" ? membership.clubNameAtThatTime : membership.club.name;
+
+            return (
+              <p className="club-reference-line" key={membership.id}>
+                <ClubCrest logoUrl={membership.club.logoUrl} clubName={clubName} size="tiny" />
+                <span><Link href={`/clubs/${membership.club.id}`}>{clubName}</Link> · {membership.season.name}</span>
+              </p>
+            );
+          }) : <p>{t.independent}</p>}
         </article>
         <article className="list-panel">
           <h2>{t.teams}</h2>
-          {player.rosters.length ? player.rosters.map((roster) => (
-            <p className="club-reference-line" key={roster.id}>
-              <ClubCrest logoUrl={roster.team.club.logoUrl} clubName={roster.clubNameAtThatTime} size="tiny" />
-              <span>
-                <Link href={`/teams/${roster.teamId}`}>{roster.teamNameAtThatTime}</Link> · {roster.clubNameAtThatTime}
-              </span>
-            </p>
-          )) : <p>{t.notProvided}</p>}
+          {player.rosters.length ? player.rosters.map((roster) => {
+            const isOpenSeason = openSeasonIds.has(roster.seasonId);
+            const teamName = isOpenSeason ? roster.team.name : roster.teamNameAtThatTime;
+            const clubName = isOpenSeason ? roster.team.club.name : roster.clubNameAtThatTime;
+
+            return (
+              <p className="club-reference-line" key={roster.id}>
+                <ClubCrest logoUrl={roster.team.club.logoUrl} clubName={clubName} size="tiny" />
+                <span>
+                  <Link href={`/teams/${roster.teamId}`}>{teamName}</Link> · {clubName}
+                </span>
+              </p>
+            );
+          }) : <p>{t.notProvided}</p>}
         </article>
       </section>
       <section className="list-panel full-width">

@@ -1041,17 +1041,51 @@ export async function saveClubAction(formData: FormData) {
   }
 
   const season = await getDefaultSeason();
+  const [membershipPlayerIds, rosterPlayerIds] = await Promise.all([
+    prisma.playerClubMembership.findMany({
+      where: { clubId: club.id, seasonId: season.id },
+      select: { playerId: true }
+    }),
+    prisma.teamRoster.findMany({
+      where: {
+        seasonId: season.id,
+        team: { clubId: club.id }
+      },
+      select: { playerId: true }
+    })
+  ]);
+
   await prisma.$executeRaw`
     INSERT INTO club_season_profiles (club_id, season_id, display_name)
     VALUES (${club.id}::uuid, ${season.id}::uuid, ${club.name})
     ON CONFLICT (club_id, season_id)
     DO UPDATE SET display_name = EXCLUDED.display_name, updated_at = now()
   `;
+  await prisma.$transaction([
+    prisma.playerClubMembership.updateMany({
+      where: { clubId: club.id, seasonId: season.id },
+      data: { clubNameAtThatTime: club.name }
+    }),
+    prisma.team.updateMany({
+      where: { clubId: club.id, seasonId: season.id },
+      data: { clubNameAtCreation: club.name }
+    }),
+    prisma.teamRoster.updateMany({
+      where: {
+        seasonId: season.id,
+        team: { clubId: club.id }
+      },
+      data: { clubNameAtThatTime: club.name }
+    })
+  ]);
 
   revalidatePath("/admin/clubs");
   revalidatePath(`/clubs/${club.id}`);
   revalidatePath(`/clubs/${club.id}/edit`);
   revalidatePath("/manager/tournaments");
+  new Set([...membershipPlayerIds, ...rosterPlayerIds].map((row) => row.playerId)).forEach((playerId) => {
+    revalidatePath(`/players/${playerId}`);
+  });
 }
 
 export async function saveLeagueAction(formData: FormData) {
@@ -1644,7 +1678,8 @@ export async function saveTeamAction(formData: FormData) {
         seasonId: team.seasonId
       },
       data: {
-        teamNameAtThatTime: parsed.name
+        teamNameAtThatTime: parsed.name,
+        clubNameAtThatTime: team.club.name
       }
     });
   });
