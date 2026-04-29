@@ -64,5 +64,12 @@ npm run seed:admin
 
 ## Despliegue
 
-El servicio Cloud Run de esta app debe llamarse `squash-league-manager`.
-No desplegar sobre `euclid-umap-app`, que pertenece a otra aplicacion.
+La app debe desplegarse en un proyecto de Google Cloud dedicado:
+
+- Proyecto: `squash-league-ivan`
+- Region: `europe-west1`
+- Servicio Cloud Run: `squash-league-manager`
+- Instancia Cloud SQL: `squash-league-db`
+- Secreto `DATABASE_URL`: `squash-database-url`
+
+No desplegar sobre `euclid-umap-app`, que pertenece a otra aplicacion y vive en otro proyecto.
