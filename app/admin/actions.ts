@@ -139,6 +139,22 @@ async function readProfilePhoto(formData: FormData) {
   return `data:${file.type};base64,${bytes.toString("base64")}`;
 }
 
+async function readClubLogo(formData: FormData) {
+  const file = formData.get("clubLogo");
+  if (!(file instanceof File) || file.size === 0) return undefined;
+
+  if (!file.type.startsWith("image/")) {
+    throw new Error("El escudo debe ser una imagen.");
+  }
+
+  if (file.size > 1_500_000) {
+    throw new Error("El escudo no puede superar 1,5 MB.");
+  }
+
+  const bytes = Buffer.from(await file.arrayBuffer());
+  return `data:${file.type};base64,${bytes.toString("base64")}`;
+}
+
 async function requireUser() {
   const user = await getCurrentUser();
 
@@ -962,6 +978,7 @@ export async function changePlayerPasswordAction(formData: FormData) {
 export async function saveClubAction(formData: FormData) {
   const currentUser = await requireUser();
   const isAdmin = hasRole(currentUser, "admin");
+  const logoUrl = await readClubLogo(formData);
   const parsed = clubSchema.parse({
     clubId: textValue(formData.get("clubId")),
     name: textValue(formData.get("name")),
@@ -996,6 +1013,7 @@ export async function saveClubAction(formData: FormData) {
           province: parsed.province,
           address: parsed.address,
           websiteUrl: parsed.websiteUrl || null,
+          logoUrl,
           showContactPublic: parsed.showContactPublic,
           managerUserId: isAdmin ? parsed.managerUserId || null : undefined
         }
@@ -1007,6 +1025,7 @@ export async function saveClubAction(formData: FormData) {
           province: parsed.province,
           address: parsed.address,
           websiteUrl: parsed.websiteUrl || null,
+          logoUrl: logoUrl ?? null,
           showContactPublic: parsed.showContactPublic,
           managerUserId: parsed.managerUserId || null
         }
@@ -1029,6 +1048,9 @@ export async function saveClubAction(formData: FormData) {
   `;
 
   revalidatePath("/admin/clubs");
+  revalidatePath(`/clubs/${club.id}`);
+  revalidatePath(`/clubs/${club.id}/edit`);
+  revalidatePath("/manager/tournaments");
 }
 
 export async function saveLeagueAction(formData: FormData) {

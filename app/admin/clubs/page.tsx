@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { saveClubAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
+import { ClubCrest } from "@/src/components/club-crest";
 import { getCurrentUser } from "@/src/lib/auth";
 import { prisma } from "@/src/lib/prisma";
 
@@ -59,12 +60,16 @@ function ClubFields({
   managers,
   isAdmin
 }: {
-  club?: { name?: string; city?: string | null; province?: string | null; address?: string | null; websiteUrl?: string | null; managerUserId?: string | null; showContactPublic?: boolean };
+  club?: { name?: string; city?: string | null; province?: string | null; address?: string | null; websiteUrl?: string | null; logoUrl?: string | null; managerUserId?: string | null; showContactPublic?: boolean };
   managers: Array<{ id: string; email: string; displayName: string | null }>;
   isAdmin: boolean;
 }) {
   return (
     <>
+      <div className="club-logo-edit-row">
+        <ClubCrest logoUrl={club?.logoUrl} clubName={club?.name ?? "Club"} size="small" />
+        <label>Escudo<input name="clubLogo" type="file" accept="image/*" /></label>
+      </div>
       <label>Nombre<input name="name" defaultValue={club?.name ?? ""} required /></label>
       <div className="form-row">
         <label>Ciudad<input name="city" defaultValue={club?.city ?? ""} /></label>

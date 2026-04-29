@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { registerSelfForTournamentAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { TournamentMatches } from "@/app/tournaments/[id]/tournament-matches";
+import { ClubCrest } from "@/src/components/club-crest";
 import { getCurrentUser } from "@/src/lib/auth";
 import { categoryRestrictionLabel } from "@/src/lib/category-restrictions";
 import { getDictionary } from "@/src/lib/i18n";
@@ -82,7 +83,14 @@ export default async function TournamentDetailPage({ params }: { params: Promise
       <section className="detail-grid">
         <article className="list-panel full-width">
           <h2>{t.tournamentDetails}</h2>
-          <p><strong>{t.club}:</strong> {tournament.hostClub ? <Link href={`/clubs/${tournament.hostClub.id}`}>{tournament.hostClub.name}</Link> : t.noVenue}</p>
+          {tournament.hostClub ? (
+            <p className="club-reference-line">
+              <ClubCrest logoUrl={tournament.hostClub.logoUrl} clubName={tournament.hostClub.name} size="small" />
+              <span><strong>{t.club}:</strong> <Link href={`/clubs/${tournament.hostClub.id}`}>{tournament.hostClub.name}</Link></span>
+            </p>
+          ) : (
+            <p><strong>{t.club}:</strong> {t.noVenue}</p>
+          )}
           <p><strong>{t.referee}:</strong> {tournament.refereeName ?? t.notProvided}</p>
           <p><strong>{tournament.rankingScope === "none" ? t.rankingType : t.scoresForRanking}:</strong> {t[tournament.rankingScope as keyof typeof t]}</p>
           <p><strong>{t.matchFormat}:</strong> {tournament.bestOfSets === 3 ? t.bestOf3 : t.bestOf5}</p>

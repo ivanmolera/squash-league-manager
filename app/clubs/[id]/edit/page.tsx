@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { removePlayerFromClubAction, saveClubAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
+import { ClubCrest } from "@/src/components/club-crest";
 import { getCurrentUser } from "@/src/lib/auth";
 import { prisma } from "@/src/lib/prisma";
 
@@ -36,6 +37,10 @@ export default async function EditClubPage({ params }: { params: Promise<{ id: s
         <form className="admin-form" action={saveClubAction}>
           <h1>Editar club</h1>
           <input type="hidden" name="clubId" value={club.id} />
+          <div className="club-logo-edit-row">
+            <ClubCrest logoUrl={club.logoUrl} clubName={club.name} size="small" />
+            <label>Escudo<input name="clubLogo" type="file" accept="image/*" /></label>
+          </div>
           <label>Nombre<input name="name" defaultValue={club.name} required /></label>
           <label>Ciudad<input name="city" defaultValue={club.city ?? ""} /></label>
           <label>Provincia<input name="province" defaultValue={club.province ?? ""} /></label>

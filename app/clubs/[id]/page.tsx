@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Navigation } from "@/app/navigation";
+import { ClubCrest } from "@/src/components/club-crest";
 import { getCurrentUser } from "@/src/lib/auth";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
@@ -72,9 +73,12 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
     <main className="app-shell">
       <Navigation />
       <section className="detail-header">
-        <div>
-          <p className="eyebrow">{t.club}</p>
-          <h1>{club.name}</h1>
+        <div className="detail-title-with-crest">
+          <ClubCrest logoUrl={club.logoUrl} clubName={club.name} size="large" />
+          <div>
+            <p className="eyebrow">{t.club}</p>
+            <h1>{club.name}</h1>
+          </div>
         </div>
         {canEdit ? <Link className="primary-link" href={`/clubs/${club.id}/edit`}>{t.edit}</Link> : null}
       </section>

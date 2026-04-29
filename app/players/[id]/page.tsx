@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Navigation } from "@/app/navigation";
+import { ClubCrest } from "@/src/components/club-crest";
 import { getCurrentUser } from "@/src/lib/auth";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
@@ -408,8 +409,9 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ i
         <article className="list-panel">
           <h2>{t.clubs}</h2>
           {player.memberships.length ? player.memberships.map((membership) => (
-            <p key={membership.id}>
-              <Link href={`/clubs/${membership.club.id}`}>{membership.clubNameAtThatTime}</Link> · {membership.season.name}
+            <p className="club-reference-line" key={membership.id}>
+              <ClubCrest logoUrl={membership.club.logoUrl} clubName={membership.clubNameAtThatTime} size="tiny" />
+              <span><Link href={`/clubs/${membership.club.id}`}>{membership.clubNameAtThatTime}</Link> · {membership.season.name}</span>
             </p>
           )) : <p>{t.independent}</p>}
         </article>

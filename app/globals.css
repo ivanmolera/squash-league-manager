@@ -511,6 +511,13 @@ h1 {
   margin-bottom: 22px;
 }
 
+.detail-title-with-crest {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  min-width: 0;
+}
+
 .detail-grid {
   display: grid;
   gap: 18px;
@@ -634,6 +641,75 @@ h1 {
   flex-wrap: wrap;
   gap: 8px;
   line-height: 1.5;
+}
+
+.club-reference-line {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.club-logo-edit-row {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto 1fr;
+}
+
+.club-crest {
+  align-items: center;
+  background: #eef5f3;
+  border: 1px solid var(--line);
+  display: inline-grid;
+  flex: 0 0 auto;
+  justify-items: center;
+  object-fit: contain;
+  overflow: hidden;
+}
+
+.club-crest-tiny {
+  border-radius: 8px;
+  height: 30px;
+  padding: 3px;
+  width: 30px;
+}
+
+.club-crest-small {
+  border-radius: 10px;
+  height: 46px;
+  padding: 5px;
+  width: 46px;
+}
+
+.club-crest-large {
+  border-radius: 14px;
+  height: 108px;
+  padding: 10px;
+  width: 108px;
+}
+
+.club-crest-fallback {
+  background: #e8f0fe;
+}
+
+.club-crest-shield {
+  background: linear-gradient(180deg, #ffffff 0%, #dce7ee 100%);
+  border: 1px solid #9fb1bd;
+  clip-path: polygon(50% 0, 88% 14%, 82% 66%, 50% 100%, 18% 66%, 12% 14%);
+  display: block;
+  height: 76%;
+  position: relative;
+  width: 68%;
+}
+
+.club-crest-shield::after {
+  background: #9fb1bd;
+  content: "";
+  height: 1px;
+  left: 24%;
+  position: absolute;
+  top: 38%;
+  width: 52%;
 }
 
 .seed-badge {
