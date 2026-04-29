@@ -503,14 +503,9 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ i
                 const won = match.winnerPlayerId === player.id;
                 return (
                   <div className="latest-match-row" key={match.id}>
-                    <div>
-                      <strong>{won ? t.won : t.lost} · {matchScore(match)}</strong>
-                      <span>{t.opponent}: {opponentName ?? t.notProvided}</span>
-                    </div>
-                    <div>
-                      <span>{match.competition.name}</span>
-                      <small>{formatMatchDate(match.playedAt ?? match.scheduledAt, locale, t.noDate)}</small>
-                    </div>
+                    <span>{formatMatchDate(match.playedAt ?? match.scheduledAt, locale, t.noDate)} · {match.competition.name}</span>
+                    <strong>{won ? t.victoryAgainst : t.defeatAgainst} {opponentName ?? t.notProvided}</strong>
+                    <p>{t.result}: {matchScore(match)}</p>
                   </div>
                 );
               })}

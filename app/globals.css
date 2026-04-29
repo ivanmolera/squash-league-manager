@@ -1273,11 +1273,9 @@ h1 {
 }
 
 .latest-match-row {
-  align-items: start;
   border-top: 1px solid var(--line);
   display: grid;
-  gap: 10px;
-  grid-template-columns: minmax(0, 1fr) minmax(140px, auto);
+  gap: 5px;
   padding-top: 10px;
 }
 
@@ -1286,20 +1284,13 @@ h1 {
   padding-top: 0;
 }
 
-.latest-match-row div {
-  display: grid;
-  gap: 4px;
-}
-
-.latest-match-row div:last-child {
-  justify-items: end;
-  text-align: right;
-}
-
-.latest-match-row span,
-.latest-match-row small {
+.latest-match-row span {
   color: var(--muted);
   font-weight: 800;
+}
+
+.latest-match-row p {
+  margin: 0;
 }
 
 .rubber-list {
@@ -1487,15 +1478,6 @@ h1 {
 
   .player-statistics-grid {
     grid-template-columns: 1fr;
-  }
-
-  .latest-match-row {
-    grid-template-columns: 1fr;
-  }
-
-  .latest-match-row div:last-child {
-    justify-items: start;
-    text-align: left;
   }
 
   .tournament-toolbar {
