@@ -4,6 +4,7 @@ import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
 import { prisma } from "@/src/lib/prisma";
 import { LeagueStandings } from "../league-sections";
+import { RegenerateLeagueButton } from "./regenerate-league-button";
 
 export const dynamic = "force-dynamic";
 
@@ -68,7 +69,10 @@ export default async function EditLeaguePage({ params }: { params: Promise<{ id:
             </label>
           ))}
         </fieldset>
-        <button type="submit">Guardar y regenerar jornadas</button>
+        <div className="form-actions">
+          <button name="mode" type="submit" value="save">Guardar</button>
+          <RegenerateLeagueButton />
+        </div>
       </form>
       <LeagueStandings competitionId={league.id} type={league.type as "individual_league" | "team_league"} />
     </main>

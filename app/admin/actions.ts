@@ -1090,6 +1090,7 @@ export async function saveClubAction(formData: FormData) {
 
 export async function saveLeagueAction(formData: FormData) {
   await requireAdmin();
+  const shouldRegenerateSchedule = formData.get("mode")?.toString() === "regenerate" || !textValue(formData.get("competitionId"));
   const parsed = competitionSchema.parse({
     competitionId: textValue(formData.get("competitionId")),
     name: textValue(formData.get("name")),
@@ -1133,6 +1134,13 @@ export async function saveLeagueAction(formData: FormData) {
           endsAt: new Date(parsed.endsAt)
         }
       });
+
+  if (!shouldRegenerateSchedule) {
+    revalidatePath("/admin/leagues");
+    revalidatePath(`/leagues/${competition.id}`);
+    revalidatePath(`/leagues/${competition.id}/edit`);
+    return;
+  }
 
   const competitionCategory = await prisma.competitionCategory.upsert({
     where: {

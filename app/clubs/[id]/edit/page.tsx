@@ -61,9 +61,11 @@ export default async function EditClubPage({ params }: { params: Promise<{ id: s
         <section className="list-panel">
           <h2>Jugadores del club</h2>
           {club.memberships.map((membership) => (
-            <article className="row-card" key={membership.id}>
-              <strong>{membership.player.lastName}, {membership.player.firstName}</strong>
-              <span>{membership.player.user?.email ?? "Sin usuario"}</span>
+            <article className="row-card club-player-row" key={membership.id}>
+              <div>
+                <strong>{membership.player.lastName}, {membership.player.firstName}</strong>
+                <span>{membership.player.user?.email ?? "Sin usuario"}</span>
+              </div>
               <form action={removePlayerFromClubAction}>
                 <input type="hidden" name="membershipId" value={membership.id} />
                 <input type="hidden" name="clubId" value={club.id} />

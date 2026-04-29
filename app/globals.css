@@ -583,6 +583,20 @@ h1 {
   padding: 12px;
 }
 
+.club-player-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.club-player-row > div {
+  display: grid;
+  gap: 4px;
+}
+
+.club-player-row span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
 .league-row {
   align-items: center;
   border: 1px solid var(--line);
