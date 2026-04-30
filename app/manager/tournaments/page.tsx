@@ -2,6 +2,7 @@ import Link from "next/link";
 import { saveTournamentAction } from "@/app/admin/actions";
 import { SeasonFilter } from "@/app/manager/tournaments/season-filter";
 import { Navigation } from "@/app/navigation";
+import { ClubCrest } from "@/src/components/club-crest";
 import { getCurrentUser } from "@/src/lib/auth";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
@@ -19,7 +20,7 @@ function tournamentDateLabel(value: Date | null, locale: string, noDate: string)
   const parts = new Intl.DateTimeFormat(locale, { day: "numeric", month: "long" }).formatToParts(value);
   const day = parts.find((part) => part.type === "day")?.value;
   const month = parts.find((part) => part.type === "month")?.value;
-  return day && month ? `${day} ${month}` : value.toLocaleDateString(locale);
+  return day && month ? `${month.toLocaleUpperCase(locale)} ${day}` : value.toLocaleDateString(locale);
 }
 
 function tournamentDateLabels(tournament: { startsAt: Date | null; endsAt: Date | null }, locale: string, noDate: string) {
@@ -131,12 +132,12 @@ export default async function TournamentsPage({
           </div>
           <div className="tournament-table">
             <div className="tournament-table-head">
-              <span>{t.start}/{t.end}</span>
+              <span>{t.date}</span>
               <span>{t.tournament}</span>
-              <span>{t.location}</span>
+              <span>{t.venue}</span>
               <span>{t.categories}</span>
               <span>{t.registration}</span>
-              <span>{t.rankingType}</span>
+              <span>{t.scoreable}</span>
             </div>
             {tournaments.map((tournament) => {
               const canEditTournament = isAdmin || editableClubs.some((club) => club.id === tournament.hostClubId);
@@ -145,6 +146,7 @@ export default async function TournamentsPage({
                 <article className="tournament-table-row" key={tournament.id}>
                   <div className="tournament-date-cell">
                     <span>{dates.start}</span>
+                    <span>-</span>
                     <span>{dates.end}</span>
                   </div>
                   <div>
@@ -152,10 +154,17 @@ export default async function TournamentsPage({
                     <span>{t.referee}: {tournament.refereeName ?? t.notProvided}</span>
                     {canEditTournament ? <Link className="secondary-link inline-link" href={`/tournaments/${tournament.id}/edit`}>{t.edit}</Link> : null}
                   </div>
-                  <span>{tournament.hostClub ? <Link href={`/clubs/${tournament.hostClub.id}`}>{tournament.hostClub.name}</Link> : t.noVenue}</span>
+                  <span>
+                    {tournament.hostClub ? (
+                      <Link className="tournament-club-cell" href={`/clubs/${tournament.hostClub.id}`}>
+                        <ClubCrest logoUrl={tournament.hostClub.logoUrl} clubName={tournament.hostClub.name} size="tiny" />
+                        {tournament.hostClub.name}
+                      </Link>
+                    ) : t.noVenue}
+                  </span>
                   <span>{tournament.categories.map((category) => category.category.name).join(", ") || t.notProvidedFemale}</span>
                   <span>{tournament.registrationDeadline?.toLocaleDateString(locale) ?? t.noDeadline}</span>
-                  <span>{rankingScopeText(tournament.rankingScope, t)}</span>
+                  <span><RankingScopeBadge scope={tournament.rankingScope} labels={t} /></span>
                 </article>
               );
             })}
@@ -167,7 +176,14 @@ export default async function TournamentsPage({
   );
 }
 
-function rankingScopeText(scope: string, t: Record<string, string>) {
-  if (scope === "none") return t.none;
-  return `${t.scoresForRanking} ${t[scope] ?? scope}`;
+function RankingScopeBadge({ scope, labels }: { scope: string; labels: Record<string, string> }) {
+  const label = rankingScopeCode(scope, labels);
+  return <span className={`ranking-scope-badge${scope === "none" ? " is-empty" : ""}`}>{label}</span>;
+}
+
+function rankingScopeCode(scope: string, labels: Record<string, string>) {
+  if (scope === "autonomic") return "CAT";
+  if (scope === "state") return "ESP";
+  if (scope === "psa") return "PSA";
+  return labels.none;
 }
