@@ -428,7 +428,7 @@ async function setTournamentMatchSide({
 
   const competition = await prisma.competition.findUniqueOrThrow({
     where: { id: competitionId },
-    select: { seasonId: true, startsAt: true }
+    select: { seasonId: true, startsAt: true, hostClubId: true, hostClub: { select: { name: true } } }
   });
 
   await prisma.match.create({
@@ -441,6 +441,8 @@ async function setTournamentMatchSide({
       bracketPosition,
       scheduledAt: tournamentMatchDate(competition.startsAt, matchType, roundNumber, bracketPosition),
       status: "scheduled",
+      venueClubId: competition.hostClubId,
+      homeClubNameAtMatchTime: competition.hostClub?.name ?? null,
       ...sideData
     }
   });
@@ -1509,6 +1511,10 @@ export async function saveTournamentAction(formData: FormData) {
     where: { competitionId: competition.id },
     orderBy: { createdAt: "asc" }
   });
+  const hostClub = await prisma.club.findUnique({
+    where: { id: parsed.hostClubId },
+    select: { id: true, name: true }
+  });
 
   if (parsed.seedEntries.length) {
     for (const competitionCategory of competitionCategories) {
@@ -1585,10 +1591,12 @@ export async function saveTournamentAction(formData: FormData) {
             matchOrder: matchIndex + 1,
             scheduledAt: tournamentMatchDate(competition.startsAt, "tournament_round_robin", roundIndex + 1, matchIndex + 1),
             status: "scheduled" as const,
+            venueClubId: hostClub?.id ?? null,
             homePlayerId: home.id,
             awayPlayerId: away.id,
             homePlayerNameAtMatchTime: `${home.firstName} ${home.lastName}`,
-            awayPlayerNameAtMatchTime: `${away.firstName} ${away.lastName}`
+            awayPlayerNameAtMatchTime: `${away.firstName} ${away.lastName}`,
+            homeClubNameAtMatchTime: hostClub?.name ?? null
           }))
         )
       });
@@ -1636,11 +1644,13 @@ export async function saveTournamentAction(formData: FormData) {
             bracketPosition: index + 1,
             scheduledAt: tournamentMatchDate(competition.startsAt, "tournament_knockout", 1, index + 1),
             status: home && away ? "scheduled" as const : "bye" as const,
+            venueClubId: hostClub?.id ?? null,
             homePlayerId: home?.id ?? null,
             awayPlayerId: away?.id ?? null,
             winnerPlayerId: home && !away ? home.id : !home && away ? away.id : null,
             homePlayerNameAtMatchTime: home ? `${home.firstName} ${home.lastName}` : null,
-            awayPlayerNameAtMatchTime: away ? `${away.firstName} ${away.lastName}` : null
+            awayPlayerNameAtMatchTime: away ? `${away.firstName} ${away.lastName}` : null,
+            homeClubNameAtMatchTime: hostClub?.name ?? null
           };
         })
       });
@@ -1655,7 +1665,9 @@ export async function saveTournamentAction(formData: FormData) {
             roundNumber: Math.ceil(Math.log2(bracketSize)),
             bracketPosition: 1,
             scheduledAt: tournamentMatchDate(competition.startsAt, "tournament_third_place", Math.ceil(Math.log2(bracketSize)), 1),
-            status: "scheduled" as const
+            status: "scheduled" as const,
+            venueClubId: hostClub?.id ?? null,
+            homeClubNameAtMatchTime: hostClub?.name ?? null
           }
         });
       }

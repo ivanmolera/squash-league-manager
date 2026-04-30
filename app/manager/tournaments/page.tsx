@@ -146,7 +146,6 @@ export default async function TournamentsPage({
                   </div>
                   <div>
                     <strong><Link href={`/tournaments/${tournament.id}`}>{tournament.name}</Link></strong>
-                    <span>{t.referee}: {tournament.refereeName ?? t.notProvided}</span>
                     {canEditTournament ? <Link className="secondary-link inline-link" href={`/tournaments/${tournament.id}/edit`}>{t.edit}</Link> : null}
                   </div>
                   <span>

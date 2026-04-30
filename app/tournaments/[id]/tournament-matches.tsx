@@ -9,7 +9,10 @@ type BracketMatchType = "tournament_knockout" | "tournament_consolation";
 async function getTournamentMatches(competitionId: string, competitionCategoryId?: string) {
   return prisma.match.findMany({
     where: { competitionId, ...(competitionCategoryId ? { competitionCategoryId } : {}) },
-    include: { competition: { select: { bestOfSets: true } }, sets: { orderBy: { setNumber: "asc" } } },
+    include: {
+      competition: { select: { bestOfSets: true, hostClub: { select: { name: true } } } },
+      sets: { orderBy: { setNumber: "asc" } }
+    },
     orderBy: [{ roundNumber: "asc" }, { matchOrder: "asc" }, { bracketPosition: "asc" }]
   });
 }
@@ -55,6 +58,10 @@ function ScoreDisplay({ match, pendingLabel }: { match: TournamentMatch; pending
       {score.partials ? <span> ({score.partials})</span> : null}
     </>
   );
+}
+
+function tournamentVenueName(match: TournamentMatch, noVenueLabel: string) {
+  return match.homeClubNameAtMatchTime ?? match.competition.hostClub?.name ?? noVenueLabel;
 }
 
 function playerName(name: string | null | undefined, isBye: boolean | undefined, pendingLabel: string) {
@@ -209,7 +216,7 @@ export async function TournamentMatches({
               <div>
                 <strong>{match.matchType === "tournament_third_place" ? t.thirdPlaceMatch : `${t.round} ${match.roundNumber ?? "-"}`} · {dateTime(match.scheduledAt, locale, t.noDate)}</strong>
                 <p>{match.homePlayerNameAtMatchTime ?? "BYE"} vs {match.awayPlayerNameAtMatchTime ?? "BYE"}</p>
-                <p>{t.venue}: {match.homeClubNameAtMatchTime ?? t.club}</p>
+                <p>{t.venue}: {tournamentVenueName(match, t.noVenue)}</p>
                 <p>{t.result}: <ScoreDisplay match={match} pendingLabel={t.pending} /></p>
               </div>
               {canEdit && match.status !== "bye" && match.homePlayerId && match.awayPlayerId ? (
