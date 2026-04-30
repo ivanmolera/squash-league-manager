@@ -17,6 +17,7 @@
     "import:lineups": "node scripts/import-lineups-csv.mjs",
     "import:individual-league": "node scripts/import-individual-league-csv.mjs",
     "import:team-league": "node scripts/import-team-league-csv.mjs",
+    "import:tournaments": "node scripts/import-tournaments-csv.mjs",
     "seed:admin": "node scripts/seed-admin.mjs",
     "seed:demo": "node scripts/seed-demo.mjs"
   },

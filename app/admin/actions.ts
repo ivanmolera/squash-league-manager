@@ -73,6 +73,7 @@ const tournamentSchema = z.object({
   competitionId: z.string().uuid().optional().or(z.literal("")),
   name: z.string().min(3),
   description: z.string().optional(),
+  posterUrl: z.string().optional(),
   hostClubId: z.string().uuid(),
   refereeName: z.string().optional(),
   rankingCode: z.enum(rankingCodeValues).default("none"),
@@ -144,31 +145,27 @@ function hasClubLocationChanged(
 }
 
 async function readProfilePhoto(formData: FormData) {
-  const file = formData.get("profilePhoto");
-  if (!(file instanceof File) || file.size === 0) return undefined;
-
-  if (!file.type.startsWith("image/")) {
-    throw new Error("La foto debe ser una imagen.");
-  }
-
-  if (file.size > 1_500_000) {
-    throw new Error("La foto no puede superar 1,5 MB.");
-  }
-
-  const bytes = Buffer.from(await file.arrayBuffer());
-  return `data:${file.type};base64,${bytes.toString("base64")}`;
+  return readUploadedImage(formData, "profilePhoto", "La foto", 1_500_000, "1,5 MB");
 }
 
 async function readClubLogo(formData: FormData) {
-  const file = formData.get("clubLogo");
+  return readUploadedImage(formData, "clubLogo", "El escudo", 1_500_000, "1,5 MB");
+}
+
+async function readTournamentPoster(formData: FormData) {
+  return readUploadedImage(formData, "poster", "El póster", 2_500_000, "2,5 MB");
+}
+
+async function readUploadedImage(formData: FormData, fieldName: string, label: string, maxSize: number, maxSizeLabel: string) {
+  const file = formData.get(fieldName);
   if (!(file instanceof File) || file.size === 0) return undefined;
 
   if (!file.type.startsWith("image/")) {
-    throw new Error("El escudo debe ser una imagen.");
+    throw new Error(`${label} debe ser una imagen.`);
   }
 
-  if (file.size > 1_500_000) {
-    throw new Error("El escudo no puede superar 1,5 MB.");
+  if (file.size > maxSize) {
+    throw new Error(`${label} no puede superar ${maxSizeLabel}.`);
   }
 
   const bytes = Buffer.from(await file.arrayBuffer());
@@ -1481,10 +1478,12 @@ export async function saveTournamentAction(formData: FormData) {
   const currentUser = await requireUser();
   const isAdmin = hasRole(currentUser, "admin");
   const shouldGenerateDraw = formData.get("mode")?.toString() === "generate";
+  const uploadedPosterUrl = await readTournamentPoster(formData);
   const parsed = tournamentSchema.parse({
     competitionId: textValue(formData.get("competitionId")),
     name: textValue(formData.get("name")),
     description: textValue(formData.get("description")),
+    posterUrl: uploadedPosterUrl ?? textValue(formData.get("posterUrl")),
     hostClubId: textValue(formData.get("hostClubId")),
     refereeName: textValue(formData.get("refereeName")),
     rankingCode: textValue(formData.get("rankingCode")) ?? "none",
@@ -1528,6 +1527,7 @@ export async function saveTournamentAction(formData: FormData) {
         data: {
           name: parsed.name,
           description: parsed.description,
+          posterUrl: parsed.posterUrl || null,
           hostClubId: parsed.hostClubId,
           refereeName: parsed.refereeName,
           rankingScope,
@@ -1545,6 +1545,7 @@ export async function saveTournamentAction(formData: FormData) {
           status: "registration_open",
           name: parsed.name,
           description: parsed.description,
+          posterUrl: parsed.posterUrl || null,
           hostClubId: parsed.hostClubId,
           refereeName: parsed.refereeName,
           rankingScope,

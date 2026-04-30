@@ -260,6 +260,7 @@ model Competition {
   status      CompetitionStatus      @default(draft)
   name        String
   description String?
+  posterUrl   String?                @map("poster_url")
   bestOfSets  Int                    @default(5) @map("best_of_sets")
   refereeName String?                @map("referee_name")
   rankingScope RankingScope          @default(none) @map("ranking_scope")

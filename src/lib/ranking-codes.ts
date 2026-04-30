@@ -10,26 +10,26 @@ export type RankingOption = {
 
 export const rankingOptions: RankingOption[] = [
   { code: "none", name: "No puntua", scope: "none" },
-  { code: "AND", name: "Andalucía", scope: "autonomic", flagClass: "flag-and" },
-  { code: "ARA", name: "Aragón", scope: "autonomic", flagClass: "flag-ara" },
-  { code: "AST", name: "Asturias", scope: "autonomic", flagClass: "flag-ast" },
-  { code: "BAL", name: "Illes Balears", scope: "autonomic", flagClass: "flag-bal" },
-  { code: "CAN", name: "Canarias", scope: "autonomic", flagClass: "flag-can" },
-  { code: "CNT", name: "Cantabria", scope: "autonomic", flagClass: "flag-cnt" },
-  { code: "CLM", name: "Castilla-La Mancha", scope: "autonomic", flagClass: "flag-clm" },
-  { code: "CYL", name: "Castilla y León", scope: "autonomic", flagClass: "flag-cyl" },
-  { code: "CAT", name: "Catalunya", scope: "autonomic", flagClass: "flag-cat" },
-  { code: "VAL", name: "Comunitat Valenciana", scope: "autonomic", flagClass: "flag-val" },
-  { code: "EXT", name: "Extremadura", scope: "autonomic", flagClass: "flag-ext" },
-  { code: "GAL", name: "Galicia", scope: "autonomic", flagClass: "flag-gal" },
-  { code: "MAD", name: "Madrid", scope: "autonomic", flagClass: "flag-mad" },
-  { code: "MUR", name: "Murcia", scope: "autonomic", flagClass: "flag-mur" },
-  { code: "NAV", name: "Navarra", scope: "autonomic", flagClass: "flag-nav" },
-  { code: "PVA", name: "País Vasco", scope: "autonomic", flagClass: "flag-pva" },
-  { code: "RIO", name: "La Rioja", scope: "autonomic", flagClass: "flag-rio" },
-  { code: "CEU", name: "Ceuta", scope: "autonomic", flagClass: "flag-ceu" },
-  { code: "MEL", name: "Melilla", scope: "autonomic", flagClass: "flag-mel" },
-  { code: "ESP", name: "España", scope: "state", flagClass: "flag-esp" },
+  { code: "AND", name: "Andalucía", scope: "autonomic", imageSrc: "/images/flags/and.svg" },
+  { code: "ARA", name: "Aragón", scope: "autonomic", imageSrc: "/images/flags/ara.svg" },
+  { code: "AST", name: "Asturias", scope: "autonomic", imageSrc: "/images/flags/ast.svg" },
+  { code: "BAL", name: "Illes Balears", scope: "autonomic", imageSrc: "/images/flags/bal.svg" },
+  { code: "CAN", name: "Canarias", scope: "autonomic", imageSrc: "/images/flags/can.svg" },
+  { code: "CNT", name: "Cantabria", scope: "autonomic", imageSrc: "/images/flags/cnt.svg" },
+  { code: "CLM", name: "Castilla-La Mancha", scope: "autonomic", imageSrc: "/images/flags/clm.svg" },
+  { code: "CYL", name: "Castilla y León", scope: "autonomic", imageSrc: "/images/flags/cyl.svg" },
+  { code: "CAT", name: "Catalunya", scope: "autonomic", imageSrc: "/images/flags/cat.svg" },
+  { code: "VAL", name: "Comunitat Valenciana", scope: "autonomic", imageSrc: "/images/flags/val.svg" },
+  { code: "EXT", name: "Extremadura", scope: "autonomic", imageSrc: "/images/flags/ext.svg" },
+  { code: "GAL", name: "Galicia", scope: "autonomic", imageSrc: "/images/flags/gal.svg" },
+  { code: "MAD", name: "Madrid", scope: "autonomic", imageSrc: "/images/flags/mad.svg" },
+  { code: "MUR", name: "Murcia", scope: "autonomic", imageSrc: "/images/flags/mur.svg" },
+  { code: "NAV", name: "Navarra", scope: "autonomic", imageSrc: "/images/flags/nav.svg" },
+  { code: "PVA", name: "País Vasco", scope: "autonomic", imageSrc: "/images/flags/pva.svg" },
+  { code: "RIO", name: "La Rioja", scope: "autonomic", imageSrc: "/images/flags/rio.svg" },
+  { code: "CEU", name: "Ceuta", scope: "autonomic", imageSrc: "/images/flags/ceu.svg" },
+  { code: "MEL", name: "Melilla", scope: "autonomic", imageSrc: "/images/flags/mel.svg" },
+  { code: "RFES", name: "RFES", scope: "state", flagClass: "flag-rfes" },
   { code: "PSA", name: "PSA", scope: "psa", imageSrc: "/images/psa_logo.png" }
 ];
 
@@ -45,7 +45,7 @@ export function rankingScopeForCode(code?: string | null): RankingScopeValue {
 
 export function rankingCodeForScope(scope?: string | null) {
   if (scope === "autonomic") return "CAT";
-  if (scope === "state") return "ESP";
+  if (scope === "state") return "RFES";
   if (scope === "psa") return "PSA";
   return "none";
 }

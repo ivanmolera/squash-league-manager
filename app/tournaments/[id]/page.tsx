@@ -86,6 +86,7 @@ export default async function TournamentDetailPage({ params }: { params: Promise
       <section className="detail-grid">
         <article className="list-panel full-width">
           <h2>{t.tournamentDetails}</h2>
+          {tournament.posterUrl ? <img className="tournament-poster-detail" src={tournament.posterUrl} alt={tournament.name} /> : null}
           {tournament.hostClub ? (
             <p className="club-reference-line">
               <ClubCrest logoUrl={tournament.hostClub.logoUrl} clubName={tournament.hostClub.name} size="small" />

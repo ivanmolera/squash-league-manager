@@ -119,8 +119,11 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
       <form className="admin-form wide-form" action={saveTournamentAction}>
         <h1>{t.editTournament}</h1>
         <input type="hidden" name="competitionId" value={tournament.id} />
+        <input type="hidden" name="posterUrl" value={tournament.posterUrl ?? ""} />
         <label>{t.name}<input name="name" defaultValue={tournament.name} required /></label>
         <label>{t.description}<textarea name="description" rows={3} defaultValue={tournament.description ?? ""} /></label>
+        {tournament.posterUrl ? <img className="tournament-poster-preview" src={tournament.posterUrl} alt={tournament.name} /> : null}
+        <label>{t.poster}<input name="poster" type="file" accept="image/*" /></label>
         <label>{t.referee}<input name="refereeName" defaultValue={tournament.refereeName ?? ""} /></label>
         <RankingCodePicker defaultCode={tournament.rankingCode ?? rankingCodeForScope(tournament.rankingScope)} label={t.scoreable} />
         <label>{t.matchFormat}

@@ -17,35 +17,16 @@ function dateRangeLabel(start: Date | null, end: Date | null, locale: string, no
   return startLabel === endLabel ? startLabel : `${startLabel} - ${endLabel}`;
 }
 
-function tournamentWinnerNames(tournament: HomeTournament) {
-  const finalsByCategory = new Map<string, HomeTournament["matches"][number]>();
-
-  for (const match of tournament.matches) {
-    if (match.matchType !== "tournament_knockout" || match.status !== "played" || !match.winnerPlayerId) continue;
-
-    const current = finalsByCategory.get(match.competitionCategoryId);
-    if (!current || (match.roundNumber ?? 0) > (current.roundNumber ?? 0)) {
-      finalsByCategory.set(match.competitionCategoryId, match);
-    }
-  }
-
-  return Array.from(finalsByCategory.values())
-    .map((match) => match.winnerPlayerId === match.homePlayerId ? match.homePlayerNameAtMatchTime : match.awayPlayerNameAtMatchTime)
-    .filter(Boolean);
-}
-
 function tournamentSlides({
-  upcoming,
-  completed,
+  tournaments,
   locale,
   labels
 }: {
-  upcoming: HomeTournament[];
-  completed: HomeTournament[];
+  tournaments: HomeTournament[];
   locale: string;
   labels: Record<string, string>;
 }): HomeTournamentSlide[] {
-  const upcomingSlides = upcoming.map((tournament) => ({
+  return tournaments.map((tournament) => ({
     id: `upcoming-${tournament.id}`,
     href: `/tournaments/${tournament.id}`,
     title: tournament.name,
@@ -54,21 +35,6 @@ function tournamentSlides({
     locationLabel: tournament.hostClub?.name ?? labels.noVenue,
     detailLabel: `${labels.registration}: ${tournament.registrationDeadline?.toLocaleDateString(locale) ?? labels.noDeadline}`
   }));
-
-  const completedSlides = completed.map((tournament) => {
-    const winners = tournamentWinnerNames(tournament);
-    return {
-      id: `completed-${tournament.id}`,
-      href: `/tournaments/${tournament.id}`,
-      title: tournament.name,
-      statusLabel: labels.completedTournament,
-      dateLabel: dateRangeLabel(tournament.startsAt, tournament.endsAt, locale, labels.noDate),
-      locationLabel: tournament.hostClub?.name ?? labels.noVenue,
-      detailLabel: winners.length ? `${labels.winners}: ${winners.slice(0, 3).join(", ")}` : labels.resultsAvailable
-    };
-  });
-
-  return [...upcomingSlides, ...completedSlides];
 }
 
 function getHomeTournaments(now: Date) {
@@ -91,10 +57,10 @@ function getHomeTournaments(now: Date) {
   };
 
   return prisma.competition.findMany({
-    where: { type: "tournament", OR: [{ startsAt: { gte: now } }, { endsAt: { lt: now } }] },
+    where: { type: "tournament", startsAt: { gte: now } },
     include: tournamentInclude,
-    orderBy: [{ startsAt: "desc" }, { name: "asc" }],
-    take: 8
+    orderBy: [{ startsAt: "asc" }, { name: "asc" }],
+    take: 5
   });
 }
 
@@ -104,6 +70,7 @@ export default async function Home() {
     getCurrentUser(),
     getDictionary(),
     prisma.club.findMany({
+      where: { logoUrl: { not: null } },
       orderBy: [{ province: "asc" }, { name: "asc" }],
       select: { id: true, name: true, logoUrl: true },
       take: 18
@@ -118,15 +85,7 @@ export default async function Home() {
     { title: t.moduleProfiles, text: t.moduleProfilesText, icon: IdCard }
   ];
   const sponsors = ["DROPSHOT", "VIBORA", "RACQTECH", "COURTLY", "SQUASH TV", "AUREA"];
-  const upcomingTournaments = homeTournaments
-    .filter((tournament) => tournament.startsAt && tournament.startsAt >= now)
-    .sort((left, right) => (left.startsAt?.getTime() ?? 0) - (right.startsAt?.getTime() ?? 0))
-    .slice(0, 4);
-  const completedTournaments = homeTournaments
-    .filter((tournament) => tournament.endsAt && tournament.endsAt < now)
-    .sort((left, right) => (right.endsAt?.getTime() ?? 0) - (left.endsAt?.getTime() ?? 0))
-    .slice(0, 4);
-  const slides = tournamentSlides({ upcoming: upcomingTournaments, completed: completedTournaments, locale, labels: t });
+  const slides = tournamentSlides({ tournaments: homeTournaments, locale, labels: t });
 
   return (
     <main className="app-shell">

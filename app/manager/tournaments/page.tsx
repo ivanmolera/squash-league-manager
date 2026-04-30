@@ -21,7 +21,7 @@ function tournamentDateLabel(value: Date | null, locale: string, noDate: string)
   if (!value) return noDate;
   const parts = new Intl.DateTimeFormat(locale, { day: "numeric", month: "long" }).formatToParts(value);
   const day = parts.find((part) => part.type === "day")?.value;
-  const month = parts.find((part) => part.type === "month")?.value;
+  const month = parts.find((part) => part.type === "month")?.value.replace(/^de\s+/i, "");
   return day && month ? `${month.toLocaleUpperCase(locale)} ${day}` : value.toLocaleDateString(locale);
 }
 
@@ -83,6 +83,8 @@ export default async function TournamentsPage({
             <h2>{t.newTournament}</h2>
             <label>{t.name}<input name="name" required /></label>
             <label>{t.description}<textarea name="description" rows={3} /></label>
+            <input type="hidden" name="posterUrl" value="" />
+            <label>{t.poster}<input name="poster" type="file" accept="image/*" /></label>
             <label>{t.referee}<input name="refereeName" /></label>
             <RankingCodePicker defaultCode="none" label={t.scoreable} />
             <label>{t.matchFormat}
