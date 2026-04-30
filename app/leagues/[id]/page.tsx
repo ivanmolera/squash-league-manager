@@ -48,7 +48,7 @@ export default async function LeagueDetailPage({ params }: { params: Promise<{ i
           <p><strong>{t.restrictions}:</strong></p>
           {league.categories.map((competitionCategory) => (
             <p key={competitionCategory.id}>
-              {competitionCategory.category.name}: {categoryRestrictionLabel(competitionCategory.category, {
+              {competitionCategory.displayName}: {categoryRestrictionLabel(competitionCategory.category, {
                 male: t.male,
                 female: t.female,
                 other: t.other,

@@ -378,6 +378,15 @@ function leagueMatchDate(startsAt: string, roundIndex: number) {
   return date;
 }
 
+function leagueMatchdayWindow(startsAt: string, roundIndex: number) {
+  const start = new Date(startsAt);
+  start.setDate(start.getDate() + roundIndex * 14);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 13);
+  return { startsAt: start, endsAt: end };
+}
+
 function playerSide(match: {
   homePlayerId: string | null;
   awayPlayerId: string | null;
@@ -1204,6 +1213,38 @@ export async function saveClubAction(formData: FormData) {
   });
 }
 
+async function upsertCompetitionCategoryByDisplayName({
+  competitionId,
+  categoryId,
+  displayName,
+  format
+}: {
+  competitionId: string;
+  categoryId: string;
+  displayName: string;
+  format: "league" | "knockout" | "round_robin";
+}) {
+  const existing = await prisma.competitionCategory.findFirst({
+    where: { competitionId, displayName }
+  });
+
+  if (existing) {
+    return prisma.competitionCategory.update({
+      where: { id: existing.id },
+      data: { categoryId, format }
+    });
+  }
+
+  return prisma.competitionCategory.create({
+    data: {
+      competitionId,
+      categoryId,
+      displayName,
+      format
+    }
+  });
+}
+
 export async function saveLeagueAction(formData: FormData) {
   await requireAdmin();
   const shouldRegenerateSchedule = formData.get("mode")?.toString() === "regenerate" || !textValue(formData.get("competitionId"));
@@ -1258,19 +1299,11 @@ export async function saveLeagueAction(formData: FormData) {
     redirect(`/leagues/${competition.id}/edit?saved=1`);
   }
 
-  const competitionCategory = await prisma.competitionCategory.upsert({
-    where: {
-      competitionId_categoryId: {
-        competitionId: competition.id,
-        categoryId: category.id
-      }
-    },
-    update: { format: "league" },
-    create: {
-      competitionId: competition.id,
-      categoryId: category.id,
-      format: "league"
-    }
+  const competitionCategory = await upsertCompetitionCategoryByDisplayName({
+    competitionId: competition.id,
+    categoryId: category.id,
+    displayName: category.name,
+    format: "league"
   });
 
   await prisma.competitionParticipant.deleteMany({
@@ -1278,6 +1311,7 @@ export async function saveLeagueAction(formData: FormData) {
   });
   await prisma.match.deleteMany({ where: { competitionId: competition.id } });
   await prisma.teamTie.deleteMany({ where: { competitionId: competition.id } });
+  await prisma.leagueMatchday.deleteMany({ where: { competitionId: competition.id } });
   if (parsed.participantIds.length < 2) {
     revalidatePath("/admin/leagues");
     revalidatePath(`/leagues/${competition.id}`);
@@ -1311,12 +1345,28 @@ export async function saveLeagueAction(formData: FormData) {
     });
 
     const rounds = generateRoundRobin(shuffle(players));
+    const matchdays = await Promise.all(
+      rounds.map((_, roundIndex) => {
+        const window = leagueMatchdayWindow(parsed.startsAt, roundIndex);
+        return prisma.leagueMatchday.create({
+          data: {
+            seasonId: season.id,
+            competitionId: competition.id,
+            competitionCategoryId: competitionCategory.id,
+            roundNumber: roundIndex + 1,
+            startsAt: window.startsAt,
+            endsAt: window.endsAt
+          }
+        });
+      })
+    );
     await prisma.match.createMany({
       data: rounds.flatMap((round, roundIndex) =>
         round.map(([home, away], matchIndex) => ({
           seasonId: season.id,
           competitionId: competition.id,
           competitionCategoryId: competitionCategory.id,
+          leagueMatchdayId: matchdays[roundIndex].id,
           matchType: "individual_league",
           roundNumber: roundIndex + 1,
           matchOrder: matchIndex + 1,
@@ -1378,12 +1428,28 @@ export async function saveLeagueAction(formData: FormData) {
     );
 
     const rounds = generateRoundRobin(shuffle(teams));
+    const matchdays = await Promise.all(
+      rounds.map((_, roundIndex) => {
+        const window = leagueMatchdayWindow(parsed.startsAt, roundIndex);
+        return prisma.leagueMatchday.create({
+          data: {
+            seasonId: season.id,
+            competitionId: competition.id,
+            competitionCategoryId: competitionCategory.id,
+            roundNumber: roundIndex + 1,
+            startsAt: window.startsAt,
+            endsAt: window.endsAt
+          }
+        });
+      })
+    );
     await prisma.teamTie.createMany({
       data: rounds.flatMap((round, roundIndex) =>
         round.map(([home, away]) => ({
           seasonId: season.id,
           competitionId: competition.id,
           competitionCategoryId: competitionCategory.id,
+          leagueMatchdayId: matchdays[roundIndex].id,
           scheduledAt: leagueMatchDate(parsed.startsAt, roundIndex),
           homeTeamId: home.id,
           awayTeamId: away.id,
@@ -1488,23 +1554,20 @@ export async function saveTournamentAction(formData: FormData) {
     }
   });
 
+  const categoriesById = new Map((await prisma.category.findMany({
+    where: { id: { in: categoryIds } }
+  })).map((category) => [category.id, category]));
+
   await Promise.all(
-    categoryIds.map((categoryId) =>
-      prisma.competitionCategory.upsert({
-        where: {
-          competitionId_categoryId: {
-            competitionId: competition.id,
-            categoryId
-          }
-        },
-        update: {},
-        create: {
-          competitionId: competition.id,
-          categoryId,
-          format: "knockout"
-        }
-      })
-    )
+    categoryIds.map((categoryId) => {
+      const category = categoriesById.get(categoryId);
+      return upsertCompetitionCategoryByDisplayName({
+        competitionId: competition.id,
+        categoryId,
+        displayName: category?.name ?? "General",
+        format: "knockout"
+      });
+    })
   );
 
   const competitionCategories = await prisma.competitionCategory.findMany({

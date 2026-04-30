@@ -548,6 +548,7 @@ async function createIndividualLeague({ season, categoriesByKey, allPlayers }) {
       data: {
         competitionId: competition.id,
         categoryId: category.id,
+        displayName: category.name,
         format: "league"
       }
     });
@@ -741,6 +742,7 @@ async function createTeamLeague({ season, categoriesByKey, clubs }) {
       data: {
         competitionId: competition.id,
         categoryId: category.id,
+        displayName: category.name,
         format: "league"
       }
     });

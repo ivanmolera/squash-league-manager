@@ -41,7 +41,11 @@ type TeamTie = Awaited<ReturnType<typeof getTeamTies>>[number];
 async function getLeagueMatches(competitionId: string, competitionCategoryId?: string) {
   return prisma.match.findMany({
     where: { competitionId, ...(competitionCategoryId ? { competitionCategoryId } : {}) },
-    include: { competition: { select: { bestOfSets: true } }, sets: { orderBy: { setNumber: "asc" } } },
+    include: {
+      competition: { select: { bestOfSets: true } },
+      leagueMatchday: true,
+      sets: { orderBy: { setNumber: "asc" } }
+    },
     orderBy: [{ roundNumber: "asc" }, { matchOrder: "asc" }, { bracketPosition: "asc" }]
   });
 }
@@ -49,6 +53,7 @@ async function getLeagueMatches(competitionId: string, competitionCategoryId?: s
 async function getTeamTies(competitionId: string, competitionCategoryId: string) {
   return prisma.teamTie.findMany({
     where: { competitionId, competitionCategoryId },
+    include: { leagueMatchday: true },
     orderBy: [{ scheduledAt: "asc" }, { homeTeamNameAtTime: "asc" }]
   });
 }
@@ -94,25 +99,37 @@ function groupByCategory<T extends { competition_category_id: string; category_n
 }
 
 function groupMatchesByRound(matches: MatchWithSets[]) {
-  return matches.reduce<Array<{ round: number | null; matches: MatchWithSets[] }>>((groups, match) => {
-    const group = groups.find((item) => item.round === match.roundNumber);
+  return matches.reduce<Array<{ key: string; round: number | null; startsAt: Date | null; endsAt: Date | null; matches: MatchWithSets[] }>>((groups, match) => {
+    const key = match.leagueMatchday?.id ?? `round-${match.roundNumber ?? "none"}`;
+    const group = groups.find((item) => item.key === key);
     if (group) {
       group.matches.push(match);
     } else {
-      groups.push({ round: match.roundNumber, matches: [match] });
+      groups.push({
+        key,
+        round: match.leagueMatchday?.roundNumber ?? match.roundNumber,
+        startsAt: match.leagueMatchday?.startsAt ?? match.scheduledAt,
+        endsAt: match.leagueMatchday?.endsAt ?? match.scheduledAt,
+        matches: [match]
+      });
     }
     return groups;
   }, []);
 }
 
 function groupTeamTiesByDate(teamTies: TeamTie[]) {
-  return teamTies.reduce<Array<{ key: string; scheduledAt: Date | null; ties: TeamTie[] }>>((groups, tie) => {
-    const key = tie.scheduledAt?.toISOString().slice(0, 10) ?? "no-date";
+  return teamTies.reduce<Array<{ key: string; startsAt: Date | null; endsAt: Date | null; ties: TeamTie[] }>>((groups, tie) => {
+    const key = tie.leagueMatchday?.id ?? tie.scheduledAt?.toISOString().slice(0, 10) ?? "no-date";
     const group = groups.find((item) => item.key === key);
     if (group) {
       group.ties.push(tie);
     } else {
-      groups.push({ key, scheduledAt: tie.scheduledAt, ties: [tie] });
+      groups.push({
+        key,
+        startsAt: tie.leagueMatchday?.startsAt ?? tie.scheduledAt,
+        endsAt: tie.leagueMatchday?.endsAt ?? tie.scheduledAt,
+        ties: [tie]
+      });
     }
     return groups;
   }, []);
@@ -133,6 +150,16 @@ function dateTime(value: Date | null, locale: string, noDateLabel: string) {
   return value ? value.toLocaleString(locale, { dateStyle: "short", timeStyle: "short" }) : noDateLabel;
 }
 
+function dateRange(startsAt: Date | null, endsAt: Date | null, locale: string, noDateLabel: string) {
+  if (!startsAt && !endsAt) return noDateLabel;
+  const formatter = new Intl.DateTimeFormat(locale, { dateStyle: "short" });
+  if (!startsAt || !endsAt || startsAt.toDateString() === endsAt.toDateString()) {
+    const value = startsAt ?? endsAt;
+    return value ? formatter.format(value) : noDateLabel;
+  }
+  return `${formatter.format(startsAt)} - ${formatter.format(endsAt)}`;
+}
+
 export async function LeagueStandings({
   competitionId,
   type
@@ -146,7 +173,7 @@ export async function LeagueStandings({
     const standings = await prisma.$queryRaw<IndividualStanding[]>`
       SELECT
         cp.competition_category_id,
-        cat.name AS category_name,
+        cc.display_name AS category_name,
         row_number() OVER (
           PARTITION BY cp.competition_category_id
           ORDER BY COALESCE(cir.matches_won, 0) DESC,
@@ -178,7 +205,7 @@ export async function LeagueStandings({
        AND cir.player_id = cp.player_id
       WHERE cp.competition_id = ${competitionId}::uuid
         AND cp.player_id IS NOT NULL
-      ORDER BY cat.sort_order, position, p.last_name, p.first_name
+      ORDER BY cat.sort_order, cc.created_at, position, p.last_name, p.first_name
     `;
 
     return (
@@ -234,7 +261,7 @@ export async function LeagueStandings({
     )
     SELECT
       ct.competition_category_id,
-      cat.name AS category_name,
+      cc.display_name AS category_name,
       row_number() OVER (
         PARTITION BY ct.competition_category_id
         ORDER BY COALESCE(ctr.rubbers_for, 0) DESC,
@@ -259,7 +286,7 @@ export async function LeagueStandings({
       ON ctr.competition_id = ${competitionId}::uuid
      AND ctr.competition_category_id = ct.competition_category_id
      AND ctr.team_id = ct.team_id
-    ORDER BY cat.sort_order, position, t.name
+    ORDER BY cat.sort_order, cc.created_at, position, t.name
   `;
 
   return (
@@ -326,7 +353,7 @@ export async function LeagueCategoryCalendar({
             <article className="matchday-card" key={group.round ?? "no-round"}>
               <header>
                 <strong>{t.matchday} {group.round ?? "-"}</strong>
-                <span>{dateTime(group.matches[0]?.scheduledAt ?? null, locale, t.noDate)}</span>
+                <span>{dateRange(group.startsAt, group.endsAt, locale, t.noDate)}</span>
               </header>
               <div className="compact-match-list">
                 {group.matches.map((match) => (
@@ -375,7 +402,7 @@ export async function LeagueCategoryCalendar({
           <article className="matchday-card" key={group.key}>
             <header>
               <strong>{t.matchday} {index + 1}</strong>
-              <span>{dateTime(group.scheduledAt, locale, t.noDate)}</span>
+              <span>{dateRange(group.startsAt, group.endsAt, locale, t.noDate)}</span>
             </header>
             <div className="compact-match-list">
               {group.ties.map((tie) => {

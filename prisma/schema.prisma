@@ -234,6 +234,7 @@ model Season {
   updatedAt DateTime     @default(now()) @map("updated_at") @db.Timestamptz(6)
   memberships PlayerClubMembership[]
   competitions Competition[]
+  leagueMatchdays LeagueMatchday[]
 
   @@map("seasons")
 }
@@ -274,6 +275,7 @@ model Competition {
   categories  CompetitionCategory[]
   participants CompetitionParticipant[]
   matches      Match[]
+  leagueMatchdays LeagueMatchday[]
 
   @@unique([seasonId, type, name])
   @@map("competitions")
@@ -283,6 +285,7 @@ model CompetitionCategory {
   id            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   competitionId String            @map("competition_id") @db.Uuid
   categoryId    String            @map("category_id") @db.Uuid
+  displayName   String            @map("display_name")
   format        CompetitionFormat
   createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
   competition   Competition       @relation(fields: [competitionId], references: [id], onDelete: Cascade)
@@ -291,9 +294,30 @@ model CompetitionCategory {
   registrations TournamentRegistration[]
   seeds         TournamentSeed[]
   drawEntries   TournamentDrawEntry[]
+  leagueMatchdays LeagueMatchday[]
 
-  @@unique([competitionId, categoryId])
+  @@unique([competitionId, displayName])
   @@map("competition_categories")
+}
+
+model LeagueMatchday {
+  id                    String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  seasonId              String              @map("season_id") @db.Uuid
+  competitionId          String              @map("competition_id") @db.Uuid
+  competitionCategoryId  String              @map("competition_category_id") @db.Uuid
+  roundNumber            Int                 @map("round_number")
+  startsAt               DateTime            @map("starts_at") @db.Date
+  endsAt                 DateTime            @map("ends_at") @db.Date
+  createdAt              DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime            @default(now()) @map("updated_at") @db.Timestamptz(6)
+  season                 Season              @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  competition            Competition         @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  competitionCategory    CompetitionCategory @relation(fields: [competitionCategoryId], references: [id], onDelete: Cascade)
+  matches                Match[]
+  teamTies               TeamTie[]
+
+  @@unique([competitionCategoryId, roundNumber])
+  @@map("league_matchdays")
 }
 
 model CompetitionParticipant {
@@ -373,6 +397,7 @@ model TeamTie {
   id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   competitionId          String      @map("competition_id") @db.Uuid
   competitionCategoryId  String      @map("competition_category_id") @db.Uuid
+  leagueMatchdayId       String?     @map("league_matchday_id") @db.Uuid
   seasonId               String      @map("season_id") @db.Uuid
   homeTeamId             String      @map("home_team_id") @db.Uuid
   awayTeamId             String      @map("away_team_id") @db.Uuid
@@ -386,6 +411,7 @@ model TeamTie {
   awayClubNameAtTime     String?     @map("away_club_name_at_time")
   createdAt              DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime    @default(now()) @map("updated_at") @db.Timestamptz(6)
+  leagueMatchday         LeagueMatchday? @relation(fields: [leagueMatchdayId], references: [id], onDelete: SetNull)
 
   @@map("team_ties")
 }
@@ -395,6 +421,7 @@ model Match {
   seasonId              String      @map("season_id") @db.Uuid
   competitionId          String      @map("competition_id") @db.Uuid
   competitionCategoryId  String      @map("competition_category_id") @db.Uuid
+  leagueMatchdayId       String?     @map("league_matchday_id") @db.Uuid
   teamTieId              String?     @map("team_tie_id") @db.Uuid
   matchType              MatchType   @map("match_type")
   status                 MatchStatus @default(scheduled)
@@ -423,6 +450,7 @@ model Match {
   createdAt              DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime    @default(now()) @map("updated_at") @db.Timestamptz(6)
   competition            Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  leagueMatchday         LeagueMatchday? @relation(fields: [leagueMatchdayId], references: [id], onDelete: SetNull)
   sets                   MatchSet[]
 
   @@map("matches")

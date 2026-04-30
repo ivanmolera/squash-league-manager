@@ -337,7 +337,7 @@ export default async function LeagueCategoryEvolutionPage({
       <section className="detail-header">
         <div>
           <p className="eyebrow">{t.evolution}</p>
-          <h1>{competitionCategory.category.name}</h1>
+          <h1>{competitionCategory.displayName}</h1>
           <p className="muted">{competitionCategory.competition.name}</p>
         </div>
         <Link className="primary-link" href={`/leagues/${competitionCategory.competition.id}`}>{t.backToLeague}</Link>
