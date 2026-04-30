@@ -370,7 +370,7 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ i
         memberships: { include: { club: true, season: true } },
         rosters: {
           include: { team: { include: { club: true } } },
-          orderBy: [{ teamNameAtThatTime: "asc" }]
+          orderBy: [{ teamNameAtThatTime: "asc" }, { rosterOrder: "asc" }]
         }
       }
     }),

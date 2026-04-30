@@ -18,7 +18,7 @@ async function getClub(id: string) {
     include: {
       manager: true,
       teams: {
-        include: { rosters: { include: { player: true } } },
+        include: { rosters: { include: { player: true }, orderBy: [{ rosterOrder: "asc" }, { playerNameAtThatTime: "asc" }] } },
         orderBy: [{ name: "asc" }]
       },
       memberships: {

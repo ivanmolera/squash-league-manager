@@ -14,6 +14,7 @@
     "db:info": "flyway -configFiles=flyway.conf info",
     "db:validate": "flyway -configFiles=flyway.conf validate",
     "geocode:clubs": "node scripts/geocode-clubs.mjs",
+    "import:lineups": "node scripts/import-lineups-csv.mjs",
     "seed:admin": "node scripts/seed-admin.mjs",
     "seed:demo": "node scripts/seed-demo.mjs"
   },

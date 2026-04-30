@@ -359,6 +359,7 @@ model TeamRoster {
   teamNameAtThatTime String @map("team_name_at_that_time")
   clubNameAtThatTime String @map("club_name_at_that_time")
   playerNameAtThatTime String @map("player_name_at_that_time")
+  rosterOrder Int      @default(0) @map("roster_order")
   fromDate   DateTime  @map("from_date") @db.Date
   toDate     DateTime? @map("to_date") @db.Date
   team       Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)

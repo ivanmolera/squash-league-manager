@@ -56,13 +56,34 @@ const provinces = ["Barcelona", "Girona", "Tarragona", "Lleida"];
 const cities = ["Barcelona", "Girona", "Tarragona", "Lleida", "Sabadell", "Mataro", "Reus", "Figueres"];
 
 const categoryDefinitions = [
-  { key: "male_first", name: "Masculino Primera", genderScope: "male", minAge: null, maxAge: null, sortOrder: 1 },
-  { key: "male_second", name: "Masculino Segunda", genderScope: "male", minAge: null, maxAge: null, sortOrder: 2 },
-  { key: "male_third", name: "Masculino Tercera", genderScope: "male", minAge: null, maxAge: null, sortOrder: 3 },
-  { key: "female", name: "Femenina", genderScope: "female", minAge: null, maxAge: null, sortOrder: 4 },
-  { key: "veterans", name: "Veteranos +35", genderScope: "not_specified", minAge: 35, maxAge: null, sortOrder: 5 },
-  { key: "junior", name: "Juvenil Sub-18", genderScope: "not_specified", minAge: null, maxAge: 18, sortOrder: 6 }
+  { key: "general", name: "General", genderScope: "not_specified", minAge: null, maxAge: null, sortOrder: 1 },
+  { key: "first", name: "Primera", genderScope: "not_specified", minAge: null, maxAge: null, sortOrder: 2 },
+  { key: "second", name: "Segunda", genderScope: "not_specified", minAge: null, maxAge: null, sortOrder: 3 },
+  { key: "third", name: "Tercera", genderScope: "not_specified", minAge: null, maxAge: null, sortOrder: 4 },
+  { key: "female", name: "Femenina", genderScope: "female", minAge: null, maxAge: null, sortOrder: 5 },
+  { key: "male_35", name: "Masc +35", genderScope: "male", minAge: 35, maxAge: null, sortOrder: 6 },
+  { key: "male_40", name: "Masc +40", genderScope: "male", minAge: 40, maxAge: null, sortOrder: 7 },
+  { key: "male_45", name: "Masc +45", genderScope: "male", minAge: 45, maxAge: null, sortOrder: 8 },
+  { key: "male_50", name: "Masc +50", genderScope: "male", minAge: 50, maxAge: null, sortOrder: 9 },
+  { key: "male_55", name: "Masc +55", genderScope: "male", minAge: 55, maxAge: null, sortOrder: 10 },
+  { key: "male_60", name: "Masc +60", genderScope: "male", minAge: 60, maxAge: null, sortOrder: 11 },
+  { key: "female_30", name: "Fem +30", genderScope: "female", minAge: 30, maxAge: null, sortOrder: 12 },
+  { key: "female_35", name: "Fem +35", genderScope: "female", minAge: 35, maxAge: null, sortOrder: 13 },
+  { key: "male_sub9", name: "Masc Sub-9", genderScope: "male", minAge: null, maxAge: 9, sortOrder: 14 },
+  { key: "male_sub11", name: "Masc Sub-11", genderScope: "male", minAge: null, maxAge: 11, sortOrder: 15 },
+  { key: "male_sub13", name: "Masc Sub-13", genderScope: "male", minAge: null, maxAge: 13, sortOrder: 16 },
+  { key: "male_sub15", name: "Masc Sub-15", genderScope: "male", minAge: null, maxAge: 15, sortOrder: 17 },
+  { key: "male_sub17", name: "Masc Sub-17", genderScope: "male", minAge: null, maxAge: 17, sortOrder: 18 },
+  { key: "male_sub19", name: "Masc Sub-19", genderScope: "male", minAge: null, maxAge: 19, sortOrder: 19 },
+  { key: "female_sub9", name: "Fem Sub-9", genderScope: "female", minAge: null, maxAge: 9, sortOrder: 20 },
+  { key: "female_sub11", name: "Fem Sub-11", genderScope: "female", minAge: null, maxAge: 11, sortOrder: 21 },
+  { key: "female_sub13", name: "Fem Sub-13", genderScope: "female", minAge: null, maxAge: 13, sortOrder: 22 },
+  { key: "female_sub15", name: "Fem Sub-15", genderScope: "female", minAge: null, maxAge: 15, sortOrder: 23 },
+  { key: "female_sub17", name: "Fem Sub-17", genderScope: "female", minAge: null, maxAge: 17, sortOrder: 24 },
+  { key: "female_sub19", name: "Fem Sub-19", genderScope: "female", minAge: null, maxAge: 19, sortOrder: 25 }
 ];
+const demoCategoryKeys = new Set(["first", "second", "third", "female", "male_35", "male_sub19"]);
+const demoCategoryDefinitions = categoryDefinitions.filter((definition) => demoCategoryKeys.has(definition.key));
 
 function pick(items, index) {
   return items[index % items.length];
@@ -421,17 +442,20 @@ async function createDemoClubsAndPlayers(season, categoriesByKey) {
 }
 
 function eligiblePlayersForCategory(players, categoryKey) {
+  if (["first", "second", "third"].includes(categoryKey)) {
+    return players.filter((player) => player.gender === "male");
+  }
   if (categoryKey.startsWith("male_")) {
     return players.filter((player) => player.gender === "male");
   }
   if (categoryKey === "female") {
     return players.filter((player) => player.gender === "female");
   }
-  if (categoryKey === "veterans") {
-    return players.filter((player) => player.birthDate && ageAt(player.birthDate) >= 35);
+  if (categoryKey === "male_35") {
+    return players.filter((player) => player.gender === "male" && player.birthDate && ageAt(player.birthDate) >= 35);
   }
-  if (categoryKey === "junior") {
-    return players.filter((player) => player.birthDate && ageAt(player.birthDate) <= 18);
+  if (categoryKey === "male_sub19") {
+    return players.filter((player) => player.gender === "male" && player.birthDate && ageAt(player.birthDate) <= 19);
   }
   return players;
 }
@@ -440,14 +464,14 @@ function teamRosterForCategory(players, categoryKey) {
   const eligible = eligiblePlayersForCategory(players, categoryKey)
     .sort((left, right) => left.lastName.localeCompare(right.lastName, "es") || left.firstName.localeCompare(right.firstName, "es"));
 
-  if (categoryKey === "male_first") return eligible.slice(0, 4);
-  if (categoryKey === "male_second") return eligible.slice(4, 8);
-  if (categoryKey === "male_third") return eligible.slice(8, 12);
+  if (categoryKey === "first") return eligible.slice(0, 4);
+  if (categoryKey === "second") return eligible.slice(4, 8);
+  if (categoryKey === "third") return eligible.slice(8, 12);
   return eligible.slice(0, 4);
 }
 
 async function createClubTeamsForAllCategories({ club, clubPlayers, season, categoriesByKey }) {
-  for (const definition of categoryDefinitions) {
+  for (const definition of demoCategoryDefinitions) {
     const category = categoriesByKey[definition.key];
     const rosterPlayers = teamRosterForCategory(clubPlayers, definition.key);
 
@@ -466,7 +490,7 @@ async function createClubTeamsForAllCategories({ club, clubPlayers, season, cate
       }
     });
 
-    for (const player of rosterPlayers) {
+    for (const [index, player] of rosterPlayers.entries()) {
       await prisma.teamRoster.create({
         data: {
           teamId: team.id,
@@ -476,6 +500,7 @@ async function createClubTeamsForAllCategories({ club, clubPlayers, season, cate
           teamNameAtThatTime: team.name,
           clubNameAtThatTime: club.name,
           playerNameAtThatTime: `${player.lastName}, ${player.firstName}`,
+          rosterOrder: index + 1,
           fromDate: season.startsAt
         }
       });
@@ -488,14 +513,14 @@ function selectIndividualParticipants(allPlayers) {
   const malePlayers = deterministicShuffle(allPlayers.filter((player) => player.gender === "male"), "male");
   const femalePlayers = deterministicShuffle(allPlayers.filter((player) => player.gender === "female"), "female");
   const veteranPlayers = deterministicShuffle(allPlayers.filter((player) => player.birthDate && ageAt(player.birthDate) >= 35), "veterans");
-  const juniorPlayers = deterministicShuffle(allPlayers.filter((player) => player.birthDate && ageAt(player.birthDate) <= 18), "junior");
+  const juniorPlayers = deterministicShuffle(allPlayers.filter((player) => player.birthDate && ageAt(player.birthDate) <= 19), "junior");
 
-  selection.male_first = malePlayers.slice(0, 8);
-  selection.male_second = malePlayers.slice(8, 16);
-  selection.male_third = malePlayers.slice(16, 24);
+  selection.first = malePlayers.slice(0, 8);
+  selection.second = malePlayers.slice(8, 16);
+  selection.third = malePlayers.slice(16, 24);
   selection.female = femalePlayers.slice(0, 8);
-  selection.veterans = veteranPlayers.slice(0, 8);
-  selection.junior = juniorPlayers.slice(0, 8);
+  selection.male_35 = veteranPlayers.filter((player) => player.gender === "male").slice(0, 8);
+  selection.male_sub19 = juniorPlayers.filter((player) => player.gender === "male").slice(0, 8);
 
   return selection;
 }
@@ -516,7 +541,7 @@ async function createIndividualLeague({ season, categoriesByKey, allPlayers }) {
 
   const participantsByCategory = selectIndividualParticipants(allPlayers);
 
-  for (const definition of categoryDefinitions) {
+  for (const definition of demoCategoryDefinitions) {
     const category = categoriesByKey[definition.key];
     const players = participantsByCategory[definition.key];
     const competitionCategory = await prisma.competitionCategory.create({
@@ -693,7 +718,7 @@ async function createTeamLeague({ season, categoriesByKey, clubs }) {
     }
   });
 
-  for (const definition of categoryDefinitions) {
+  for (const definition of demoCategoryDefinitions) {
     const category = categoriesByKey[definition.key];
     const teams = await prisma.team.findMany({
       where: {
@@ -705,7 +730,7 @@ async function createTeamLeague({ season, categoriesByKey, clubs }) {
         club: true,
         rosters: {
           include: { player: true },
-          orderBy: [{ playerNameAtThatTime: "asc" }]
+          orderBy: [{ rosterOrder: "asc" }, { playerNameAtThatTime: "asc" }]
         }
       },
       orderBy: { name: "asc" },

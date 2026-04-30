@@ -16,7 +16,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
         club: true,
         rosters: {
           include: { player: true },
-          orderBy: [{ player: { lastName: "asc" } }, { player: { firstName: "asc" } }]
+          orderBy: [{ rosterOrder: "asc" }, { player: { lastName: "asc" } }, { player: { firstName: "asc" } }]
         }
       }
     }),
@@ -50,7 +50,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
           <h2>{t.players}</h2>
           {canSeeRoster ? team.rosters.map((roster) => (
             <p key={roster.id}>
-              <Link href={`/players/${roster.playerId}`}>{roster.playerNameAtThatTime}</Link>
+              {roster.rosterOrder ? `${roster.rosterOrder}. ` : null}<Link href={`/players/${roster.playerId}`}>{roster.playerNameAtThatTime}</Link>
             </p>
           )) : <p>{t.rosterPrivate}</p>}
         </article>
