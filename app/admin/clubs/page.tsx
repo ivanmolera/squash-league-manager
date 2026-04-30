@@ -135,13 +135,11 @@ export default async function ClubsPage({
       </section>
       <section className="club-directory-grid full-width">
         <div className="list-panel club-directory-list">
-          <h2>{t.clubList}</h2>
           {query?.clubError ? <p className="warning-box">{t.clubFormError}</p> : null}
           {clubGroups.map((group) => (
             <section className="club-community-group" key={group.code ?? "unknown"}>
               <h3>
                 {group.code ? <RankingCodeBadge code={group.code} /> : null}
-                {group.name}
               </h3>
               {group.clubs.map((club) => {
                 const address = club.address ?? t.noAddress;
@@ -156,7 +154,8 @@ export default async function ClubsPage({
                           {club.name}
                         </Link>
                       </strong>
-                      <span>{address}, <strong className="club-list-city">{city}</strong></span>
+                      <span className="club-list-address">{address}</span>
+                      <span className="club-list-city">{city}</span>
                     </div>
                     <Link className="secondary-link" href={`/clubs/${club.id}/edit`}>{t.edit}</Link>
                   </article>
@@ -169,7 +168,8 @@ export default async function ClubsPage({
                           {club.name}
                         </Link>
                       </strong>
-                      <span>{address}, <strong className="club-list-city">{city}</strong></span>
+                      <span className="club-list-address">{address}</span>
+                      <span className="club-list-city">{city}</span>
                     </div>
                   </article>
                 );

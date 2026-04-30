@@ -844,6 +844,10 @@ h1 {
   padding-top: 12px;
 }
 
+.club-detail-community-flag {
+  margin-bottom: 8px;
+}
+
 .club-list-row {
   align-items: center;
   border: 1px solid var(--line);
@@ -867,6 +871,11 @@ h1 {
   color: var(--muted);
   font-size: 0.9rem;
   font-weight: 500;
+}
+
+.club-list-address,
+.club-list-city {
+  display: block;
 }
 
 .club-list-city {

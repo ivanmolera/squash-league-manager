@@ -88,12 +88,7 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
       <section className="detail-grid">
         <article className="list-panel">
           <h2>{t.clubDetails}</h2>
-          <p>
-            <strong>{t.autonomousCommunity}:</strong>{" "}
-            {community ? (
-              <span className="inline-badge-row"><RankingCodeBadge code={community.code} /> {community.name}</span>
-            ) : t.unknownAutonomousCommunity}
-          </p>
+          {community ? <div className="club-detail-community-flag"><RankingCodeBadge code={community.code} /></div> : null}
           <p><strong>{t.province}:</strong> {club.province ?? t.notProvidedFemale}</p>
           <p><strong>{t.city}:</strong> {club.city ?? t.notProvidedFemale}</p>
           <p><strong>{t.postalCode}:</strong> {club.postalCode ?? t.notProvided}</p>
