@@ -207,13 +207,13 @@ export async function TournamentMatches({
           {matches.map((match) => (
             <article className="match-card" key={match.id}>
               <div>
-                <strong>{match.matchType === "tournament_third_place" ? t.thirdPlaceMatch : `Ronda ${match.roundNumber ?? "-"}`} · {dateTime(match.scheduledAt, locale, t.noDate)}</strong>
+                <strong>{match.matchType === "tournament_third_place" ? t.thirdPlaceMatch : `${t.round} ${match.roundNumber ?? "-"}`} · {dateTime(match.scheduledAt, locale, t.noDate)}</strong>
                 <p>{match.homePlayerNameAtMatchTime ?? "BYE"} vs {match.awayPlayerNameAtMatchTime ?? "BYE"}</p>
                 <p>{t.venue}: {match.homeClubNameAtMatchTime ?? t.club}</p>
                 <p>{t.result}: <ScoreDisplay match={match} pendingLabel={t.pending} /></p>
               </div>
               {canEdit && match.status !== "bye" && match.homePlayerId && match.awayPlayerId ? (
-                <MatchResultForm match={match} labels={{ sets: t.sets, save: t.saveResult }} />
+                <MatchResultForm match={match} labels={{ sets: t.sets, set: t.set, home: t.homeSide, away: t.awaySide, save: t.saveResult }} />
               ) : null}
             </article>
           ))}

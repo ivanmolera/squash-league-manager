@@ -345,7 +345,7 @@ export async function LeagueCategoryCalendar({
                           </div>
                         );
                       })()}
-                      {canEditLeagueMatch(match, editContext) ? <MatchResultForm match={match} labels={{ sets: t.sets, save: t.saveResult }} /> : null}
+                      {canEditLeagueMatch(match, editContext) ? <MatchResultForm match={match} labels={{ sets: t.sets, set: t.set, home: t.homeSide, away: t.awaySide, save: t.saveResult }} /> : null}
                     </div>
                   </div>
                 ))}
@@ -402,7 +402,7 @@ export async function LeagueCategoryCalendar({
                               <p>{match.matchOrder}. {match.homePlayerNameAtMatchTime} vs {match.awayPlayerNameAtMatchTime}: <strong>{score.main}</strong>{score.partials ? ` · ${score.partials}` : ""}</p>
                             );
                           })()}
-                          {canEditLeagueMatch(match, editContext) ? <MatchResultForm match={match} labels={{ sets: t.sets, save: t.saveResult }} /> : null}
+                          {canEditLeagueMatch(match, editContext) ? <MatchResultForm match={match} labels={{ sets: t.sets, set: t.set, home: t.homeSide, away: t.awaySide, save: t.saveResult }} /> : null}
                         </div>
                       ))}
                     </div>

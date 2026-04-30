@@ -17,7 +17,13 @@ function defaultSet(match: MatchResultFormMatch, setNumber: number) {
   return match.sets.find((set) => set.setNumber === setNumber);
 }
 
-export function MatchResultForm({ match, labels }: { match: MatchResultFormMatch; labels: { sets: string; save: string } }) {
+export function MatchResultForm({
+  match,
+  labels
+}: {
+  match: MatchResultFormMatch;
+  labels: { sets: string; set: string; home: string; away: string; save: string };
+}) {
   const options = pointOptions(match);
 
   return (
@@ -31,13 +37,13 @@ export function MatchResultForm({ match, labels }: { match: MatchResultFormMatch
 
           return (
             <div className="set-score-row" key={setNumber}>
-              <span>Set {setNumber}</span>
-              <select name={`set${setNumber}HomePoints`} defaultValue={set?.homePoints ?? ""} aria-label={`Set ${setNumber} local`}>
+              <span>{labels.set} {setNumber}</span>
+              <select name={`set${setNumber}HomePoints`} defaultValue={set?.homePoints ?? ""} aria-label={`${labels.set} ${setNumber} ${labels.home}`}>
                 <option value="">-</option>
                 {options.map((value) => <option key={value} value={value}>{value}</option>)}
               </select>
               <span>-</span>
-              <select name={`set${setNumber}AwayPoints`} defaultValue={set?.awayPoints ?? ""} aria-label={`Set ${setNumber} visitante`}>
+              <select name={`set${setNumber}AwayPoints`} defaultValue={set?.awayPoints ?? ""} aria-label={`${labels.set} ${setNumber} ${labels.away}`}>
                 <option value="">-</option>
                 {options.map((value) => <option key={value} value={value}>{value}</option>)}
               </select>

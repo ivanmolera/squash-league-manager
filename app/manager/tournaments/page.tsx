@@ -70,45 +70,45 @@ export default async function TournamentsPage({
     <main className="app-shell">
       <Navigation />
       <section className="page-heading">
-        <p className="eyebrow">Manager</p>
-        <h1>Torneos</h1>
+        <p className="eyebrow">{t.manager}</p>
+        <h1>{t.tournaments}</h1>
       </section>
 
       <section className="tournament-page-stack">
         {canEdit ? (
           <form className="admin-form wide-form" action={saveTournamentAction}>
-            <h2>Nuevo torneo</h2>
-            <label>Nombre<input name="name" required /></label>
-            <label>Descripción<textarea name="description" rows={3} /></label>
-            <label>Juez árbitro<input name="refereeName" /></label>
-            <label>Tipo de ránking
+            <h2>{t.newTournament}</h2>
+            <label>{t.name}<input name="name" required /></label>
+            <label>{t.description}<textarea name="description" rows={3} /></label>
+            <label>{t.referee}<input name="refereeName" /></label>
+            <label>{t.rankingType}
               <select name="rankingScope" defaultValue="none">
-                <option value="none">No puntúa para ránking</option>
-                <option value="autonomic">Ránking autonómico</option>
-                <option value="state">Ránking estatal</option>
-                <option value="psa">Ránking PSA</option>
+                <option value="none">{t.noRanking}</option>
+                <option value="autonomic">{t.rankingAutonomic}</option>
+                <option value="state">{t.state}</option>
+                <option value="psa">{t.psa}</option>
               </select>
             </label>
-            <label>Formato de partido
+            <label>{t.matchFormat}
               <select name="bestOfSets" defaultValue="5">
-                <option value="5">Al mejor de 5 sets</option>
-                <option value="3">Al mejor de 3 sets</option>
+                <option value="5">{t.bestOf5}</option>
+                <option value="3">{t.bestOf3}</option>
               </select>
             </label>
-            <label>Club sede
+            <label>{t.hostClub}
               <select name="hostClubId" required>
                 {editableClubs.map((club) => <option key={club.id} value={club.id}>{club.name}</option>)}
               </select>
             </label>
             <div className="form-row">
-              <label>Límite inscripción<input name="registrationDeadline" type="date" required /></label>
-              <label>Inicio<input name="startsAt" type="date" required /></label>
+              <label>{t.registrationDeadline}<input name="registrationDeadline" type="date" required /></label>
+              <label>{t.start}<input name="startsAt" type="date" required /></label>
             </div>
             <div className="form-row">
-              <label>Fin<input name="endsAt" type="date" required /></label>
+              <label>{t.end}<input name="endsAt" type="date" required /></label>
             </div>
             <fieldset className="check-grid">
-              <legend>Categorías</legend>
+              <legend>{t.categories}</legend>
               {categories.map((category) => (
                 <label key={category.id}>
                   <input type="checkbox" name="categoryIds" value={category.id} />
@@ -116,8 +116,8 @@ export default async function TournamentsPage({
                 </label>
               ))}
             </fieldset>
-            <p className="muted">El torneo se crea sin jugadores inscritos. Los jugadores podrán inscribirse después y el manager o admin podrá añadir inscripciones a petición.</p>
-            <button type="submit" name="mode" value="save">Guardar torneo</button>
+            <p className="muted">{t.tournamentCreatedWithoutPlayers}</p>
+            <button type="submit" name="mode" value="save">{t.saveTournament}</button>
           </form>
         ) : null}
 
@@ -159,7 +159,7 @@ export default async function TournamentsPage({
                 </article>
               );
             })}
-            {!tournaments.length ? <p className="muted">{t.noMatches}</p> : null}
+            {!tournaments.length ? <p className="muted">{t.noTournaments}</p> : null}
           </div>
         </section>
       </section>

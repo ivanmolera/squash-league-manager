@@ -4,6 +4,8 @@ import { Navigation } from "@/app/navigation";
 import { GenerateDrawButton } from "@/app/tournaments/generate-draw-button";
 import { TournamentMatches } from "@/app/tournaments/[id]/tournament-matches";
 import { getCurrentUser } from "@/src/lib/auth";
+import { categoryRestrictionLabel } from "@/src/lib/category-restrictions";
+import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -43,18 +45,9 @@ function playerMeetsCategoryRestrictions(
   return true;
 }
 
-function restrictionLabel(category: { genderScope: string; minAge: number | null; maxAge: number | null }) {
-  const restrictions = [];
-  if (category.genderScope === "male") restrictions.push("masculina");
-  if (category.genderScope === "female") restrictions.push("femenina");
-  if (category.minAge !== null) restrictions.push(`+${category.minAge}`);
-  if (category.maxAge !== null) restrictions.push(`sub${category.maxAge}`);
-  return restrictions.length ? restrictions.join(" · ") : "mixta";
-}
-
 export default async function EditTournamentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [tournament, players, clubs, categories, currentUser] = await Promise.all([
+  const [tournament, players, clubs, categories, currentUser, dictionary] = await Promise.all([
     prisma.competition.findUnique({
       where: { id },
       include: {
@@ -90,8 +83,12 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
     }),
     prisma.club.findMany({ orderBy: [{ province: "asc" }, { name: "asc" }] }),
     prisma.category.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
-    getCurrentUser()
+    getCurrentUser(),
+    getDictionary()
   ]);
+  const { t } = dictionary;
+  const restrictionText = (category: { genderScope: string; minAge: number | null; maxAge: number | null }) =>
+    categoryRestrictionLabel(category, { male: t.male, female: t.female, other: t.other, noRestrictions: t.noRestrictions });
 
   if (!tournament || tournament.type !== "tournament") notFound();
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
@@ -118,61 +115,61 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
     <main className="app-shell">
       <Navigation />
       <form className="admin-form wide-form" action={saveTournamentAction}>
-        <h1>Editar torneo</h1>
+        <h1>{t.editTournament}</h1>
         <input type="hidden" name="competitionId" value={tournament.id} />
-        <label>Nombre<input name="name" defaultValue={tournament.name} required /></label>
-        <label>Descripción<textarea name="description" rows={3} defaultValue={tournament.description ?? ""} /></label>
-        <label>Juez árbitro<input name="refereeName" defaultValue={tournament.refereeName ?? ""} /></label>
-        <label>Tipo de ránking
+        <label>{t.name}<input name="name" defaultValue={tournament.name} required /></label>
+        <label>{t.description}<textarea name="description" rows={3} defaultValue={tournament.description ?? ""} /></label>
+        <label>{t.referee}<input name="refereeName" defaultValue={tournament.refereeName ?? ""} /></label>
+        <label>{t.rankingType}
           <select name="rankingScope" defaultValue={tournament.rankingScope}>
-            <option value="none">No puntúa para ránking</option>
-            <option value="autonomic">Ránking autonómico</option>
-            <option value="state">Ránking estatal</option>
-            <option value="psa">Ránking PSA</option>
+            <option value="none">{t.noRanking}</option>
+            <option value="autonomic">{t.rankingAutonomic}</option>
+            <option value="state">{t.state}</option>
+            <option value="psa">{t.psa}</option>
           </select>
         </label>
-        <label>Formato de partido
+        <label>{t.matchFormat}
           <select name="bestOfSets" defaultValue={tournament.bestOfSets}>
-            <option value="5">Al mejor de 5 sets</option>
-            <option value="3">Al mejor de 3 sets</option>
+            <option value="5">{t.bestOf5}</option>
+            <option value="3">{t.bestOf3}</option>
           </select>
         </label>
-        <label>Club sede
+        <label>{t.hostClub}
           <select name="hostClubId" defaultValue={tournament.hostClubId ?? ""} required>
             {editableClubs.map((club) => <option key={club.id} value={club.id}>{club.name}</option>)}
           </select>
         </label>
         <div className="form-row">
-          <label>Límite inscripción<input name="registrationDeadline" type="date" defaultValue={registrationDeadlineValue} required /></label>
-          <label>Inicio<input name="startsAt" type="date" defaultValue={dateInputValue(tournament.startsAt)} required /></label>
+          <label>{t.registrationDeadline}<input name="registrationDeadline" type="date" defaultValue={registrationDeadlineValue} required /></label>
+          <label>{t.start}<input name="startsAt" type="date" defaultValue={dateInputValue(tournament.startsAt)} required /></label>
         </div>
-        <label>Fin<input name="endsAt" type="date" defaultValue={dateInputValue(tournament.endsAt)} required /></label>
+        <label>{t.end}<input name="endsAt" type="date" defaultValue={dateInputValue(tournament.endsAt)} required /></label>
         <fieldset className="check-grid">
-          <legend>Categorías</legend>
+          <legend>{t.categories}</legend>
           {categories.map((category) => (
             <label key={category.id}>
               <input type="checkbox" name="categoryIds" value={category.id} defaultChecked={selectedCategoryIds.has(category.id)} />
-              {category.name} · {restrictionLabel(category)}
+              {category.name} · {restrictionText(category)}
             </label>
           ))}
         </fieldset>
-        <button type="submit" name="mode" value="save">Guardar torneo</button>
+        <button type="submit" name="mode" value="save">{t.saveTournament}</button>
         {registrationStillOpen ? (
-          <p className="warning-box">La fecha límite de inscripción todavía no ha pasado. Si generas el cuadro ahora, podrían quedar fuera jugadores inscritos después.</p>
+          <p className="warning-box">{t.registrationStillOpenDrawWarning}</p>
         ) : null}
         {!hasSelectedSeeds ? (
-          <p className="warning-box">No hay cabezas de serie seleccionados. Si generas el cuadro así, el sorteo será 100% aleatorio.</p>
+          <p className="warning-box">{t.noSeedsDrawWarning}</p>
         ) : null}
         <GenerateDrawButton
           registrationDeadline={registrationDeadlineValue}
-          label="Guardar y generar cuadro"
-          earlyDeadlineMessage="La fecha límite de inscripción todavía no ha pasado."
-          noSeedsMessage="No hay cabezas de serie seleccionados. El sorteo del cuadro será 100% aleatorio."
-          continueMessage="¿Quieres generar el cuadro igualmente?"
+          label={t.saveAndGenerateDraw}
+          earlyDeadlineMessage={t.registrationStillOpenDrawWarning}
+          noSeedsMessage={t.noSeedsDrawConfirmWarning}
+          continueMessage={t.generateDrawAnyway}
         />
       </form>
       <section className="list-panel full-width">
-        <h2>Categorías del torneo</h2>
+        <h2>{t.tournamentCategories}</h2>
         {tournament.categories.map((competitionCategory) => {
           const participants = participantsByCategory.get(competitionCategory.id) ?? [];
           const eligiblePlayers = players.filter((player) =>
@@ -182,12 +179,12 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
           return (
             <div className="category-config-card" key={competitionCategory.id}>
               <h3>{competitionCategory.category.name}</h3>
-              <p className="muted">Restricciones: {restrictionLabel(competitionCategory.category)}</p>
+              <p className="muted">{t.restrictions}: {restrictionText(competitionCategory.category)}</p>
               <div className="category-config-grid">
                 <form className="compact-form" action={saveTournamentSeedsAction}>
                   <input type="hidden" name="competitionCategoryId" value={competitionCategory.id} />
                   <fieldset className="check-grid">
-                    <legend>Cabezas de serie</legend>
+                    <legend>{t.seeds}</legend>
                     {participants.length ? participants.map((participant) => participant.player ? (
                       <label key={participant.id}>
                         <input
@@ -198,32 +195,32 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
                         />
                         {participant.player.lastName}, {participant.player.firstName}
                       </label>
-                    ) : null) : <p className="muted">No hay jugadores inscritos en esta categoría.</p>}
+                    ) : null) : <p className="muted">{t.noPlayersEnrolledInCategory}</p>}
                   </fieldset>
                   <div className="form-actions">
-                    <button type="submit">Guardar cabezas de serie</button>
-                    <button type="submit" formAction={suggestTournamentSeedsAction}>Seleccionar por ránking</button>
+                    <button type="submit">{t.saveSeeds}</button>
+                    <button type="submit" formAction={suggestTournamentSeedsAction}>{t.selectByRanking}</button>
                   </div>
                 </form>
                 <form className="compact-form" action={registerPlayerForTournamentAction}>
                   <input type="hidden" name="competitionCategoryId" value={competitionCategory.id} />
-                  <label>Inscribir jugador
+                  <label>{t.registerPlayer}
                     <select name="playerId" required>
                       {eligiblePlayers.map((player) => (
                         <option key={player.id} value={player.id}>
-                          {player.lastName}, {player.firstName} · {player.memberships[0]?.clubNameAtThatTime ?? "Independiente"}
+                          {player.lastName}, {player.firstName} · {player.memberships[0]?.clubNameAtThatTime ?? t.independent}
                         </option>
                       ))}
                     </select>
                   </label>
-                  <button type="submit" disabled={!eligiblePlayers.length}>Inscribir jugador</button>
+                  <button type="submit" disabled={!eligiblePlayers.length}>{t.registerPlayer}</button>
                 </form>
               </div>
               {participants.length ? participants.map((participant) => (
                 <p key={participant.id}>
-                  {participant.player ? `${participant.player.lastName}, ${participant.player.firstName}` : "Jugador sin datos"} · {participant.player?.memberships[0]?.clubNameAtThatTime ?? "Independiente"}
+                  {participant.player ? `${participant.player.lastName}, ${participant.player.firstName}` : t.playerWithoutData} · {participant.player?.memberships[0]?.clubNameAtThatTime ?? t.independent}
                 </p>
-              )) : <p className="muted">Sin inscritos.</p>}
+              )) : <p className="muted">{t.noRegisteredPlayers}</p>}
             </div>
           );
         })}

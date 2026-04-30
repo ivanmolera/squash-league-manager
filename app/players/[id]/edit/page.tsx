@@ -2,16 +2,19 @@ import { notFound } from "next/navigation";
 import { changePlayerPasswordAction, savePlayerAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
+import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditPlayerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [player, currentUser] = await Promise.all([
+  const [player, currentUser, dictionary] = await Promise.all([
     prisma.player.findUnique({ where: { id }, include: { user: true } }),
-    getCurrentUser()
+    getCurrentUser(),
+    getDictionary()
   ]);
+  const { t } = dictionary;
   if (!player) notFound();
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
   if (!isAdmin && player.userId !== currentUser?.id) notFound();
@@ -21,46 +24,46 @@ export default async function EditPlayerPage({ params }: { params: Promise<{ id:
       <Navigation />
       <section className="edit-stack">
         <form className="admin-form" action={savePlayerAction}>
-          <h1>Editar jugador</h1>
+          <h1>{t.editPlayer}</h1>
           <input type="hidden" name="playerId" value={player.id} />
           <input type="hidden" name="profilePhotoUrl" value={player.profilePhotoUrl ?? ""} />
-          <label>Nombre<input name="firstName" defaultValue={player.firstName} required /></label>
-          <label>Apellidos<input name="lastName" defaultValue={player.lastName} required /></label>
-          <label>Foto<input name="profilePhoto" type="file" accept="image/*" /></label>
-          <label>Email<input name="email" type="email" defaultValue={player.user?.email ?? ""} readOnly={!isAdmin} required /></label>
-          <label>Teléfono<input name="phone" defaultValue={player.user?.phone ?? ""} /></label>
-          <label>Idioma
+          <label>{t.firstName}<input name="firstName" defaultValue={player.firstName} required /></label>
+          <label>{t.lastName}<input name="lastName" defaultValue={player.lastName} required /></label>
+          <label>{t.photo}<input name="profilePhoto" type="file" accept="image/*" /></label>
+          <label>{t.email}<input name="email" type="email" defaultValue={player.user?.email ?? ""} readOnly={!isAdmin} required /></label>
+          <label>{t.phone}<input name="phone" defaultValue={player.user?.phone ?? ""} /></label>
+          <label>{t.preferredLocale}
             <select name="preferredLocale" defaultValue={player.user?.preferredLocale ?? "es"}>
-              <option value="ca">CA</option><option value="es">ES</option><option value="en">EN</option>
+              <option value="ca">{t.catalan}</option><option value="es">{t.spanish}</option><option value="en">{t.english}</option>
             </select>
           </label>
-          <label>Sexo
+          <label>{t.gender}
             <select name="gender" defaultValue={player.gender}>
-              <option value="male">Masculino</option><option value="female">Femenino</option><option value="other">Otro</option><option value="not_specified">No especificado</option>
+              <option value="male">{t.male}</option><option value="female">{t.female}</option><option value="other">{t.other}</option><option value="not_specified">{t.not_specified}</option>
             </select>
           </label>
-          <label>Mano dominante
+          <label>{t.dominantHand}
             <select name="dominantHand" defaultValue={player.dominantHand}>
-              <option value="right">Diestro/a</option><option value="left">Zurdo/a</option><option value="ambidextrous">Ambidiestro/a</option><option value="not_specified">No especificado</option>
+              <option value="right">{t.right}</option><option value="left">{t.left}</option><option value="ambidextrous">{t.ambidextrous}</option><option value="not_specified">{t.not_specified}</option>
             </select>
           </label>
-          <label>Altura<input name="heightCm" type="number" defaultValue={player.heightCm ?? ""} /></label>
-          <label>Peso<input name="weightKg" type="number" step="0.1" defaultValue={String(player.weightKg ?? "")} /></label>
-          <label>Raqueta<input name="racketBrand" defaultValue={player.racketBrand ?? ""} /></label>
-          <label className="check-line"><input name="showContactPublic" type="checkbox" defaultChecked={player.showContactPublic} /> Mostrar email/teléfono públicamente</label>
-          <label className="check-line"><input name="showPhysicalPublic" type="checkbox" defaultChecked={player.showPhysicalPublic} /> Mostrar altura/peso públicamente</label>
-          <label className="check-line"><input name="receivesMatchCommunications" type="checkbox" defaultChecked={player.receivesMatchCommunications} /> Acepto recibir comunicaciones sobre horarios de mis partidos</label>
-          {isAdmin ? <label className="check-line"><input name="emailVerified" type="checkbox" defaultChecked={player.user?.emailVerified ?? false} /> Email validado</label> : null}
-          <button type="submit">Guardar</button>
+          <label>{t.height}<input name="heightCm" type="number" defaultValue={player.heightCm ?? ""} /></label>
+          <label>{t.weight}<input name="weightKg" type="number" step="0.1" defaultValue={String(player.weightKg ?? "")} /></label>
+          <label>{t.racket}<input name="racketBrand" defaultValue={player.racketBrand ?? ""} /></label>
+          <label className="check-line"><input name="showContactPublic" type="checkbox" defaultChecked={player.showContactPublic} /> {t.showContactPublic}</label>
+          <label className="check-line"><input name="showPhysicalPublic" type="checkbox" defaultChecked={player.showPhysicalPublic} /> {t.showPhysicalPublic}</label>
+          <label className="check-line"><input name="receivesMatchCommunications" type="checkbox" defaultChecked={player.receivesMatchCommunications} /> {t.receiveMatchCommunications}</label>
+          {isAdmin ? <label className="check-line"><input name="emailVerified" type="checkbox" defaultChecked={player.user?.emailVerified ?? false} /> {t.emailVerified}</label> : null}
+          <button type="submit">{t.save}</button>
         </form>
         {player.userId ? (
           <form className="admin-form" action={changePlayerPasswordAction}>
-            <h2>Cambiar contraseña</h2>
+            <h2>{t.changePassword}</h2>
             <input type="hidden" name="playerId" value={player.id} />
-            {!isAdmin ? <label>Contraseña actual<input name="currentPassword" type="password" autoComplete="current-password" required /></label> : null}
-            <label>Nueva contraseña<input name="newPassword" type="password" autoComplete="new-password" minLength={8} required /></label>
-            <label>Repetir nueva contraseña<input name="confirmPassword" type="password" autoComplete="new-password" minLength={8} required /></label>
-            <button type="submit">{isAdmin ? "Actualizar contraseña" : "Cambiar contraseña"}</button>
+            {!isAdmin ? <label>{t.currentPassword}<input name="currentPassword" type="password" autoComplete="current-password" required /></label> : null}
+            <label>{t.newPassword}<input name="newPassword" type="password" autoComplete="new-password" minLength={8} required /></label>
+            <label>{t.repeatNewPassword}<input name="confirmPassword" type="password" autoComplete="new-password" minLength={8} required /></label>
+            <button type="submit">{isAdmin ? t.updatePassword : t.changePassword}</button>
           </form>
         ) : null}
       </section>

@@ -1,8 +1,11 @@
 import { ArrowUp } from "lucide-react";
+import { getDictionary } from "@/src/lib/i18n";
 
-export function BackToTopButton() {
+export async function BackToTopButton() {
+  const { t } = await getDictionary();
+
   return (
-    <a className="back-to-top" href="#page-top" aria-label="Volver al inicio de la página" title="Volver arriba">
+    <a className="back-to-top" href="#page-top" aria-label={t.backToTop} title={t.backToTopShort}>
       <ArrowUp aria-hidden="true" size={22} />
     </a>
   );

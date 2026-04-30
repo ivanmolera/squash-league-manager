@@ -44,7 +44,7 @@ function canPlayerRegisterForCategory(
 
 export default async function TournamentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [tournament, currentUser] = await Promise.all([
+  const [tournament, currentUser, dictionary] = await Promise.all([
     prisma.competition.findUnique({
       where: { id },
       include: {
@@ -52,9 +52,10 @@ export default async function TournamentDetailPage({ params }: { params: Promise
         categories: { include: { category: true, seeds: true, drawEntries: true, registrations: { include: { player: true } } } }
       }
     }),
-    getCurrentUser()
+    getCurrentUser(),
+    getDictionary()
   ]);
-  const { t } = await getDictionary();
+  const { locale, t } = dictionary;
 
   if (!tournament || tournament.type !== "tournament") notFound();
 
@@ -107,9 +108,9 @@ export default async function TournamentDetailPage({ params }: { params: Promise
             </p>
           ))}
           <p className="date-row">
-            <span><strong>{t.registration}:</strong> {tournament.registrationDeadline?.toLocaleDateString("es-ES") ?? t.noDeadline}</span>
-            <span><strong>{t.start}:</strong> {tournament.startsAt?.toLocaleDateString("es-ES") ?? t.noDate}</span>
-            <span><strong>{t.end}:</strong> {tournament.endsAt?.toLocaleDateString("es-ES") ?? t.noDate}</span>
+            <span><strong>{t.registration}:</strong> {tournament.registrationDeadline?.toLocaleDateString(locale) ?? t.noDeadline}</span>
+            <span><strong>{t.start}:</strong> {tournament.startsAt?.toLocaleDateString(locale) ?? t.noDate}</span>
+            <span><strong>{t.end}:</strong> {tournament.endsAt?.toLocaleDateString(locale) ?? t.noDate}</span>
           </p>
         </article>
       </section>
@@ -139,11 +140,11 @@ export default async function TournamentDetailPage({ params }: { params: Promise
                       <span className="seed-badge">#{seedsByCategory.get(`${competitionCategory.id}:${registration.playerId}`)} {t.seeds}</span>
                     ) : null}
                   </div>
-                )) : <p className="muted">Sin inscritos.</p>}
+                )) : <p className="muted">{t.noRegisteredPlayers}</p>}
                 {currentPlayer && registrationOpen && !isRegistered && isEligible ? (
                   <form className="compact-form" action={registerSelfForTournamentAction}>
                     <input type="hidden" name="competitionCategoryId" value={competitionCategory.id} />
-                    <button type="submit">Inscribirme</button>
+                    <button type="submit">{t.registerMyself}</button>
                   </form>
                 ) : null}
               </article>

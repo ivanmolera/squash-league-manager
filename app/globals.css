@@ -494,6 +494,16 @@ h1 {
   padding: 12px;
 }
 
+.success-message {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 8px;
+  color: #047857;
+  font-weight: 900;
+  margin: 0;
+  padding: 12px;
+}
+
 .full-width {
   grid-column: 1 / -1;
   margin-top: 18px;

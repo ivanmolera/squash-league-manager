@@ -8,6 +8,7 @@ import {
   hashSessionToken,
   setSessionCookie
 } from "@/src/lib/auth";
+import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 
 const loginSchema = z.object({
@@ -20,13 +21,14 @@ export type LoginState = {
 };
 
 export async function loginAction(_state: LoginState, formData: FormData): Promise<LoginState> {
+  const { t } = await getDictionary();
   const parsed = loginSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password")
   });
 
   if (!parsed.success) {
-    return { error: "Introduce un email valido y una contrasena." };
+    return { error: t.invalidEmailPassword };
   }
 
   const user = await prisma.user.findUnique({
@@ -37,7 +39,7 @@ export async function loginAction(_state: LoginState, formData: FormData): Promi
   });
 
   if (!user?.credential) {
-    return { error: "Credenciales incorrectas." };
+    return { error: t.invalidCredentials };
   }
 
   const isValidPassword = await bcrypt.compare(
@@ -46,7 +48,7 @@ export async function loginAction(_state: LoginState, formData: FormData): Promi
   );
 
   if (!isValidPassword) {
-    return { error: "Credenciales incorrectas." };
+    return { error: t.invalidCredentials };
   }
 
   const token = createSessionToken();

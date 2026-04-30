@@ -1,6 +1,6 @@
 "use client";
 
-export function RegenerateLeagueButton() {
+export function RegenerateLeagueButton({ confirmMessage, label }: { confirmMessage: string; label: string }) {
   return (
     <button
       className="danger-button"
@@ -8,16 +8,14 @@ export function RegenerateLeagueButton() {
       type="submit"
       value="regenerate"
       onClick={(event) => {
-        const confirmed = window.confirm(
-          "Regenerar las jornadas borrará el calendario y los partidos actuales de esta liga. ¿Seguro que quieres continuar?"
-        );
+        const confirmed = window.confirm(confirmMessage);
 
         if (!confirmed) {
           event.preventDefault();
         }
       }}
     >
-      Regenerar jornadas
+      {label}
     </button>
   );
 }

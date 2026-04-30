@@ -3,6 +3,7 @@ import { removePlayerFromClubAction, saveClubAction } from "@/app/admin/actions"
 import { Navigation } from "@/app/navigation";
 import { ClubCrest } from "@/src/components/club-crest";
 import { getCurrentUser } from "@/src/lib/auth";
+import { getDictionary } from "@/src/lib/i18n";
 import { formatUserManagerName } from "@/src/lib/names";
 import { prisma } from "@/src/lib/prisma";
 
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default async function EditClubPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [club, currentUser] = await Promise.all([
+  const [club, currentUser, dictionary] = await Promise.all([
     prisma.club.findUnique({
       where: { id },
       include: {
@@ -21,8 +22,10 @@ export default async function EditClubPage({ params }: { params: Promise<{ id: s
         }
       }
     }),
-    getCurrentUser()
+    getCurrentUser(),
+    getDictionary()
   ]);
+  const { t } = dictionary;
   if (!club) notFound();
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
   if (!isAdmin && club.managerUserId !== currentUser?.id) notFound();
@@ -36,40 +39,40 @@ export default async function EditClubPage({ params }: { params: Promise<{ id: s
       <Navigation />
       <section className="work-grid">
         <form className="admin-form" action={saveClubAction}>
-          <h1>Editar club</h1>
+          <h1>{t.editClub}</h1>
           <input type="hidden" name="clubId" value={club.id} />
           <div className="club-logo-edit-row">
             <ClubCrest logoUrl={club.logoUrl} clubName={club.name} size="small" />
-            <label>Escudo<input name="clubLogo" type="file" accept="image/*" /></label>
+            <label>{t.logo}<input name="clubLogo" type="file" accept="image/*" /></label>
           </div>
-          <label>Nombre<input name="name" defaultValue={club.name} required /></label>
-          <label>Ciudad<input name="city" defaultValue={club.city ?? ""} /></label>
-          <label>Provincia<input name="province" defaultValue={club.province ?? ""} /></label>
-          <label>Dirección<input name="address" defaultValue={club.address ?? ""} /></label>
-          <label>Web<input name="websiteUrl" type="url" defaultValue={club.websiteUrl ?? ""} /></label>
-          <label className="check-line"><input name="showContactPublic" type="checkbox" defaultChecked={club.showContactPublic} /> Mostrar datos de contacto públicamente</label>
-          <label>Manager
+          <label>{t.name}<input name="name" defaultValue={club.name} required /></label>
+          <label>{t.city}<input name="city" defaultValue={club.city ?? ""} /></label>
+          <label>{t.province}<input name="province" defaultValue={club.province ?? ""} /></label>
+          <label>{t.address}<input name="address" defaultValue={club.address ?? ""} /></label>
+          <label>{t.website}<input name="websiteUrl" type="url" defaultValue={club.websiteUrl ?? ""} /></label>
+          <label className="check-line"><input name="showContactPublic" type="checkbox" defaultChecked={club.showContactPublic} /> {t.showClubContactPublic}</label>
+          <label>{t.assignedManager}
             <select name="managerUserId" defaultValue={club.managerUserId ?? ""} disabled={!isAdmin}>
-              <option value="">Sin manager</option>
+              <option value="">{t.noManager}</option>
               {managers.map((manager) => (
                 manager ? <option key={manager.id} value={manager.id}>{formatUserManagerName(manager)}</option> : null
               ))}
             </select>
           </label>
-          <button type="submit">Guardar</button>
+          <button type="submit">{t.save}</button>
         </form>
         <section className="list-panel">
-          <h2>Jugadores del club</h2>
+          <h2>{t.clubPlayers}</h2>
           {club.memberships.map((membership) => (
             <article className="row-card club-player-row" key={membership.id}>
               <div>
                 <strong>{membership.player.lastName}, {membership.player.firstName}</strong>
-                <span>{membership.player.user?.email ?? "Sin usuario"}</span>
+                <span>{membership.player.user?.email ?? t.noUser}</span>
               </div>
               <form action={removePlayerFromClubAction}>
                 <input type="hidden" name="membershipId" value={membership.id} />
                 <input type="hidden" name="clubId" value={club.id} />
-                <button className="danger-button" type="submit">Dar de baja</button>
+                <button className="danger-button" type="submit">{t.removeFromClub}</button>
               </form>
             </article>
           ))}

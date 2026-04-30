@@ -1139,7 +1139,7 @@ export async function saveLeagueAction(formData: FormData) {
     revalidatePath("/admin/leagues");
     revalidatePath(`/leagues/${competition.id}`);
     revalidatePath(`/leagues/${competition.id}/edit`);
-    return;
+    redirect(`/leagues/${competition.id}/edit?saved=1`);
   }
 
   const competitionCategory = await prisma.competitionCategory.upsert({

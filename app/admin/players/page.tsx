@@ -2,12 +2,13 @@ import Link from "next/link";
 import { savePlayerAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
+import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export default async function PlayersPage() {
-  const [players, clubs, currentUser] = await Promise.all([
+  const [players, clubs, currentUser, dictionary] = await Promise.all([
     prisma.player.findMany({
       include: {
         user: true,
@@ -21,8 +22,10 @@ export default async function PlayersPage() {
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
     }),
     prisma.club.findMany({ orderBy: [{ province: "asc" }, { name: "asc" }] }),
-    getCurrentUser()
+    getCurrentUser(),
+    getDictionary()
   ]);
+  const { t } = dictionary;
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
   const ownPlayerId = players.find((player) => player.userId === currentUser?.id)?.id;
   const canCreateOwnProfile = Boolean(currentUser && !ownPlayerId);
@@ -31,34 +34,34 @@ export default async function PlayersPage() {
     <main className="app-shell">
       <Navigation />
       <section className="page-heading">
-        <p className="eyebrow">Admin</p>
-        <h1>Jugadores</h1>
-        <p className="muted">Alta y modificación de perfiles con email validado, teléfono e idioma.</p>
+        <p className="eyebrow">{t.admin}</p>
+        <h1>{t.players}</h1>
+        <p className="muted">{t.playerProfileIntro}</p>
       </section>
 
       <section className="work-grid">
         {isAdmin || canCreateOwnProfile ? (
           <form className="admin-form" action={savePlayerAction}>
-            <h2>{isAdmin ? "Nuevo perfil" : "Crear mi perfil"}</h2>
-            <PlayerFields clubs={clubs} currentUserEmail={currentUser?.email} isAdmin={isAdmin} />
-            <button type="submit">Crear jugador</button>
+            <h2>{isAdmin ? t.newProfile : t.createMyProfile}</h2>
+            <PlayerFields clubs={clubs} currentUserEmail={currentUser?.email} isAdmin={isAdmin} labels={t} />
+            <button type="submit">{t.createPlayer}</button>
           </form>
         ) : (
           <section className="list-panel quiet-panel">
-            <p className="muted">Inicia sesión para modificar tu perfil.</p>
+            <p className="muted">{t.signInToEditProfile}</p>
           </section>
         )}
 
         <div className="list-panel">
-          <h2>Listado de jugadores</h2>
+          <h2>{t.playerList}</h2>
           {players.map((player) => {
-            const clubName = player.memberships[0]?.clubNameAtThatTime ?? "Independiente";
+            const clubName = player.memberships[0]?.clubNameAtThatTime ?? t.independent;
 
             return isAdmin || player.id === ownPlayerId ? (
               <article className="row-card" key={player.id}>
                 <strong><Link href={`/players/${player.id}`}>{player.lastName}, {player.firstName}</Link></strong>
                 <span>{clubName}</span>
-                <Link className="secondary-link" href={`/players/${player.id}/edit`}>Editar</Link>
+                <Link className="secondary-link" href={`/players/${player.id}/edit`}>{t.edit}</Link>
               </article>
             ) : (
               <article className="row-card simple-row" key={player.id}>
@@ -96,79 +99,81 @@ function PlayerFields({
   clubs,
   currentUserEmail,
   isAdmin,
+  labels,
   player
 }: {
   clubs: Array<{ id: string; name: string }>;
   currentUserEmail?: string;
   isAdmin: boolean;
+  labels: Record<string, string>;
   player?: PlayerFieldData;
 }) {
   return (
     <>
       <div className="form-row">
-        <label>Nombre<input name="firstName" defaultValue={player?.firstName ?? ""} required /></label>
-        <label>Apellidos<input name="lastName" defaultValue={player?.lastName ?? ""} required /></label>
+        <label>{labels.firstName}<input name="firstName" defaultValue={player?.firstName ?? ""} required /></label>
+        <label>{labels.lastName}<input name="lastName" defaultValue={player?.lastName ?? ""} required /></label>
       </div>
       <input type="hidden" name="profilePhotoUrl" value={player?.profilePhotoUrl ?? ""} />
-      <label>Foto<input name="profilePhoto" type="file" accept="image/*" /></label>
+      <label>{labels.photo}<input name="profilePhoto" type="file" accept="image/*" /></label>
       <div className="form-row">
-        <label>Email<input name="email" type="email" defaultValue={player?.email ?? currentUserEmail ?? ""} readOnly={!isAdmin} required /></label>
-        <label>Teléfono<input name="phone" defaultValue={player?.phone ?? ""} /></label>
+        <label>{labels.email}<input name="email" type="email" defaultValue={player?.email ?? currentUserEmail ?? ""} readOnly={!isAdmin} required /></label>
+        <label>{labels.phone}<input name="phone" defaultValue={player?.phone ?? ""} /></label>
       </div>
       <div className="form-row">
-        <label>Idioma
+        <label>{labels.preferredLocale}
           <select name="preferredLocale" defaultValue={player?.preferredLocale ?? "es"}>
-            <option value="ca">Catalan</option>
-            <option value="es">Español</option>
-            <option value="en">English</option>
+            <option value="ca">{labels.catalan}</option>
+            <option value="es">{labels.spanish}</option>
+            <option value="en">{labels.english}</option>
           </select>
         </label>
-        <label>Club
+        <label>{labels.club}
           <select name="clubId" defaultValue={player?.clubId ?? ""} disabled={!isAdmin}>
-            <option value="">Sin club</option>
+            <option value="">{labels.noClub}</option>
             {clubs.map((club) => <option key={club.id} value={club.id}>{club.name}</option>)}
           </select>
         </label>
       </div>
       <label className="check-line">
         <input name="emailVerified" type="checkbox" defaultChecked={player?.emailVerified ?? false} disabled={!isAdmin} />
-        Email validado
+        {labels.emailVerified}
       </label>
       <label className="check-line">
         <input name="showContactPublic" type="checkbox" defaultChecked={player?.showContactPublic ?? true} />
-        Mostrar email/teléfono públicamente
+        {labels.showContactPublic}
       </label>
       <label className="check-line">
         <input name="showPhysicalPublic" type="checkbox" defaultChecked={player?.showPhysicalPublic ?? true} />
-        Mostrar altura/peso públicamente
+        {labels.showPhysicalPublic}
       </label>
       <label className="check-line">
         <input name="receivesMatchCommunications" type="checkbox" defaultChecked={player?.receivesMatchCommunications ?? false} />
-        Acepto recibir comunicaciones sobre horarios de mis partidos
+        {labels.receiveMatchCommunications}
       </label>
       <div className="form-row">
-        <label>Sexo
+        <label>{labels.gender}
           <select name="gender" defaultValue={player?.gender ?? "not_specified"}>
-            <option value="male">Masculino</option>
-            <option value="female">Femenino</option>
-            <option value="other">Otro</option>
-            <option value="not_specified">No especificado</option>
+            <option value="male">{labels.male}</option>
+            <option value="female">{labels.female}</option>
+            <option value="other">{labels.other}</option>
+            <option value="not_specified">{labels.not_specified}</option>
           </select>
         </label>
-        <label>Mano dominante
+        <label>{labels.dominantHand}
           <select name="dominantHand" defaultValue={player?.dominantHand ?? "not_specified"}>
-            <option value="right">Diestro/a</option>
-            <option value="left">Zurdo/a</option>
-            <option value="ambidextrous">Ambidiestro/a</option>
-            <option value="not_specified">No especificado</option>
+            <option value="right">{labels.right}</option>
+            <option value="left">{labels.left}</option>
+            <option value="ambidextrous">{labels.ambidextrous}</option>
+            <option value="not_specified">{labels.not_specified}</option>
           </select>
         </label>
       </div>
       <div className="form-row">
-        <label>Altura cm<input name="heightCm" type="number" defaultValue={player?.heightCm ?? ""} /></label>
-        <label>Peso kg<input name="weightKg" type="number" step="0.1" defaultValue={String(player?.weightKg ?? "")} /></label>
+        <label>{labels.heightCm}<input name="heightCm" type="number" defaultValue={player?.heightCm ?? ""} /></label>
+        <label>{labels.weightKg}<input name="weightKg" type="number" step="0.1" defaultValue={String(player?.weightKg ?? "")} /></label>
       </div>
-      <label>Marca de raqueta<input name="racketBrand" defaultValue={player?.racketBrand ?? ""} /></label>
+      <label>{labels.racketBrand}<input name="racketBrand" defaultValue={player?.racketBrand ?? ""} /></label>
     </>
   );
 }
