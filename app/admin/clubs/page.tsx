@@ -34,13 +34,23 @@ export default async function ClubsPage() {
 
           return isAdmin || club.managerUserId === currentUser?.id ? (
             <article className="row-card" key={club.id}>
-              <strong><Link href={`/clubs/${club.id}`}>{club.name}</Link></strong>
+              <strong>
+                <Link className="club-list-name" href={`/clubs/${club.id}`}>
+                  <ClubCrest logoUrl={club.logoUrl} clubName={club.name} size="tiny" />
+                  {club.name}
+                </Link>
+              </strong>
               <span>{address}</span>
               <Link className="secondary-link" href={`/clubs/${club.id}/edit`}>{t.edit}</Link>
             </article>
           ) : (
             <article className="row-card" key={club.id}>
-              <strong><Link href={`/clubs/${club.id}`}>{club.name}</Link></strong>
+              <strong>
+                <Link className="club-list-name" href={`/clubs/${club.id}`}>
+                  <ClubCrest logoUrl={club.logoUrl} clubName={club.name} size="tiny" />
+                  {club.name}
+                </Link>
+              </strong>
               <span>{address}</span>
             </article>
           );
