@@ -2,6 +2,8 @@ import Link from "next/link";
 import { saveClubAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { ClubCrest } from "@/src/components/club-crest";
+import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
+import { autonomousCommunityForLocation } from "@/src/lib/autonomous-communities";
 import { getCurrentUser } from "@/src/lib/auth";
 import { getDictionary } from "@/src/lib/i18n";
 import { formatUserManagerName } from "@/src/lib/names";
@@ -73,8 +75,10 @@ function normalizeLocation(value: string | null | undefined) {
     .replace(/[^a-z0-9]+/g, "") ?? "";
 }
 
-function mapPosition(club: { province: string | null; city: string | null }) {
-  const coordinates = provinceCoordinates[normalizeLocation(club.province)] ??
+function mapPosition(club: { latitude: number | null; longitude: number | null; province: string | null; city: string | null }) {
+  const coordinates = club.latitude !== null && club.longitude !== null
+    ? { lat: club.latitude, lon: club.longitude }
+    : provinceCoordinates[normalizeLocation(club.province)] ??
     provinceCoordinates[normalizeLocation(club.city)] ??
     { lat: 40.42, lon: -3.70 };
   const bounds = { minLon: -10, maxLon: 5, minLat: 35.4, maxLat: 44.3 };
@@ -85,7 +89,32 @@ function mapPosition(club: { province: string | null; city: string | null }) {
   };
 }
 
-export default async function ClubsPage() {
+type ClubListItem = Awaited<ReturnType<typeof prisma.club.findMany>>[number];
+
+function groupClubsByCommunity(clubs: ClubListItem[], unknownLabel: string) {
+  const groups = new Map<string, { code: string | null; name: string; clubs: ClubListItem[] }>();
+
+  for (const club of clubs) {
+    const community = autonomousCommunityForLocation(club);
+    const key = community?.code ?? "unknown";
+    const group = groups.get(key) ?? {
+      code: community?.code ?? null,
+      name: community?.name ?? unknownLabel,
+      clubs: []
+    };
+    group.clubs.push(club);
+    groups.set(key, group);
+  }
+
+  return [...groups.values()].sort((left, right) => left.name.localeCompare(right.name));
+}
+
+export default async function ClubsPage({
+  searchParams
+}: {
+  searchParams?: Promise<{ clubError?: string }>;
+}) {
+  const query = await searchParams;
   const [clubs, managers, currentUser, dictionary] = await Promise.all([
     prisma.club.findMany({ include: { manager: true }, orderBy: [{ province: "asc" }, { name: "asc" }] }),
     prisma.user.findMany({ include: { player: true }, orderBy: { email: "asc" } }),
@@ -94,6 +123,7 @@ export default async function ClubsPage() {
   ]);
   const { t } = dictionary;
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
+  const clubGroups = groupClubsByCommunity(clubs, t.unknownAutonomousCommunity);
 
   return (
     <main className="app-shell">
@@ -106,36 +136,46 @@ export default async function ClubsPage() {
       <section className="club-directory-grid full-width">
         <div className="list-panel club-directory-list">
           <h2>{t.clubList}</h2>
-          {clubs.map((club) => {
-            const address = `${club.address ?? t.noAddress}, ${club.city ?? t.noCity}`;
+          {query?.clubError ? <p className="warning-box">{t.clubFormError}</p> : null}
+          {clubGroups.map((group) => (
+            <section className="club-community-group" key={group.code ?? "unknown"}>
+              <h3>
+                {group.code ? <RankingCodeBadge code={group.code} /> : null}
+                {group.name}
+              </h3>
+              {group.clubs.map((club) => {
+                const address = club.address ?? t.noAddress;
+                const city = club.city ?? t.noCity;
 
-            return isAdmin || club.managerUserId === currentUser?.id ? (
-              <article className="club-list-row" key={club.id}>
-                <div>
-                  <strong>
-                    <Link className="club-list-name" href={`/clubs/${club.id}`}>
-                      <ClubCrest logoUrl={club.logoUrl} clubName={club.name} size="tiny" />
-                      {club.name}
-                    </Link>
-                  </strong>
-                  <span>{address}</span>
-                </div>
-                <Link className="secondary-link" href={`/clubs/${club.id}/edit`}>{t.edit}</Link>
-              </article>
-            ) : (
-              <article className="club-list-row" key={club.id}>
-                <div>
-                  <strong>
-                    <Link className="club-list-name" href={`/clubs/${club.id}`}>
-                      <ClubCrest logoUrl={club.logoUrl} clubName={club.name} size="tiny" />
-                      {club.name}
-                    </Link>
-                  </strong>
-                  <span>{address}</span>
-                </div>
-              </article>
-            );
-          })}
+                return isAdmin || club.managerUserId === currentUser?.id ? (
+                  <article className="club-list-row" key={club.id}>
+                    <div>
+                      <strong>
+                        <Link className="club-list-name" href={`/clubs/${club.id}`}>
+                          <ClubCrest logoUrl={club.logoUrl} clubName={club.name} size="tiny" />
+                          {club.name}
+                        </Link>
+                      </strong>
+                      <span>{address}, <strong className="club-list-city">{city}</strong></span>
+                    </div>
+                    <Link className="secondary-link" href={`/clubs/${club.id}/edit`}>{t.edit}</Link>
+                  </article>
+                ) : (
+                  <article className="club-list-row" key={club.id}>
+                    <div>
+                      <strong>
+                        <Link className="club-list-name" href={`/clubs/${club.id}`}>
+                          <ClubCrest logoUrl={club.logoUrl} clubName={club.name} size="tiny" />
+                          {club.name}
+                        </Link>
+                      </strong>
+                      <span>{address}, <strong className="club-list-city">{city}</strong></span>
+                    </div>
+                  </article>
+                );
+              })}
+            </section>
+          ))}
         </div>
         <div className="club-directory-map">
           <iframe
@@ -170,7 +210,7 @@ function ClubFields({
   isAdmin,
   labels
 }: {
-  club?: { name?: string; city?: string | null; province?: string | null; address?: string | null; availableCourts?: number; websiteUrl?: string | null; logoUrl?: string | null; managerUserId?: string | null; showContactPublic?: boolean };
+  club?: { name?: string; city?: string | null; province?: string | null; address?: string | null; postalCode?: string | null; availableCourts?: number; websiteUrl?: string | null; logoUrl?: string | null; managerUserId?: string | null; showContactPublic?: boolean };
   managers: Array<{ id: string; email: string; displayName: string | null; player?: { firstName: string; lastName: string } | null }>;
   isAdmin: boolean;
   labels: Record<string, string>;
@@ -186,6 +226,7 @@ function ClubFields({
         <label>{labels.city}<input name="city" defaultValue={club?.city ?? ""} /></label>
         <label>{labels.province}<input name="province" defaultValue={club?.province ?? ""} /></label>
       </div>
+      <label>{labels.postalCode}<input name="postalCode" defaultValue={club?.postalCode ?? ""} /></label>
       <label>{labels.availableCourts}<input name="availableCourts" type="number" min="0" defaultValue={club?.availableCourts ?? 0} /></label>
       <div className="form-row">
         <label>{labels.website}<input name="websiteUrl" type="url" defaultValue={club?.websiteUrl ?? ""} /></label>

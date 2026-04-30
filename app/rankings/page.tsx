@@ -1,20 +1,17 @@
 import Link from "next/link";
 import { Navigation } from "@/app/navigation";
+import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
 import { getDictionary } from "@/src/lib/i18n";
-import { getTournamentRankingRows, type RankingScope } from "@/src/lib/tournament-rankings";
+import { rankingOptions } from "@/src/lib/ranking-codes";
+import { getTournamentRankingRows } from "@/src/lib/tournament-rankings";
 
 export const dynamic = "force-dynamic";
 
-const scopes: Array<{ id: RankingScope; labelKey: "autonomic" | "state" | "psa" }> = [
-  { id: "autonomic", labelKey: "autonomic" },
-  { id: "state", labelKey: "state" },
-  { id: "psa", labelKey: "psa" }
-];
-
 export default async function RankingsPage() {
+  const scoreableRankings = rankingOptions.filter((option) => option.code !== "none");
   const [{ t }, rankings] = await Promise.all([
     getDictionary(),
-    Promise.all(scopes.map(async (scope) => ({ ...scope, rows: await getTournamentRankingRows(scope.id) })))
+    Promise.all(scoreableRankings.map(async (option) => ({ ...option, rows: await getTournamentRankingRows(option.code) })))
   ]);
   const rankingsWithResults = rankings.filter((ranking) => ranking.rows.length);
 
@@ -26,11 +23,20 @@ export default async function RankingsPage() {
         <h1>{t.generalRankings}</h1>
         <p className="muted">{t.generalRankingsText}</p>
         <p className="muted">{t.rankingAverageText}</p>
+        {rankingsWithResults.length ? (
+          <nav className="ranking-flag-nav" aria-label={t.rankings}>
+            {rankingsWithResults.map((ranking) => (
+              <Link href={`#ranking-${ranking.code}`} key={ranking.code} title={ranking.name}>
+                <RankingCodeBadge code={ranking.code} />
+              </Link>
+            ))}
+          </nav>
+        ) : null}
       </section>
       <section className="detail-grid">
         {rankingsWithResults.length ? rankingsWithResults.map((ranking) => (
-          <article className="list-panel" key={ranking.id}>
-            <h2>{t[ranking.labelKey]}</h2>
+          <article className="list-panel" id={`ranking-${ranking.code}`} key={ranking.code}>
+            <h2 className="title-with-badge"><RankingCodeBadge code={ranking.code} /> {ranking.name}</h2>
             <table className="data-table">
               <thead>
                 <tr><th>#</th><th>{t.player}</th><th>{t.average}</th><th>{t.points}</th><th>{t.tournaments}</th><th>G</th></tr>

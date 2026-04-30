@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getCurrentUser } from "@/src/lib/auth";
+import { clubGeocodingQuery, geocodeClubAddress } from "@/src/lib/geocoding";
 import { prisma } from "@/src/lib/prisma";
 import { rankingCodeValues, rankingScopeForCode } from "@/src/lib/ranking-codes";
 import { generateRoundRobin, nextPowerOfTwo, shuffle } from "@/src/lib/schedule";
@@ -48,6 +49,7 @@ const clubSchema = z.object({
   city: z.string().optional(),
   province: z.string().optional(),
   address: z.string().optional(),
+  postalCode: z.string().max(16).optional(),
   availableCourts: z.coerce.number().int().min(0).max(99).default(0),
   websiteUrl: z.string().url().optional().or(z.literal("")),
   showContactPublic: z.coerce.boolean().default(false),
@@ -124,6 +126,21 @@ function hasRole(user: Awaited<ReturnType<typeof getCurrentUser>>, role: "admin"
 function genericProfileVariant(gender: "male" | "female" | "other" | "not_specified") {
   if (gender === "male" || gender === "female") return gender;
   return "neutral";
+}
+
+function hasClubLocationChanged(
+  currentClub: { address: string | null; city: string | null; province: string | null; postalCode: string | null; latitude: number | null; longitude: number | null } | null,
+  nextClub: { address?: string | null; city?: string | null; province?: string | null; postalCode?: string | null }
+) {
+  if (!currentClub) return true;
+  if (currentClub.latitude === null || currentClub.longitude === null) return true;
+
+  return ["address", "city", "province", "postalCode"].some((field) => {
+    const key = field as keyof typeof nextClub;
+    const currentValue = currentClub[key]?.trim() ?? "";
+    const nextValue = nextClub[key]?.trim() ?? "";
+    return currentValue !== nextValue;
+  });
 }
 
 async function readProfilePhoto(formData: FormData) {
@@ -982,28 +999,60 @@ export async function saveClubAction(formData: FormData) {
   const currentUser = await requireUser();
   const isAdmin = hasRole(currentUser, "admin");
   const logoUrl = await readClubLogo(formData);
-  const parsed = clubSchema.parse({
+  const parsedResult = clubSchema.safeParse({
     clubId: textValue(formData.get("clubId")),
     name: textValue(formData.get("name")),
     city: textValue(formData.get("city")),
     province: textValue(formData.get("province")),
     address: textValue(formData.get("address")),
+    postalCode: textValue(formData.get("postalCode")),
     availableCourts: textValue(formData.get("availableCourts")) ?? "0",
     websiteUrl: textValue(formData.get("websiteUrl")) ?? "",
     showContactPublic: formData.get("showContactPublic") === "on",
     managerUserId: textValue(formData.get("managerUserId")) ?? ""
   });
+  if (!parsedResult.success) {
+    redirect("/admin/clubs?clubError=invalid");
+  }
+  const parsed = parsedResult.data;
+  const existingClub = parsed.clubId
+    ? await prisma.club.findUniqueOrThrow({
+        where: { id: parsed.clubId },
+        select: {
+          managerUserId: true,
+          address: true,
+          city: true,
+          province: true,
+          postalCode: true,
+          latitude: true,
+          longitude: true
+        }
+      })
+    : null;
+  const shouldGeocode = hasClubLocationChanged(existingClub, parsed);
+  const geocoding = shouldGeocode ? await geocodeClubAddress(parsed) : null;
+  const geocodingData = shouldGeocode
+    ? geocoding
+      ? {
+          latitude: geocoding.latitude,
+          longitude: geocoding.longitude,
+          geocodedAt: geocoding.geocodedAt,
+          geocodingQuery: geocoding.geocodingQuery
+        }
+      : {
+          latitude: null,
+          longitude: null,
+          geocodedAt: null,
+          geocodingQuery: clubGeocodingQuery(parsed) || null
+        }
+    : {};
 
   if (!isAdmin) {
     if (!parsed.clubId) {
       throw new Error("Solo un admin puede crear clubes.");
     }
 
-    const managedClub = await prisma.club.findUniqueOrThrow({
-      where: { id: parsed.clubId }
-    });
-
-    if (managedClub.managerUserId !== currentUser.id) {
+    if (existingClub?.managerUserId !== currentUser.id) {
       throw new Error("Solo puedes modificar el club que administras.");
     }
   }
@@ -1016,6 +1065,8 @@ export async function saveClubAction(formData: FormData) {
           city: parsed.city,
           province: parsed.province,
           address: parsed.address,
+          postalCode: parsed.postalCode,
+          ...geocodingData,
           availableCourts: parsed.availableCourts,
           websiteUrl: parsed.websiteUrl || null,
           logoUrl,
@@ -1029,6 +1080,8 @@ export async function saveClubAction(formData: FormData) {
           city: parsed.city,
           province: parsed.province,
           address: parsed.address,
+          postalCode: parsed.postalCode,
+          ...geocodingData,
           availableCourts: parsed.availableCourts,
           websiteUrl: parsed.websiteUrl || null,
           logoUrl: logoUrl ?? null,

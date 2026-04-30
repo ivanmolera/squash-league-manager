@@ -202,6 +202,11 @@ model Club {
   city          String?
   province      String?
   address       String?
+  postalCode    String?                @map("postal_code") @db.VarChar(16)
+  latitude      Float?
+  longitude     Float?
+  geocodedAt    DateTime?              @map("geocoded_at") @db.Timestamptz(6)
+  geocodingQuery String?               @map("geocoding_query")
   availableCourts Int                   @default(0) @map("available_courts")
   websiteUrl    String?                @map("website_url")
   logoUrl       String?                @map("logo_url")

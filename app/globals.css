@@ -816,11 +816,32 @@ h1 {
   align-items: start;
   display: grid;
   gap: 18px;
-  grid-template-columns: minmax(280px, 0.78fr) minmax(360px, 1.22fr);
+  grid-template-columns: minmax(280px, 1fr) minmax(360px, 1fr);
 }
 
 .club-directory-list {
   margin-top: 0;
+}
+
+.club-community-group {
+  display: grid;
+  gap: 8px;
+}
+
+.club-community-group h3,
+.title-with-badge,
+.inline-badge-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.club-community-group h3 {
+  border-top: 1px solid var(--line);
+  color: var(--foreground);
+  font-size: 0.95rem;
+  margin: 10px 0 0;
+  padding-top: 12px;
 }
 
 .club-list-row {
@@ -845,7 +866,12 @@ h1 {
 .club-list-row span {
   color: var(--muted);
   font-size: 0.9rem;
-  font-weight: 800;
+  font-weight: 500;
+}
+
+.club-list-city {
+  color: var(--foreground);
+  font-weight: 900;
 }
 
 .club-directory-map {
@@ -1167,12 +1193,14 @@ h1 {
   font-weight: 950;
   height: 22px;
   justify-content: center;
+  justify-self: start;
   letter-spacing: 0;
   line-height: 1;
   min-width: 34px;
   overflow: hidden;
   padding: 2px 5px;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+  width: fit-content;
 }
 
 .ranking-flag-image {
@@ -1181,10 +1209,26 @@ h1 {
   width: 34px;
 }
 
+.tournament-table-row > span .ranking-flag {
+  justify-self: center;
+}
+
 .ranking-flag-image img {
   height: 100%;
   object-fit: cover;
   width: 100%;
+}
+
+.ranking-flag-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.ranking-flag-nav a {
+  display: inline-flex;
+  text-decoration: none;
 }
 
 .flag-none {

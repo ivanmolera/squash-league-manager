@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Navigation } from "@/app/navigation";
 import { ClubCrest } from "@/src/components/club-crest";
+import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
+import { autonomousCommunityForLocation } from "@/src/lib/autonomous-communities";
 import { getCurrentUser } from "@/src/lib/auth";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
@@ -48,8 +50,8 @@ function groupMembershipsBySeason(memberships: ClubMembership[]) {
   }, []);
 }
 
-function clubMapUrl(club: { name: string; address: string | null; city: string | null; province: string | null }) {
-  const query = [club.address, club.city, club.province, club.name].filter(Boolean).join(", ");
+function clubMapUrl(club: { name: string; address: string | null; postalCode: string | null; city: string | null; province: string | null }) {
+  const query = [club.address, club.postalCode, club.city, club.province, club.name].filter(Boolean).join(", ");
   return query ? `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed` : null;
 }
 
@@ -68,6 +70,7 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
   const canSeeContact = canEdit || club.showContactPublic;
   const membershipsBySeason = groupMembershipsBySeason(club.memberships);
   const mapUrl = canSeeContact ? clubMapUrl(club) : null;
+  const community = autonomousCommunityForLocation(club);
 
   return (
     <main className="app-shell">
@@ -85,8 +88,15 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
       <section className="detail-grid">
         <article className="list-panel">
           <h2>{t.clubDetails}</h2>
+          <p>
+            <strong>{t.autonomousCommunity}:</strong>{" "}
+            {community ? (
+              <span className="inline-badge-row"><RankingCodeBadge code={community.code} /> {community.name}</span>
+            ) : t.unknownAutonomousCommunity}
+          </p>
           <p><strong>{t.province}:</strong> {club.province ?? t.notProvidedFemale}</p>
           <p><strong>{t.city}:</strong> {club.city ?? t.notProvidedFemale}</p>
+          <p><strong>{t.postalCode}:</strong> {club.postalCode ?? t.notProvided}</p>
           <p><strong>{t.availableCourts}:</strong> {club.availableCourts}</p>
           <p><strong>{t.address}:</strong> {canSeeContact ? club.address ?? t.notProvidedFemale : t.privateFemaleValue}</p>
           <p><strong>{t.website}:</strong> {canSeeContact ? club.websiteUrl ?? t.notProvidedFemale : t.privateFemaleValue}</p>
