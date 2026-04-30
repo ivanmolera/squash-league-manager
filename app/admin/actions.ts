@@ -1136,6 +1136,62 @@ export async function saveClubAction(formData: FormData) {
       data: { clubNameAtThatTime: club.name }
     })
   ]);
+  await prisma.$transaction([
+    prisma.$executeRaw`
+      UPDATE team_ties tt
+      SET home_team_name_at_time = t.name,
+          home_club_name_at_time = ${club.name},
+          updated_at = now()
+      FROM teams t
+      WHERE tt.home_team_id = t.id
+        AND t.club_id = ${club.id}::uuid
+        AND tt.season_id = ${season.id}::uuid
+    `,
+    prisma.$executeRaw`
+      UPDATE team_ties tt
+      SET away_team_name_at_time = t.name,
+          away_club_name_at_time = ${club.name},
+          updated_at = now()
+      FROM teams t
+      WHERE tt.away_team_id = t.id
+        AND t.club_id = ${club.id}::uuid
+        AND tt.season_id = ${season.id}::uuid
+    `,
+    prisma.$executeRaw`
+      UPDATE matches m
+      SET home_club_name_at_match_time = ${club.name},
+          updated_at = now()
+      WHERE m.home_club_id_at_match_time = ${club.id}::uuid
+        AND m.season_id = ${season.id}::uuid
+    `,
+    prisma.$executeRaw`
+      UPDATE matches m
+      SET away_club_name_at_match_time = ${club.name},
+          updated_at = now()
+      WHERE m.away_club_id_at_match_time = ${club.id}::uuid
+        AND m.season_id = ${season.id}::uuid
+    `,
+    prisma.$executeRaw`
+      UPDATE matches m
+      SET home_team_name_at_match_time = t.name,
+          home_club_name_at_match_time = ${club.name},
+          updated_at = now()
+      FROM teams t
+      WHERE m.home_team_id_at_match_time = t.id
+        AND t.club_id = ${club.id}::uuid
+        AND m.season_id = ${season.id}::uuid
+    `,
+    prisma.$executeRaw`
+      UPDATE matches m
+      SET away_team_name_at_match_time = t.name,
+          away_club_name_at_match_time = ${club.name},
+          updated_at = now()
+      FROM teams t
+      WHERE m.away_team_id_at_match_time = t.id
+        AND t.club_id = ${club.id}::uuid
+        AND m.season_id = ${season.id}::uuid
+    `
+  ]);
 
   revalidatePath("/admin/clubs");
   revalidatePath(`/clubs/${club.id}`);
@@ -1749,6 +1805,38 @@ export async function saveTeamAction(formData: FormData) {
       data: {
         teamNameAtThatTime: parsed.name,
         clubNameAtThatTime: team.club.name
+      }
+    });
+
+    await tx.teamTie.updateMany({
+      where: { homeTeamId: parsed.teamId, seasonId: team.seasonId },
+      data: {
+        homeTeamNameAtTime: parsed.name,
+        homeClubNameAtTime: team.club.name
+      }
+    });
+
+    await tx.teamTie.updateMany({
+      where: { awayTeamId: parsed.teamId, seasonId: team.seasonId },
+      data: {
+        awayTeamNameAtTime: parsed.name,
+        awayClubNameAtTime: team.club.name
+      }
+    });
+
+    await tx.match.updateMany({
+      where: { homeTeamIdAtMatchTime: parsed.teamId, seasonId: team.seasonId },
+      data: {
+        homeTeamNameAtMatchTime: parsed.name,
+        homeClubNameAtMatchTime: team.club.name
+      }
+    });
+
+    await tx.match.updateMany({
+      where: { awayTeamIdAtMatchTime: parsed.teamId, seasonId: team.seasonId },
+      data: {
+        awayTeamNameAtMatchTime: parsed.name,
+        awayClubNameAtMatchTime: team.club.name
       }
     });
   });
