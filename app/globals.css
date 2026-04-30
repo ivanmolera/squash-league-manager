@@ -496,6 +496,10 @@ h1 {
   max-width: 760px;
 }
 
+.player-form-section {
+  margin-bottom: 22px;
+}
+
 .admin-form,
 .compact-form,
 .list-panel {
@@ -718,6 +722,83 @@ h1 {
   gap: 8px;
   grid-template-columns: 1fr auto auto auto;
   padding: 12px;
+}
+
+.player-directory {
+  display: grid;
+  gap: 18px;
+}
+
+.letter-jump-nav {
+  align-items: center;
+  background: color-mix(in srgb, var(--background) 88%, white);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px;
+  position: sticky;
+  top: 10px;
+  z-index: 5;
+}
+
+.letter-jump-nav a {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--foreground);
+  display: inline-flex;
+  font-size: 0.82rem;
+  font-weight: 800;
+  height: 30px;
+  justify-content: center;
+  text-decoration: none;
+  width: 30px;
+}
+
+.letter-jump-nav a:hover {
+  background: color-mix(in srgb, var(--accent) 12%, white);
+  border-color: var(--accent);
+}
+
+.player-groups-grid {
+  align-items: start;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.player-letter-group {
+  scroll-margin-top: 74px;
+}
+
+.player-letter-group h2 {
+  border-bottom: 2px solid var(--line);
+  font-size: 1.18rem;
+  margin: 0 0 10px;
+  padding-bottom: 8px;
+}
+
+.player-letter-list {
+  display: grid;
+  gap: 8px;
+}
+
+.player-list-row {
+  background: var(--surface);
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.player-list-row > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.player-list-row span {
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 .club-player-row {
@@ -1939,6 +2020,7 @@ h1 {
   .detail-grid,
   .form-row,
   .category-config-grid,
+  .player-groups-grid,
   .row-card,
   .compact-match-row,
   .result-form {

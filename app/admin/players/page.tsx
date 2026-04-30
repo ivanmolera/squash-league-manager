@@ -7,6 +7,13 @@ import { prisma } from "@/src/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
+function playerInitial(lastName: string) {
+  const firstSurname = lastName.trim().split(/\s+/)[0] ?? "";
+  const normalized = firstSurname.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const initial = normalized.charAt(0).toLocaleUpperCase("ca");
+  return /^[A-Z]$/.test(initial) ? initial : "#";
+}
+
 export default async function PlayersPage() {
   const [players, clubs, currentUser, dictionary] = await Promise.all([
     prisma.player.findMany({
@@ -29,6 +36,13 @@ export default async function PlayersPage() {
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
   const ownPlayerId = players.find((player) => player.userId === currentUser?.id)?.id;
   const canCreateOwnProfile = Boolean(currentUser && !ownPlayerId);
+  const groupedPlayers = players.reduce<Array<{ initial: string; players: typeof players }>>((groups, player) => {
+    const initial = playerInitial(player.lastName);
+    const group = groups.find((item) => item.initial === initial);
+    if (group) group.players.push(player);
+    else groups.push({ initial, players: [player] });
+    return groups;
+  }, []);
 
   return (
     <main className="app-shell">
@@ -39,39 +53,53 @@ export default async function PlayersPage() {
         <p className="muted">{t.playerProfileIntro}</p>
       </section>
 
-      <section className="work-grid">
-        {isAdmin || canCreateOwnProfile ? (
+      {isAdmin || canCreateOwnProfile ? (
+        <section className="centered-list player-form-section">
           <form className="admin-form" action={savePlayerAction}>
             <h2>{isAdmin ? t.newProfile : t.createMyProfile}</h2>
             <PlayerFields clubs={clubs} currentUserEmail={currentUser?.email} isAdmin={isAdmin} labels={t} />
             <button type="submit">{t.createPlayer}</button>
           </form>
-        ) : (
-          <section className="list-panel quiet-panel">
-            <p className="muted">{t.signInToEditProfile}</p>
-          </section>
-        )}
+        </section>
+      ) : null}
 
-        <div className="list-panel">
-          <h2>{t.playerList}</h2>
-          {players.map((player) => {
-            const clubName = player.memberships[0]?.clubNameAtThatTime ?? t.independent;
+      <section className="player-directory">
+        <nav className="letter-jump-nav" aria-label={t.players}>
+          {groupedPlayers.map((group) => (
+            <a href={`#players-${group.initial}`} key={group.initial}>{group.initial}</a>
+          ))}
+        </nav>
+        <div className="player-groups-grid">
+          {groupedPlayers.map((group) => (
+            <section className="player-letter-group" id={`players-${group.initial}`} key={group.initial}>
+              <h2>{group.initial}</h2>
+              <div className="player-letter-list">
+                {group.players.map((player) => {
+                  const clubName = player.memberships[0]?.clubNameAtThatTime ?? t.independent;
 
-            return isAdmin || player.id === ownPlayerId ? (
-              <article className="row-card" key={player.id}>
-                <strong><Link href={`/players/${player.id}`}>{player.lastName}, {player.firstName}</Link></strong>
-                <span>{clubName}</span>
-                <Link className="secondary-link" href={`/players/${player.id}/edit`}>{t.edit}</Link>
-              </article>
-            ) : (
-              <article className="row-card simple-row" key={player.id}>
-                <strong><Link href={`/players/${player.id}`}>{player.lastName}, {player.firstName}</Link></strong>
-                <span>{clubName}</span>
-              </article>
-            );
-          })}
+                  return isAdmin || player.id === ownPlayerId ? (
+                    <article className="row-card player-list-row" key={player.id}>
+                      <div>
+                        <strong><Link href={`/players/${player.id}`}>{player.lastName}, {player.firstName}</Link></strong>
+                        <span>{clubName}</span>
+                      </div>
+                      <Link className="secondary-link" href={`/players/${player.id}/edit`}>{t.edit}</Link>
+                    </article>
+                  ) : (
+                    <article className="row-card simple-row player-list-row" key={player.id}>
+                      <div>
+                        <strong><Link href={`/players/${player.id}`}>{player.lastName}, {player.firstName}</Link></strong>
+                        <span>{clubName}</span>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
         </div>
       </section>
+
     </main>
   );
 }
@@ -117,7 +145,7 @@ function PlayerFields({
       <input type="hidden" name="profilePhotoUrl" value={player?.profilePhotoUrl ?? ""} />
       <label>{labels.photo}<input name="profilePhoto" type="file" accept="image/*" /></label>
       <div className="form-row">
-        <label>{labels.email}<input name="email" type="email" defaultValue={player?.email ?? currentUserEmail ?? ""} readOnly={!isAdmin} required /></label>
+        <label>{labels.email}<input name="email" type="email" defaultValue={player?.email ?? currentUserEmail ?? ""} readOnly={!isAdmin} required={!isAdmin} /></label>
         <label>{labels.phone}<input name="phone" defaultValue={player?.phone ?? ""} /></label>
       </div>
       <div className="form-row">

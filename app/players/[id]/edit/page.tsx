@@ -30,7 +30,7 @@ export default async function EditPlayerPage({ params }: { params: Promise<{ id:
           <label>{t.firstName}<input name="firstName" defaultValue={player.firstName} required /></label>
           <label>{t.lastName}<input name="lastName" defaultValue={player.lastName} required /></label>
           <label>{t.photo}<input name="profilePhoto" type="file" accept="image/*" /></label>
-          <label>{t.email}<input name="email" type="email" defaultValue={player.user?.email ?? ""} readOnly={!isAdmin} required /></label>
+          <label>{t.email}<input name="email" type="email" defaultValue={player.user?.email ?? ""} readOnly={!isAdmin} required={!isAdmin} /></label>
           <label>{t.phone}<input name="phone" defaultValue={player.user?.phone ?? ""} /></label>
           <label>{t.preferredLocale}
             <select name="preferredLocale" defaultValue={player.user?.preferredLocale ?? "es"}>

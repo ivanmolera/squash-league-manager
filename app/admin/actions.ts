@@ -17,7 +17,7 @@ const playerSchema = z.object({
   playerId: z.string().uuid().optional().or(z.literal("")),
   firstName: z.string().min(2),
   lastName: z.string().min(2),
-  email: z.string().email(),
+  email: z.string().email().optional().or(z.literal("")),
   phone: z.string().optional(),
   emailVerified: z.coerce.boolean().default(false),
   preferredLocale: z.enum(["ca", "es", "en"]).default("es"),
@@ -841,6 +841,10 @@ export async function savePlayerAction(formData: FormData) {
   });
 
   if (!isAdmin) {
+    if (!parsed.email) {
+      throw new Error("La dirección de email es obligatoria para modificar tu perfil.");
+    }
+
     const ownPlayer = await prisma.player.findUnique({
       where: { userId: currentUser.id }
     });
@@ -855,24 +859,27 @@ export async function savePlayerAction(formData: FormData) {
   }
 
   const displayName = `${parsed.firstName} ${parsed.lastName}`;
+  const parsedEmail = parsed.email || null;
   const user = isAdmin
-    ? await prisma.user.upsert({
-        where: { email: parsed.email },
-        update: {
-          displayName,
-          phone: parsed.phone,
-          emailVerified: parsed.emailVerified,
-          preferredLocale: parsed.preferredLocale
-        },
-        create: {
-          firebaseUid: `local:${parsed.email}`,
-          email: parsed.email,
-          displayName,
-          phone: parsed.phone,
-          emailVerified: parsed.emailVerified,
-          preferredLocale: parsed.preferredLocale
-        }
-      })
+    ? parsedEmail
+      ? await prisma.user.upsert({
+          where: { email: parsedEmail },
+          update: {
+            displayName,
+            phone: parsed.phone,
+            emailVerified: parsed.emailVerified,
+            preferredLocale: parsed.preferredLocale
+          },
+          create: {
+            firebaseUid: `local:${parsedEmail}`,
+            email: parsedEmail,
+            displayName,
+            phone: parsed.phone,
+            emailVerified: parsed.emailVerified,
+            preferredLocale: parsed.preferredLocale
+          }
+        })
+      : null
     : await prisma.user.update({
         where: { id: currentUser.id },
         data: {
@@ -882,18 +889,20 @@ export async function savePlayerAction(formData: FormData) {
         }
       });
 
-  await ensureCredential(user.id);
-  await prisma.userRoleAssignment.upsert({
-    where: { userId_role: { userId: user.id, role: "player" } },
-    update: {},
-    create: { userId: user.id, role: "player" }
-  });
+  if (user) {
+    await ensureCredential(user.id);
+    await prisma.userRoleAssignment.upsert({
+      where: { userId_role: { userId: user.id, role: "player" } },
+      update: {},
+      create: { userId: user.id, role: "player" }
+    });
+  }
 
   const player = parsed.playerId
     ? await prisma.player.update({
         where: { id: parsed.playerId },
         data: {
-          userId: user.id,
+          userId: user?.id ?? null,
           firstName: parsed.firstName,
           lastName: parsed.lastName,
           gender: parsed.gender,
@@ -910,7 +919,7 @@ export async function savePlayerAction(formData: FormData) {
       })
     : await prisma.player.create({
         data: {
-          userId: user.id,
+          userId: user?.id ?? null,
           firstName: parsed.firstName,
           lastName: parsed.lastName,
           gender: parsed.gender,
