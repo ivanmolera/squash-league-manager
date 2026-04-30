@@ -3,6 +3,7 @@ import { logoutAction } from "@/app/actions";
 import { LanguageSelector } from "@/app/language-selector";
 import { getCurrentUser } from "@/src/lib/auth";
 import { getDictionary } from "@/src/lib/i18n";
+import packageInfo from "@/package.json";
 
 export async function Navigation() {
   const [{ locale, t }, currentUser] = await Promise.all([getDictionary(), getCurrentUser()]);
@@ -16,6 +17,7 @@ export async function Navigation() {
       <Link href="/manager/tournaments">{t.tournaments}</Link>
       <Link href="/rankings">{t.rankings}</Link>
       <div className="nav-actions">
+        <span className="app-version" title={t.version}>{t.versionShort} {packageInfo.version}</span>
         <LanguageSelector
           locale={locale}
           label={t.language}

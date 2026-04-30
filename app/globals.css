@@ -104,6 +104,13 @@ a {
   margin-left: auto;
 }
 
+.app-version {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 .nav-actions form {
   margin: 0;
 }
@@ -1562,9 +1569,13 @@ h1 {
   .nav-actions {
     align-items: stretch;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     margin-left: 0;
     width: 100%;
+  }
+
+  .app-version {
+    align-self: center;
   }
 
   .locale-warning {
