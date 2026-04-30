@@ -800,10 +800,84 @@ h1 {
   gap: 10px;
 }
 
+.detail-inline-badge {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
 .club-list-name {
   align-items: center;
   display: inline-flex;
   gap: 8px;
+}
+
+.club-directory-grid {
+  align-items: start;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(280px, 0.78fr) minmax(360px, 1.22fr);
+}
+
+.club-directory-list {
+  margin-top: 0;
+}
+
+.club-list-row {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 12px;
+}
+
+.club-list-row + .club-list-row {
+  margin-top: 8px;
+}
+
+.club-list-row > div {
+  display: grid;
+  gap: 5px;
+}
+
+.club-list-row span {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.club-directory-map {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 520px;
+  overflow: hidden;
+  position: sticky;
+  top: 16px;
+}
+
+.club-directory-map iframe {
+  border: 0;
+  height: 520px;
+  width: 100%;
+}
+
+.club-map-markers {
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.club-map-markers span {
+  background: #ef5a3c;
+  border: 2px solid white;
+  border-radius: 999px;
+  box-shadow: 0 2px 10px rgba(11, 47, 58, 0.32);
+  height: 12px;
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 12px;
 }
 
 .club-logo-edit-row {
@@ -1043,6 +1117,154 @@ h1 {
   background: #f3f4f6;
   border-color: #e5e7eb;
   color: var(--muted);
+}
+
+.ranking-code-picker {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.ranking-code-picker legend {
+  font-weight: 900;
+  padding: 0 6px;
+}
+
+.ranking-code-picker > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ranking-code-picker label {
+  cursor: pointer;
+  display: inline-flex;
+}
+
+.ranking-code-picker input {
+  clip: rect(0, 0, 0, 0);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  width: 1px;
+}
+
+.ranking-code-picker input:checked + .ranking-flag {
+  box-shadow: 0 0 0 3px rgba(239, 90, 60, 0.22);
+  outline: 2px solid #ef5a3c;
+}
+
+.ranking-flag {
+  align-items: center;
+  background: #f3f4f6;
+  border: 1px solid rgba(17, 24, 39, 0.16);
+  border-radius: 6px;
+  color: #111827;
+  display: inline-flex;
+  font-size: 0.62rem;
+  font-weight: 950;
+  height: 22px;
+  justify-content: center;
+  letter-spacing: 0;
+  line-height: 1;
+  min-width: 34px;
+  overflow: hidden;
+  padding: 2px 5px;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.ranking-flag-image {
+  background: #003947;
+  padding: 0;
+  width: 34px;
+}
+
+.ranking-flag-image img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.flag-none {
+  color: var(--muted);
+}
+
+.flag-and,
+.flag-ext {
+  background: linear-gradient(#087a3d 0 33%, #fff 33% 66%, #087a3d 66%);
+}
+
+.flag-ara,
+.flag-cat,
+.flag-bal,
+.flag-val {
+  background: repeating-linear-gradient(to bottom, #f6c343 0 4px, #c91f2f 4px 8px);
+}
+
+.flag-ast,
+.flag-gal {
+  background: linear-gradient(90deg, #1f6fba 0 42%, #fff 42% 58%, #1f6fba 58%);
+}
+
+.flag-can {
+  background: linear-gradient(90deg, #fff 0 33%, #f6d33f 33% 66%, #1f6fba 66%);
+}
+
+.flag-cnt {
+  background: linear-gradient(#fff 0 50%, #d91e36 50%);
+}
+
+.flag-clm {
+  background: linear-gradient(90deg, #b91c1c 0 50%, #fff 50%);
+}
+
+.flag-cyl {
+  background:
+    linear-gradient(90deg, transparent 49%, rgba(255, 255, 255, 0.72) 49% 51%, transparent 51%),
+    linear-gradient(#8b1e2d 0 50%, #f6d33f 50%);
+}
+
+.flag-mad {
+  background: #d91e36;
+  color: white;
+  text-shadow: none;
+}
+
+.flag-mur {
+  background: #8b1e2d;
+  color: #f6d33f;
+  text-shadow: none;
+}
+
+.flag-nav {
+  background: #d91e36;
+  color: #f6d33f;
+  text-shadow: none;
+}
+
+.flag-pva {
+  background:
+    linear-gradient(45deg, transparent 43%, #fff 43% 57%, transparent 57%),
+    linear-gradient(-45deg, transparent 43%, #fff 43% 57%, transparent 57%),
+    linear-gradient(90deg, transparent 45%, #d91e36 45% 55%, transparent 55%),
+    #087a3d;
+  color: white;
+  text-shadow: none;
+}
+
+.flag-rio {
+  background: linear-gradient(#d91e36 0 25%, #fff 25% 50%, #087a3d 50% 75%, #f6d33f 75%);
+}
+
+.flag-ceu,
+.flag-mel {
+  background: linear-gradient(90deg, #111827 0 24%, #fff 24% 76%, #111827 76%);
+}
+
+.flag-esp {
+  background: linear-gradient(#c91f2f 0 25%, #f6c343 25% 75%, #c91f2f 75%);
 }
 
 .league-row .secondary-link {
@@ -1727,6 +1949,20 @@ h1 {
 
   .detail-header {
     display: grid;
+  }
+
+  .club-directory-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .club-directory-map {
+    min-height: 360px;
+    position: relative;
+    top: auto;
+  }
+
+  .club-directory-map iframe {
+    height: 360px;
   }
 
   .locale-form {

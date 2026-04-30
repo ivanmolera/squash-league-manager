@@ -48,6 +48,7 @@ export default async function EditClubPage({ params }: { params: Promise<{ id: s
           <label>{t.name}<input name="name" defaultValue={club.name} required /></label>
           <label>{t.city}<input name="city" defaultValue={club.city ?? ""} /></label>
           <label>{t.province}<input name="province" defaultValue={club.province ?? ""} /></label>
+          <label>{t.availableCourts}<input name="availableCourts" type="number" min="0" defaultValue={club.availableCourts} /></label>
           <label>{t.address}<input name="address" defaultValue={club.address ?? ""} /></label>
           <label>{t.website}<input name="websiteUrl" type="url" defaultValue={club.websiteUrl ?? ""} /></label>
           <label className="check-line"><input name="showContactPublic" type="checkbox" defaultChecked={club.showContactPublic} /> {t.showClubContactPublic}</label>

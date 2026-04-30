@@ -4,10 +4,12 @@ import { registerSelfForTournamentAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { TournamentMatches } from "@/app/tournaments/[id]/tournament-matches";
 import { ClubCrest } from "@/src/components/club-crest";
+import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
 import { getCurrentUser } from "@/src/lib/auth";
 import { categoryRestrictionLabel } from "@/src/lib/category-restrictions";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
+import { rankingCodeForScope } from "@/src/lib/ranking-codes";
 
 export const dynamic = "force-dynamic";
 
@@ -93,7 +95,9 @@ export default async function TournamentDetailPage({ params }: { params: Promise
             <p><strong>{t.club}:</strong> {t.noVenue}</p>
           )}
           <p><strong>{t.referee}:</strong> {tournament.refereeName ?? t.notProvided}</p>
-          <p><strong>{tournament.rankingScope === "none" ? t.rankingType : t.scoresForRanking}:</strong> {t[tournament.rankingScope as keyof typeof t]}</p>
+          <p className="detail-inline-badge">
+            <strong>{t.scoreable}:</strong> <RankingCodeBadge code={tournament.rankingCode ?? rankingCodeForScope(tournament.rankingScope)} />
+          </p>
           <p><strong>{t.matchFormat}:</strong> {tournament.bestOfSets === 3 ? t.bestOf3 : t.bestOf5}</p>
           <p><strong>{t.description}:</strong> {tournament.description ?? t.notProvidedFemale}</p>
           <p><strong>{t.restrictions}:</strong></p>

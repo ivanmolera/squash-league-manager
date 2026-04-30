@@ -87,6 +87,7 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
           <h2>{t.clubDetails}</h2>
           <p><strong>{t.province}:</strong> {club.province ?? t.notProvidedFemale}</p>
           <p><strong>{t.city}:</strong> {club.city ?? t.notProvidedFemale}</p>
+          <p><strong>{t.availableCourts}:</strong> {club.availableCourts}</p>
           <p><strong>{t.address}:</strong> {canSeeContact ? club.address ?? t.notProvidedFemale : t.privateFemaleValue}</p>
           <p><strong>{t.website}:</strong> {canSeeContact ? club.websiteUrl ?? t.notProvidedFemale : t.privateFemaleValue}</p>
           <p><strong>{t.assignedManager}:</strong> {club.manager?.displayName ?? club.manager?.email ?? t.noManager}</p>

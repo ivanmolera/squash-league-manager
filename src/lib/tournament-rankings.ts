@@ -1,7 +1,9 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/src/lib/prisma";
 import { formatPlayerListName } from "@/src/lib/names";
 
 export type RankingScope = "autonomic" | "state" | "psa";
+export type RankingCode = string;
 
 const rankingMatchTypes = ["tournament_knockout", "tournament_round_robin", "tournament_consolation", "tournament_third_place"] as const;
 
@@ -34,11 +36,19 @@ function roundWinPoints(match: {
   return knockoutRoundPoints(match.roundNumber ?? 1, totalRounds);
 }
 
-export async function getTournamentRankingRows(scope: RankingScope, playerIds?: string[]) {
+function rankingCompetitionWhere(scopeOrCode: RankingScope | RankingCode): Prisma.CompetitionWhereInput {
+  if (scopeOrCode === "autonomic" || scopeOrCode === "state" || scopeOrCode === "psa") {
+    return { rankingScope: scopeOrCode };
+  }
+
+  return { rankingCode: scopeOrCode };
+}
+
+export async function getTournamentRankingRows(scopeOrCode: RankingScope | RankingCode, playerIds?: string[]) {
   const competitions = await prisma.competition.findMany({
     where: {
       type: "tournament",
-      rankingScope: scope
+      ...rankingCompetitionWhere(scopeOrCode)
     },
     include: {
       participants: {

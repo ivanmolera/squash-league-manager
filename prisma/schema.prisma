@@ -202,6 +202,7 @@ model Club {
   city          String?
   province      String?
   address       String?
+  availableCourts Int                   @default(0) @map("available_courts")
   websiteUrl    String?                @map("website_url")
   logoUrl       String?                @map("logo_url")
   showContactPublic Boolean            @default(true) @map("show_contact_public")
@@ -256,6 +257,7 @@ model Competition {
   bestOfSets  Int                    @default(5) @map("best_of_sets")
   refereeName String?                @map("referee_name")
   rankingScope RankingScope          @default(none) @map("ranking_scope")
+  rankingCode  String                @default("none") @map("ranking_code") @db.VarChar(8)
   registrationDeadline DateTime?        @map("registration_deadline") @db.Timestamptz(6)
   startsAt    DateTime?              @map("starts_at") @db.Timestamptz(6)
   endsAt      DateTime?              @map("ends_at") @db.Timestamptz(6)

@@ -3,9 +3,11 @@ import { saveTournamentAction } from "@/app/admin/actions";
 import { SeasonFilter } from "@/app/manager/tournaments/season-filter";
 import { Navigation } from "@/app/navigation";
 import { ClubCrest } from "@/src/components/club-crest";
+import { RankingCodeBadge, RankingCodePicker } from "@/src/components/ranking-code-picker";
 import { getCurrentUser } from "@/src/lib/auth";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
+import { rankingCodeForScope } from "@/src/lib/ranking-codes";
 
 export const dynamic = "force-dynamic";
 
@@ -82,14 +84,7 @@ export default async function TournamentsPage({
             <label>{t.name}<input name="name" required /></label>
             <label>{t.description}<textarea name="description" rows={3} /></label>
             <label>{t.referee}<input name="refereeName" /></label>
-            <label>{t.rankingType}
-              <select name="rankingScope" defaultValue="none">
-                <option value="none">{t.noRanking}</option>
-                <option value="autonomic">{t.rankingAutonomic}</option>
-                <option value="state">{t.state}</option>
-                <option value="psa">{t.psa}</option>
-              </select>
-            </label>
+            <RankingCodePicker defaultCode="none" label={t.scoreable} />
             <label>{t.matchFormat}
               <select name="bestOfSets" defaultValue="5">
                 <option value="5">{t.bestOf5}</option>
@@ -164,7 +159,7 @@ export default async function TournamentsPage({
                   </span>
                   <span>{tournament.categories.map((category) => category.category.name).join(", ") || t.notProvidedFemale}</span>
                   <span>{tournament.registrationDeadline?.toLocaleDateString(locale) ?? t.noDeadline}</span>
-                  <span><RankingScopeBadge scope={tournament.rankingScope} labels={t} /></span>
+                  <span><RankingCodeBadge code={tournament.rankingCode ?? rankingCodeForScope(tournament.rankingScope)} /></span>
                 </article>
               );
             })}
@@ -174,16 +169,4 @@ export default async function TournamentsPage({
       </section>
     </main>
   );
-}
-
-function RankingScopeBadge({ scope, labels }: { scope: string; labels: Record<string, string> }) {
-  const label = rankingScopeCode(scope, labels);
-  return <span className={`ranking-scope-badge${scope === "none" ? " is-empty" : ""}`}>{label}</span>;
-}
-
-function rankingScopeCode(scope: string, labels: Record<string, string>) {
-  if (scope === "autonomic") return "CAT";
-  if (scope === "state") return "ESP";
-  if (scope === "psa") return "PSA";
-  return labels.none;
 }

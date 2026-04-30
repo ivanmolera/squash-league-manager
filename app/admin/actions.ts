@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getCurrentUser } from "@/src/lib/auth";
 import { prisma } from "@/src/lib/prisma";
+import { rankingCodeValues, rankingScopeForCode } from "@/src/lib/ranking-codes";
 import { generateRoundRobin, nextPowerOfTwo, shuffle } from "@/src/lib/schedule";
 import { getTournamentRankingRows } from "@/src/lib/tournament-rankings";
 
@@ -47,6 +48,7 @@ const clubSchema = z.object({
   city: z.string().optional(),
   province: z.string().optional(),
   address: z.string().optional(),
+  availableCourts: z.coerce.number().int().min(0).max(99).default(0),
   websiteUrl: z.string().url().optional().or(z.literal("")),
   showContactPublic: z.coerce.boolean().default(false),
   managerUserId: z.string().uuid().optional().or(z.literal(""))
@@ -71,7 +73,7 @@ const tournamentSchema = z.object({
   description: z.string().optional(),
   hostClubId: z.string().uuid(),
   refereeName: z.string().optional(),
-  rankingScope: z.enum(["none", "autonomic", "state", "psa"]).default("none"),
+  rankingCode: z.enum(rankingCodeValues).default("none"),
   bestOfSets: z.coerce.number().int().refine((value) => value === 3 || value === 5),
   registrationDeadline: z.string().min(10),
   startsAt: z.string().min(10),
@@ -986,6 +988,7 @@ export async function saveClubAction(formData: FormData) {
     city: textValue(formData.get("city")),
     province: textValue(formData.get("province")),
     address: textValue(formData.get("address")),
+    availableCourts: textValue(formData.get("availableCourts")) ?? "0",
     websiteUrl: textValue(formData.get("websiteUrl")) ?? "",
     showContactPublic: formData.get("showContactPublic") === "on",
     managerUserId: textValue(formData.get("managerUserId")) ?? ""
@@ -1013,6 +1016,7 @@ export async function saveClubAction(formData: FormData) {
           city: parsed.city,
           province: parsed.province,
           address: parsed.address,
+          availableCourts: parsed.availableCourts,
           websiteUrl: parsed.websiteUrl || null,
           logoUrl,
           showContactPublic: parsed.showContactPublic,
@@ -1025,6 +1029,7 @@ export async function saveClubAction(formData: FormData) {
           city: parsed.city,
           province: parsed.province,
           address: parsed.address,
+          availableCourts: parsed.availableCourts,
           websiteUrl: parsed.websiteUrl || null,
           logoUrl: logoUrl ?? null,
           showContactPublic: parsed.showContactPublic,
@@ -1296,7 +1301,7 @@ export async function saveTournamentAction(formData: FormData) {
     description: textValue(formData.get("description")),
     hostClubId: textValue(formData.get("hostClubId")),
     refereeName: textValue(formData.get("refereeName")),
-    rankingScope: textValue(formData.get("rankingScope")) ?? "none",
+    rankingCode: textValue(formData.get("rankingCode")) ?? "none",
     bestOfSets: textValue(formData.get("bestOfSets")) ?? "5",
     registrationDeadline: textValue(formData.get("registrationDeadline")),
     startsAt: textValue(formData.get("startsAt")),
@@ -1330,6 +1335,7 @@ export async function saveTournamentAction(formData: FormData) {
   const season = await getDefaultSeason();
   const defaultCategory = await getDefaultCategory();
   const categoryIds = parsed.categoryIds.length ? parsed.categoryIds : [defaultCategory.id];
+  const rankingScope = rankingScopeForCode(parsed.rankingCode);
   const competition = parsed.competitionId
     ? await prisma.competition.update({
         where: { id: parsed.competitionId },
@@ -1338,7 +1344,8 @@ export async function saveTournamentAction(formData: FormData) {
           description: parsed.description,
           hostClubId: parsed.hostClubId,
           refereeName: parsed.refereeName,
-          rankingScope: parsed.rankingScope,
+          rankingScope,
+          rankingCode: parsed.rankingCode,
           bestOfSets: parsed.bestOfSets,
           registrationDeadline: new Date(parsed.registrationDeadline),
           startsAt: new Date(parsed.startsAt),
@@ -1354,7 +1361,8 @@ export async function saveTournamentAction(formData: FormData) {
           description: parsed.description,
           hostClubId: parsed.hostClubId,
           refereeName: parsed.refereeName,
-          rankingScope: parsed.rankingScope,
+          rankingScope,
+          rankingCode: parsed.rankingCode,
           bestOfSets: parsed.bestOfSets,
           registrationDeadline: new Date(parsed.registrationDeadline),
           startsAt: new Date(parsed.startsAt),
@@ -1636,7 +1644,7 @@ export async function suggestTournamentSeedsAction(formData: FormData) {
   const players = competitionCategory.participants.flatMap((participant) => participant.player ? [participant.player] : []);
   const rankingRows = competitionCategory.competition.rankingScope === "none"
     ? []
-    : await getTournamentRankingRows(competitionCategory.competition.rankingScope, players.map((player) => player.id));
+    : await getTournamentRankingRows(competitionCategory.competition.rankingCode, players.map((player) => player.id));
   const rankingPositions = new Map(rankingRows.map((row, index) => [row.playerId, { ...row, index }]));
   const hasRankingScores = rankingRows.some((row) => row.points > 0);
   const seedPlayerIds = players

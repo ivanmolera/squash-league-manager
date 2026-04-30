@@ -3,10 +3,12 @@ import { registerPlayerForTournamentAction, saveTournamentAction, saveTournament
 import { Navigation } from "@/app/navigation";
 import { GenerateDrawButton } from "@/app/tournaments/generate-draw-button";
 import { TournamentMatches } from "@/app/tournaments/[id]/tournament-matches";
+import { RankingCodePicker } from "@/src/components/ranking-code-picker";
 import { getCurrentUser } from "@/src/lib/auth";
 import { categoryRestrictionLabel } from "@/src/lib/category-restrictions";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
+import { rankingCodeForScope } from "@/src/lib/ranking-codes";
 
 export const dynamic = "force-dynamic";
 
@@ -120,14 +122,7 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
         <label>{t.name}<input name="name" defaultValue={tournament.name} required /></label>
         <label>{t.description}<textarea name="description" rows={3} defaultValue={tournament.description ?? ""} /></label>
         <label>{t.referee}<input name="refereeName" defaultValue={tournament.refereeName ?? ""} /></label>
-        <label>{t.rankingType}
-          <select name="rankingScope" defaultValue={tournament.rankingScope}>
-            <option value="none">{t.noRanking}</option>
-            <option value="autonomic">{t.rankingAutonomic}</option>
-            <option value="state">{t.state}</option>
-            <option value="psa">{t.psa}</option>
-          </select>
-        </label>
+        <RankingCodePicker defaultCode={tournament.rankingCode ?? rankingCodeForScope(tournament.rankingScope)} label={t.scoreable} />
         <label>{t.matchFormat}
           <select name="bestOfSets" defaultValue={tournament.bestOfSets}>
             <option value="5">{t.bestOf5}</option>
