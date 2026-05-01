@@ -1315,13 +1315,17 @@ h1 {
   width: 34px;
 }
 
+.ranking-flag-rfes {
+  width: 58px;
+}
+
 .tournament-table-row > span .ranking-flag {
   justify-self: center;
 }
 
 .ranking-flag-image img {
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   width: 100%;
 }
 

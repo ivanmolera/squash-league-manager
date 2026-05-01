@@ -5,7 +5,10 @@ export function RankingCodeBadge({ code }: { code?: string | null }) {
 
   if (option.imageSrc) {
     return (
-      <span className="ranking-flag ranking-flag-image" title={option.name}>
+      <span
+        className={`ranking-flag ranking-flag-image ranking-flag-${option.code.toLowerCase()}`}
+        title={option.name}
+      >
         <img src={option.imageSrc} alt={option.name} />
       </span>
     );

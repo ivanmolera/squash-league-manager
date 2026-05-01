@@ -29,7 +29,7 @@ export const rankingOptions: RankingOption[] = [
   { code: "RIO", name: "La Rioja", scope: "autonomic", imageSrc: "/images/flags/rio.svg" },
   { code: "CEU", name: "Ceuta", scope: "autonomic", imageSrc: "/images/flags/ceu.svg" },
   { code: "MEL", name: "Melilla", scope: "autonomic", imageSrc: "/images/flags/mel.svg" },
-  { code: "RFES", name: "RFES", scope: "state", flagClass: "flag-rfes" },
+  { code: "RFES", name: "RFES", scope: "state", imageSrc: "/images/rfes.png" },
   { code: "PSA", name: "PSA", scope: "psa", imageSrc: "/images/psa_logo.png" }
 ];
 
