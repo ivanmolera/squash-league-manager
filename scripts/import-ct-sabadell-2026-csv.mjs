@@ -162,18 +162,28 @@ function seedNumbers(rows) {
   const seededRows = rows
     .filter((row) => row.tipo_registro === "participante" && row.seed_jugador_1)
     .sort((a, b) => {
+      const categoryA = categoryNameByCsv.get(a.categoria) ?? a.categoria;
+      const categoryB = categoryNameByCsv.get(b.categoria) ?? b.categoria;
       const firstA = Number(a.seed_jugador_1.split("/")[0]);
       const firstB = Number(b.seed_jugador_1.split("/")[0]);
-      return firstA - firstB || Number(a.ranking_jugador_1 || 9999) - Number(b.ranking_jugador_1 || 9999);
+      return categoryA.localeCompare(categoryB) ||
+        firstA - firstB ||
+        Number(a.ranking_jugador_1 || 9999) - Number(b.ranking_jugador_1 || 9999);
     });
   const counters = new Map();
 
   return new Map(seededRows.map((row) => {
+    const categoryName = categoryNameByCsv.get(row.categoria) ?? row.categoria;
     const first = Number(row.seed_jugador_1.split("/")[0]);
-    const next = counters.get(first) ?? first;
-    counters.set(first, next + 1);
-    return [normalize(row.jugador_1), next];
+    const counterKey = `${categoryName}:${first}`;
+    const next = counters.get(counterKey) ?? first;
+    counters.set(counterKey, next + 1);
+    return [`${categoryName}:${normalize(row.jugador_1)}`, next];
   }));
+}
+
+function seedFor(seedMap, categoryName, playerName) {
+  return playerName ? seedMap.get(`${categoryName}:${normalize(playerName)}`) ?? null : null;
 }
 
 async function playersByName(rows) {
@@ -227,7 +237,7 @@ function placementFor(row, type) {
   return { roundNumber, bracketPosition };
 }
 
-async function createDrawEntries(tx, competitionCategoryId, entries, bracketType, playerMap, seedMap) {
+async function createDrawEntries(tx, competitionCategoryId, categoryName, entries, bracketType, playerMap, seedMap) {
   for (let index = 0; index < entries.length; index += 1) {
     const rawName = entries[index];
     const player = rawName ? playerMap.get(normalize(rawName)) : null;
@@ -238,7 +248,7 @@ async function createDrawEntries(tx, competitionCategoryId, entries, bracketType
         bracketPosition: index + 1,
         playerId: player?.id ?? null,
         playerNameAtTime: player ? playerDisplayName(player) : "BYE",
-        seedNumber: rawName ? seedMap.get(normalize(rawName)) ?? null : null,
+        seedNumber: seedFor(seedMap, categoryName, rawName),
         isBye: !rawName
       }
     });
@@ -314,7 +324,7 @@ async function importTournament(rows) {
       const competitionCategory = categoryName ? categoryByName.get(categoryName) : null;
       const player = byName.get(normalize(row.jugador_1));
       if (!competitionCategory || !player) continue;
-      const seedNumber = seedMap.get(normalize(row.jugador_1)) ?? null;
+      const seedNumber = seedFor(seedMap, categoryName, row.jugador_1);
 
       await tx.competitionParticipant.create({
         data: {
@@ -356,13 +366,13 @@ async function importTournament(rows) {
 
     for (const [categoryName, entries] of Object.entries(mainDrawEntries)) {
       const competitionCategory = categoryByName.get(categoryName);
-      await createDrawEntries(tx, competitionCategory.id, entries, "main", byName, seedMap);
+      await createDrawEntries(tx, competitionCategory.id, categoryName, entries, "main", byName, seedMap);
       await createByeMatches(tx, importContext, competitionCategory.id, entries, "main", "tournament_knockout");
     }
 
     for (const [categoryName, entries] of Object.entries(consolationDrawEntries)) {
       const competitionCategory = categoryByName.get(categoryName);
-      await createDrawEntries(tx, competitionCategory.id, entries, "consolation", byName, seedMap);
+      await createDrawEntries(tx, competitionCategory.id, categoryName, entries, "consolation", byName, seedMap);
       await createByeMatches(tx, importContext, competitionCategory.id, entries, "consolation", "tournament_consolation");
     }
 

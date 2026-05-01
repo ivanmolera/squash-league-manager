@@ -929,6 +929,10 @@ h1 {
   margin-bottom: 8px;
 }
 
+.club-teams-panel {
+  align-self: start;
+}
+
 .club-list-row {
   align-items: center;
   border: 1px solid var(--line);
@@ -1322,6 +1326,10 @@ h1 {
 
 .ranking-flag-rfes {
   width: 44px;
+}
+
+.ranking-flag-psa {
+  width: 52px;
 }
 
 .tournament-table-row > span .ranking-flag {

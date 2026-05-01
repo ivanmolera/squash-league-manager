@@ -106,7 +106,7 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
             />
           ) : null}
         </article>
-        <article className="list-panel">
+        <article className="list-panel club-teams-panel">
           <h2>{t.teams}</h2>
           {club.teams.map((team) => (
             <p key={team.id}>

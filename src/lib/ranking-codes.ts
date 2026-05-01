@@ -30,7 +30,7 @@ export const rankingOptions: RankingOption[] = [
   { code: "CEU", name: "Ceuta", scope: "autonomic", imageSrc: "/images/flags/ceu.svg" },
   { code: "MEL", name: "Melilla", scope: "autonomic", imageSrc: "/images/flags/mel.svg" },
   { code: "RFES", name: "RFES", scope: "state", imageSrc: "/images/rfes.png" },
-  { code: "PSA", name: "PSA", scope: "psa", imageSrc: "/images/psa_logo.png" }
+  { code: "PSA", name: "PSA", scope: "psa", imageSrc: "/images/psa_logo2.png" }
 ];
 
 export const rankingCodeValues = rankingOptions.map((option) => option.code) as [string, ...string[]];
