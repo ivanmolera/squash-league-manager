@@ -42,6 +42,10 @@ export async function loginAction(_state: LoginState, formData: FormData): Promi
     return { error: t.invalidCredentials };
   }
 
+  if (!user.emailVerified) {
+    return { error: t.emailNotVerified };
+  }
+
   const isValidPassword = await bcrypt.compare(
     parsed.data.password,
     user.credential.passwordHash

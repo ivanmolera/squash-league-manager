@@ -14,6 +14,9 @@ export default async function LoginPage() {
         <h1>{t.loginTitle}</h1>
         <p className="muted">{t.loginText}</p>
         <LoginForm labels={{ email: t.email, password: t.password, signingIn: t.signingIn, signIn: t.signIn }} />
+        <Link className="back-link" href="/register">
+          {t.createAccount}
+        </Link>
         <Link className="back-link" href="/">
           {t.backToPublic}
         </Link>
