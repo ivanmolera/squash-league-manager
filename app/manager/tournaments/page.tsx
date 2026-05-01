@@ -151,7 +151,11 @@ export default async function TournamentsPage({
                     <strong><Link href={`/tournaments/${tournament.id}`}>{tournament.name}</Link></strong>
                     {canEditTournament ? <Link className="secondary-link inline-link" href={`/tournaments/${tournament.id}/edit`}>{t.edit}</Link> : null}
                   </div>
-                  <span>{tournament.categories.map((category) => category.category.name).join(", ") || t.notProvidedFemale}</span>
+                  <div className="tournament-category-cell">
+                    {tournament.categories.length
+                      ? tournament.categories.map((category) => <span key={category.id}>{category.category.name}</span>)
+                      : <span>{t.notProvidedFemale}</span>}
+                  </div>
                   <span>
                     {tournament.hostClub ? (
                       <Link className="tournament-club-cell" href={`/clubs/${tournament.hostClub.id}`}>
