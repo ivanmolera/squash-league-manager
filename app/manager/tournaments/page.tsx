@@ -19,10 +19,11 @@ function selectedTab(value: string | undefined): TournamentTab {
 
 function tournamentDateLabel(value: Date | null, locale: string, noDate: string) {
   if (!value) return noDate;
-  const parts = new Intl.DateTimeFormat(locale, { day: "numeric", month: "long" }).formatToParts(value);
-  const day = parts.find((part) => part.type === "day")?.value;
-  const month = parts.find((part) => part.type === "month")?.value.replace(/^de\s+/i, "");
-  return day && month ? `${month.toLocaleUpperCase(locale)} ${day}` : value.toLocaleDateString(locale);
+  const day = new Intl.DateTimeFormat(locale, { day: "numeric" }).format(value);
+  const month = new Intl.DateTimeFormat(locale, { month: "long" })
+    .format(value)
+    .replace(/^(?:de\s+|d['’]\s*)/i, "");
+  return `${month.toLocaleUpperCase(locale)} ${day}`;
 }
 
 function tournamentDateLabels(tournament: { startsAt: Date | null; endsAt: Date | null }, locale: string, noDate: string) {
