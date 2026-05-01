@@ -21,45 +21,71 @@ export function clubGeocodingQuery(club: ClubAddress) {
 }
 
 function parseCoordinate(value: unknown) {
-  const parsed = typeof value === "string" ? Number(value) : NaN;
+  const parsed = typeof value === "number" || typeof value === "string" ? Number(value) : NaN;
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-export async function geocodeClubAddress(club: ClubAddress): Promise<ClubGeocodingResult | null> {
-  const query = clubGeocodingQuery(club);
-  if (!query || query.length < 5) return null;
+function uniqueQueries(queries: string[]) {
+  return [...new Set(queries.map((query) => query.trim()).filter((query) => query.length >= 5))];
+}
 
-  const params = new URLSearchParams({
-    format: "jsonv2",
-    limit: "1",
-    countrycodes: "es",
-    q: query
-  });
+function clubGeocodingQueries(club: ClubAddress) {
+  const address = club.address?.trim();
+  const postalCode = club.postalCode?.trim();
+  const city = club.city?.trim();
+  const province = club.province?.trim();
+  const name = club.name?.trim();
+
+  return uniqueQueries([
+    [address, postalCode, city, province, "España"].filter(Boolean).join(", "),
+    [address, postalCode, city, "España"].filter(Boolean).join(", "),
+    [address, city, province, "España"].filter(Boolean).join(", "),
+    [address, city, "España"].filter(Boolean).join(", "),
+    [name, city, province, "España"].filter(Boolean).join(", "),
+    [name, city, "España"].filter(Boolean).join(", "),
+    [postalCode, city, province, "España"].filter(Boolean).join(", ")
+  ]);
+}
+
+export async function geocodeClubAddress(club: ClubAddress): Promise<ClubGeocodingResult | null> {
+  const queries = clubGeocodingQueries(club);
+  if (!queries.length) return null;
 
   try {
-    const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
-      headers: {
-        "Accept-Language": "ca,es,en",
-        "User-Agent": "SquashLeagueManager/0.1.0 (ivan.molera@gmail.com)"
-      },
-      signal: AbortSignal.timeout(5000)
-    });
+    for (const query of queries) {
+      const params = new URLSearchParams({
+        format: "jsonv2",
+        limit: "1",
+        countrycodes: "es",
+        q: query
+      });
 
-    if (!response.ok) return null;
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+        headers: {
+          "Accept-Language": "ca,es,en",
+          "User-Agent": "SquashLeagueManager/0.1.1 (ivan.molera@gmail.com)"
+        },
+        signal: AbortSignal.timeout(5000)
+      });
 
-    const results = await response.json() as Array<{ lat?: string; lon?: string }>;
-    const first = results[0];
-    const latitude = parseCoordinate(first?.lat);
-    const longitude = parseCoordinate(first?.lon);
+      if (!response.ok) continue;
 
-    if (latitude === null || longitude === null) return null;
+      const results = await response.json() as Array<{ lat?: string | number; lon?: string | number }>;
+      const first = results[0];
+      const latitude = parseCoordinate(first?.lat);
+      const longitude = parseCoordinate(first?.lon);
 
-    return {
-      latitude,
-      longitude,
-      geocodingQuery: query,
-      geocodedAt: new Date()
-    };
+      if (latitude === null || longitude === null) continue;
+
+      return {
+        latitude,
+        longitude,
+        geocodingQuery: query,
+        geocodedAt: new Date()
+      };
+    }
+
+    return null;
   } catch {
     return null;
   }

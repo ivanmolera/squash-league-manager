@@ -15,36 +15,62 @@ function clubGeocodingQuery(club) {
     .join(", ");
 }
 
+function uniqueQueries(queries) {
+  return [...new Set(queries.map((query) => query.trim()).filter((query) => query.length >= 5))];
+}
+
+function clubGeocodingQueries(club) {
+  const address = club.address?.trim();
+  const postalCode = club.postalCode?.trim();
+  const city = club.city?.trim();
+  const province = club.province?.trim();
+  const name = club.name?.trim();
+
+  return uniqueQueries([
+    [address, postalCode, city, province, "España"].filter(Boolean).join(", "),
+    [address, postalCode, city, "España"].filter(Boolean).join(", "),
+    [address, city, province, "España"].filter(Boolean).join(", "),
+    [address, city, "España"].filter(Boolean).join(", "),
+    [name, city, province, "España"].filter(Boolean).join(", "),
+    [name, city, "España"].filter(Boolean).join(", "),
+    [postalCode, city, province, "España"].filter(Boolean).join(", ")
+  ]);
+}
+
 async function geocodeClub(club) {
-  const query = clubGeocodingQuery(club);
-  if (!query || query.length < 5) return null;
+  const queries = clubGeocodingQueries(club);
+  if (!queries.length) return null;
 
-  const params = new URLSearchParams({
-    format: "jsonv2",
-    limit: "1",
-    countrycodes: "es",
-    q: query
-  });
-  const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
-    headers: {
-      "Accept-Language": "ca,es,en",
-      "User-Agent": "SquashLeagueManager/0.1.0 (ivan.molera@gmail.com)"
-    }
-  });
+  for (const query of queries) {
+    const params = new URLSearchParams({
+      format: "jsonv2",
+      limit: "1",
+      countrycodes: "es",
+      q: query
+    });
+    const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+      headers: {
+        "Accept-Language": "ca,es,en",
+        "User-Agent": "SquashLeagueManager/0.1.1 (ivan.molera@gmail.com)"
+      }
+    });
 
-  if (!response.ok) return null;
+    if (!response.ok) continue;
 
-  const [first] = await response.json();
-  const latitude = Number(first?.lat);
-  const longitude = Number(first?.lon);
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+    const [first] = await response.json();
+    const latitude = Number(first?.lat);
+    const longitude = Number(first?.lon);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
 
-  return {
-    latitude,
-    longitude,
-    geocodingQuery: query,
-    geocodedAt: new Date()
-  };
+    return {
+      latitude,
+      longitude,
+      geocodingQuery: query,
+      geocodedAt: new Date()
+    };
+  }
+
+  return null;
 }
 
 async function main() {
