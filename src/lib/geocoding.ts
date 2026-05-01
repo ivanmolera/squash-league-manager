@@ -63,7 +63,7 @@ export async function geocodeClubAddress(club: ClubAddress): Promise<ClubGeocodi
       const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
         headers: {
           "Accept-Language": "ca,es,en",
-          "User-Agent": "SquashLeagueManager/0.1.1 (ivan.molera@gmail.com)"
+          "User-Agent": "SquashLeagueManager/0.1.2 (ivan.molera@gmail.com)"
         },
         signal: AbortSignal.timeout(5000)
       });
