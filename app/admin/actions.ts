@@ -129,6 +129,76 @@ function genericProfileVariant(gender: "male" | "female" | "other" | "not_specif
   return "neutral";
 }
 
+async function syncOpenPlayerNameSnapshots(playerId: string, displayName: string) {
+  const rosters = await prisma.teamRoster.findMany({
+    where: { playerId },
+    select: { teamId: true }
+  });
+
+  await prisma.$transaction([
+    prisma.$executeRaw`
+      UPDATE team_rosters tr
+      SET player_name_at_that_time = ${displayName},
+          updated_at = now()
+      FROM seasons s
+      WHERE tr.season_id = s.id
+        AND s.status <> 'closed'
+        AND tr.player_id = ${playerId}::uuid
+    `,
+    prisma.$executeRaw`
+      UPDATE matches m
+      SET home_player_name_at_match_time = ${displayName},
+          updated_at = now()
+      FROM seasons s
+      WHERE m.season_id = s.id
+        AND s.status <> 'closed'
+        AND m.home_player_id = ${playerId}::uuid
+    `,
+    prisma.$executeRaw`
+      UPDATE matches m
+      SET away_player_name_at_match_time = ${displayName},
+          updated_at = now()
+      FROM seasons s
+      WHERE m.season_id = s.id
+        AND s.status <> 'closed'
+        AND m.away_player_id = ${playerId}::uuid
+    `,
+    prisma.$executeRaw`
+      UPDATE tournament_registrations tr
+      SET player_name_at_registration = ${displayName},
+          updated_at = now()
+      FROM competition_categories cc
+      JOIN competitions c ON c.id = cc.competition_id
+      JOIN seasons s ON s.id = c.season_id
+      WHERE tr.competition_category_id = cc.id
+        AND s.status <> 'closed'
+        AND tr.player_id = ${playerId}::uuid
+    `,
+    prisma.$executeRaw`
+      UPDATE tournament_seeds ts
+      SET player_name_at_time = ${displayName}
+      FROM competition_categories cc
+      JOIN competitions c ON c.id = cc.competition_id
+      JOIN seasons s ON s.id = c.season_id
+      WHERE ts.competition_category_id = cc.id
+        AND s.status <> 'closed'
+        AND ts.player_id = ${playerId}::uuid
+    `,
+    prisma.$executeRaw`
+      UPDATE tournament_draw_entries tde
+      SET player_name_at_time = ${displayName}
+      FROM competition_categories cc
+      JOIN competitions c ON c.id = cc.competition_id
+      JOIN seasons s ON s.id = c.season_id
+      WHERE tde.competition_category_id = cc.id
+        AND s.status <> 'closed'
+        AND tde.player_id = ${playerId}::uuid
+    `
+  ]);
+
+  return [...new Set(rosters.map((roster) => roster.teamId))];
+}
+
 function hasClubLocationChanged(
   currentClub: { address: string | null; city: string | null; province: string | null; postalCode: string | null; latitude: number | null; longitude: number | null } | null,
   nextClub: { address?: string | null; city?: string | null; province?: string | null; postalCode?: string | null }
@@ -954,9 +1024,12 @@ export async function savePlayerAction(formData: FormData) {
     });
   }
 
+  const affectedTeamIds = await syncOpenPlayerNameSnapshots(player.id, displayName);
+
   revalidatePath("/admin/players");
   revalidatePath(`/players/${player.id}`);
   revalidatePath(`/players/${player.id}/edit`);
+  affectedTeamIds.forEach((teamId) => revalidatePath(`/teams/${teamId}`));
 }
 
 export async function changePlayerPasswordAction(formData: FormData) {
