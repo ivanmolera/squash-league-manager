@@ -278,7 +278,6 @@ model Competition {
   matches      Match[]
   leagueMatchdays LeagueMatchday[]
 
-  @@unique([seasonId, type, name])
   @@map("competitions")
 }
 

@@ -132,8 +132,8 @@ export default async function TournamentsPage({
             <div className="tournament-table-head">
               <span>{t.date}</span>
               <span>{t.tournament}</span>
-              <span>{t.venue}</span>
               <span>{t.categories}</span>
+              <span>{t.venue}</span>
               <span>{t.registration}</span>
               <span>{t.scoreable}</span>
             </div>
@@ -151,6 +151,7 @@ export default async function TournamentsPage({
                     <strong><Link href={`/tournaments/${tournament.id}`}>{tournament.name}</Link></strong>
                     {canEditTournament ? <Link className="secondary-link inline-link" href={`/tournaments/${tournament.id}/edit`}>{t.edit}</Link> : null}
                   </div>
+                  <span>{tournament.categories.map((category) => category.category.name).join(", ") || t.notProvidedFemale}</span>
                   <span>
                     {tournament.hostClub ? (
                       <Link className="tournament-club-cell" href={`/clubs/${tournament.hostClub.id}`}>
@@ -159,7 +160,6 @@ export default async function TournamentsPage({
                       </Link>
                     ) : t.noVenue}
                   </span>
-                  <span>{tournament.categories.map((category) => category.category.name).join(", ") || t.notProvidedFemale}</span>
                   <span>{tournament.registrationDeadline?.toLocaleDateString(locale) ?? t.noDeadline}</span>
                   <span><RankingCodeBadge code={tournament.rankingCode ?? rankingCodeForScope(tournament.rankingScope)} /></span>
                 </article>
