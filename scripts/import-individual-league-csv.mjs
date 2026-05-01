@@ -100,11 +100,11 @@ async function getSeason() {
 
 async function getDefaultCategory() {
   const category = await prisma.category.findFirst({
-    where: { name: "General" }
+    where: { name: "Open" }
   });
 
   if (!category) {
-    throw new Error("No existe la categoría oficial General.");
+    throw new Error("No existe la categoría oficial Open.");
   }
 
   return category;

@@ -13,9 +13,9 @@ const categoryByCsvName = new Map([
   ["1ª CATEGORIA", "Primera"],
   ["2ª CATEGORIA", "Segunda"],
   ["3ª CATEGORIA", "Tercera"],
-  ["4ª CATEGORIA", "General"],
-  ["5ª CATEGORIA", "General"],
-  ["6ª CATEGORIA", "General"],
+  ["4ª CATEGORIA", "Open"],
+  ["5ª CATEGORIA", "Open"],
+  ["6ª CATEGORIA", "Open"],
   ["VETERANS", "Masc +35"]
 ]);
 

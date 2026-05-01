@@ -56,7 +56,7 @@ const provinces = ["Barcelona", "Girona", "Tarragona", "Lleida"];
 const cities = ["Barcelona", "Girona", "Tarragona", "Lleida", "Sabadell", "Mataro", "Reus", "Figueres"];
 
 const categoryDefinitions = [
-  { key: "general", name: "General", genderScope: "not_specified", minAge: null, maxAge: null, sortOrder: 1 },
+  { key: "general", name: "Open", genderScope: "not_specified", minAge: null, maxAge: null, sortOrder: 1 },
   { key: "first", name: "Primera", genderScope: "not_specified", minAge: null, maxAge: null, sortOrder: 2 },
   { key: "second", name: "Segunda", genderScope: "not_specified", minAge: null, maxAge: null, sortOrder: 3 },
   { key: "third", name: "Tercera", genderScope: "not_specified", minAge: null, maxAge: null, sortOrder: 4 },

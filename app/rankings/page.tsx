@@ -39,16 +39,16 @@ export default async function RankingsPage() {
             <h2 className="title-with-badge"><RankingCodeBadge code={ranking.code} /> {ranking.name}</h2>
             <table className="data-table">
               <thead>
-                <tr><th>#</th><th>{t.player}</th><th>{t.average}</th><th>{t.points}</th><th>{t.tournaments}</th><th>G</th></tr>
+                <tr><th>#</th><th>{t.player}</th><th>{t.points}</th><th>{t.tournaments}</th><th>{t.average}</th><th title={t.won} aria-label={t.won}>G</th></tr>
               </thead>
               <tbody>
                 {ranking.rows.map((row, index) => (
                   <tr key={row.playerId}>
                     <td>{index + 1}</td>
                     <td><Link href={`/players/${row.playerId}`}>{row.name}</Link></td>
-                    <td>{row.averagePoints.toFixed(1)}</td>
                     <td>{row.points}</td>
                     <td>{row.tournaments}</td>
+                    <td>{row.averagePoints.toFixed(1)}</td>
                     <td>{row.wins}</td>
                   </tr>
                 ))}

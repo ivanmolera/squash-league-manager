@@ -207,7 +207,7 @@ async function getDefaultSeason() {
 
 async function getDefaultCategory() {
   const existing = await prisma.category.findFirst({
-    where: { name: "General", genderScope: "not_specified" }
+    where: { name: "Open", genderScope: "not_specified" }
   });
 
   if (existing) {
@@ -216,7 +216,7 @@ async function getDefaultCategory() {
 
   return prisma.category.create({
     data: {
-      name: "General",
+      name: "Open",
       genderScope: "not_specified",
       sortOrder: 1
     }
@@ -1418,7 +1418,7 @@ export async function saveLeagueAction(formData: FormData) {
               clubId: club.id,
               seasonId: season.id,
               categoryId: category.id,
-              name: `${club.name} General`
+              name: `${club.name} Open`
             }
           },
           update: { clubNameAtCreation: club.name },
@@ -1426,7 +1426,7 @@ export async function saveLeagueAction(formData: FormData) {
             clubId: club.id,
             seasonId: season.id,
             categoryId: category.id,
-            name: `${club.name} General`,
+            name: `${club.name} Open`,
             clubNameAtCreation: club.name
           }
         })
@@ -1574,7 +1574,7 @@ export async function saveTournamentAction(formData: FormData) {
       return upsertCompetitionCategoryByDisplayName({
         competitionId: competition.id,
         categoryId,
-        displayName: category?.name ?? "General",
+        displayName: category?.name ?? "Open",
         format: "knockout"
       });
     })

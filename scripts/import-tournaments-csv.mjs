@@ -39,20 +39,20 @@ const categoryTextMap = new Map([
   ["+60", ["Masc +60"]],
   ["2ª categoria", ["Segunda"]],
   ["3ª categoria", ["Tercera"]],
-  ["Absolut", ["General"]],
-  ["Absoluta", ["General"]],
-  ["Clubs", ["General"]],
-  ["Esquaixics", ["General"]],
+  ["Absolut", ["Open"]],
+  ["Absoluta", ["Open"]],
+  ["Clubs", ["Open"]],
+  ["Esquaixics", ["Open"]],
   ["Fem +35", ["Fem +35"]],
   ["Femení", ["Femenina"]],
   ["Junior Open", ["Masc Sub-19", "Fem Sub-19"]],
   ["Masters", ["Masc +35", "Fem +35"]],
   ["Open 3ª categoria", ["Tercera"]],
-  ["Open internacional", ["General"]],
-  ["PSA", ["General"]],
-  ["PSA satèl·lit", ["General"]],
-  ["Provincial", ["General"]],
-  ["Seleccions autonòmiques", ["General"]],
+  ["Open internacional", ["Open"]],
+  ["PSA", ["Open"]],
+  ["PSA satèl·lit", ["Open"]],
+  ["Provincial", ["Open"]],
+  ["Seleccions autonòmiques", ["Open"]],
   ["Sots 9", ["Masc Sub-9", "Fem Sub-9"]],
   ["Sots 11", ["Masc Sub-11", "Fem Sub-11"]],
   ["Sots 13", ["Masc Sub-13", "Fem Sub-13"]],
@@ -143,7 +143,7 @@ function categoryNamesForRow(row) {
   for (const item of rawCategories) {
     const mapped = categoryTextMap.get(item);
     if (!mapped) {
-      names.add("General");
+      names.add("Open");
       continue;
     }
     mapped.forEach((name) => names.add(name));
@@ -156,12 +156,12 @@ function categoryNamesForRow(row) {
   }
 
   if (row.incluye_masculino === "no") {
-    names.delete("General");
+    names.delete("Open");
     [...names].filter((name) => name.startsWith("Masc ")).forEach((name) => names.delete(name));
     if (!names.size) names.add("Femenina");
   }
 
-  if (!names.size) names.add("General");
+  if (!names.size) names.add("Open");
   return [...names];
 }
 
