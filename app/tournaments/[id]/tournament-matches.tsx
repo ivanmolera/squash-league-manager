@@ -40,6 +40,7 @@ function scoreText(match: TournamentMatch, pendingLabel: string) {
 
 function scoreParts(match: TournamentMatch, pendingLabel: string) {
   if (match.status === "bye") return "BYE";
+  if (match.status === "walkover") return "WO";
   if (!match.sets.length) return { main: pendingLabel, partials: "" };
 
   const homeSets = match.sets.filter((set) => set.homePoints > set.awayPoints).length;
