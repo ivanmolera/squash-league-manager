@@ -1487,41 +1487,17 @@ h1 {
   color: #b8bec4;
 }
 
-.court-date-form {
+.court-date-label {
   align-items: center;
   background: #eceff1;
   border-radius: 4px;
   display: grid;
-  gap: 8px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  padding: 8px 10px;
-}
-
-.court-date-form label {
-  display: grid;
-  gap: 4px;
-}
-
-.court-date-form label span {
-  color: var(--muted);
-  font-size: 0.74rem;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
-.court-date-form input {
-  background: transparent;
-  border: 0;
   color: var(--foreground);
-  font: inherit;
   font-size: 1.15rem;
   font-weight: 900;
-  padding: 0;
-}
-
-.court-date-form button {
-  min-height: 34px;
-  padding: 6px 10px;
+  justify-items: center;
+  padding: 8px 10px;
+  text-transform: uppercase;
 }
 
 .court-booking-table {
@@ -1592,7 +1568,7 @@ h1 {
   font-weight: 900;
 }
 
-.closed-slot {
+.unavailable-slot {
   background: #eef1f4;
   color: var(--muted);
   font-weight: 900;

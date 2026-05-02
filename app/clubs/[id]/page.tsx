@@ -212,19 +212,9 @@ export default async function ClubDetailPage({
               {previousBookingDate ? (
                 <Link aria-label={t.previousDay} className="court-booking-arrow" href={`/clubs/${club.id}?bookingDate=${previousBookingDate}#reservas`}>‹</Link>
               ) : <span className="court-booking-arrow is-disabled">‹</span>}
-              <form action={`/clubs/${club.id}#reservas`} className="court-date-form" method="get">
-                <label>
-                  <span>{t.selectDate}</span>
-                  <input
-                    max={dateKey(addDays(bookingEnd, -1))}
-                    min={dateKey(bookingStart)}
-                    name="bookingDate"
-                    type="date"
-                    defaultValue={selectedBookingDateKey}
-                  />
-                </label>
-                <button type="submit">{t.showDate}</button>
-              </form>
+              <div className="court-date-label">
+                {formatDay(selectedBookingDate, locale)}
+              </div>
               {nextBookingDate ? (
                 <Link aria-label={t.nextDay} className="court-booking-arrow" href={`/clubs/${club.id}?bookingDate=${nextBookingDate}#reservas`}>›</Link>
               ) : <span className="court-booking-arrow is-disabled">›</span>}
@@ -251,7 +241,7 @@ export default async function ClubDetailPage({
                         const canBook = currentUser && !reservation && !isPast && !isClosed && !activeFutureReservation;
 
                         return (
-                          <td className={reservation ? "reserved-slot" : isClosed ? "closed-slot" : "available-slot"} key={`${selectedBookingDateKey}-${courtIndex}-${slot.hour}-${slot.minute}`}>
+                          <td className={reservation ? "reserved-slot" : isClosed || isPast ? "unavailable-slot" : "available-slot"} key={`${selectedBookingDateKey}-${courtIndex}-${slot.hour}-${slot.minute}`}>
                             {reservation ? (
                               <div className="slot-reservation">
                                 <strong>{t.reserved.toUpperCase()}</strong>
