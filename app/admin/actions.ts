@@ -124,8 +124,7 @@ const courtReservationSchema = z.object({
   clubId: z.string().uuid(),
   courtNumber: z.coerce.number().int().min(1).max(99),
   startsAt: z.string().datetime(),
-  durationSlots: z.coerce.number().int().min(1).max(2),
-  partnerPlayerId: z.string().uuid().optional().or(z.literal(""))
+  durationSlots: z.coerce.number().int().min(1).max(2)
 });
 
 const cancelCourtReservationSchema = z.object({
@@ -2151,8 +2150,7 @@ export async function reserveCourtAction(formData: FormData) {
     clubId: textValue(formData.get("clubId")),
     courtNumber: textValue(formData.get("courtNumber")),
     startsAt: textValue(formData.get("startsAt")),
-    durationSlots: textValue(formData.get("durationSlots")),
-    partnerPlayerId: textValue(formData.get("partnerPlayerId")) ?? ""
+    durationSlots: textValue(formData.get("durationSlots"))
   });
   const startsAt = new Date(parsed.startsAt);
   const endsAt = new Date(startsAt.getTime() + parsed.durationSlots * 30 * 60 * 1000);
@@ -2230,7 +2228,7 @@ export async function reserveCourtAction(formData: FormData) {
       courtNumber: parsed.courtNumber,
       userId: currentUser.id,
       playerId: player?.id ?? null,
-      partnerPlayerId: parsed.partnerPlayerId || null,
+      partnerPlayerId: null,
       startsAt,
       endsAt,
       createdByUserId: currentUser.id,

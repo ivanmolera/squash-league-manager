@@ -1457,20 +1457,90 @@ h1 {
   width: 100%;
 }
 
-.court-booking-week {
-  display: grid;
-  gap: 10px;
-  margin-top: 18px;
-}
-
-.court-booking-week h3 {
-  margin: 0;
-}
-
 .court-booking-scroll {
   border: 1px solid var(--line);
   border-radius: 8px;
   overflow: auto;
+}
+
+.court-booking-toolbar {
+  align-items: stretch;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 52px minmax(260px, 1fr) 52px;
+  margin-top: 14px;
+}
+
+.court-booking-arrow {
+  align-items: center;
+  background: #eceff1;
+  border-radius: 4px;
+  color: var(--foreground);
+  display: grid;
+  font-size: 2.4rem;
+  font-weight: 600;
+  justify-items: center;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.court-booking-arrow.is-disabled {
+  color: #b8bec4;
+}
+
+.court-date-form {
+  align-items: center;
+  background: #eceff1;
+  border-radius: 4px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 8px 10px;
+}
+
+.court-date-form label {
+  display: grid;
+  gap: 4px;
+}
+
+.court-date-form label span {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.court-date-form input {
+  background: transparent;
+  border: 0;
+  color: var(--foreground);
+  font: inherit;
+  font-size: 1.15rem;
+  font-weight: 900;
+  padding: 0;
+}
+
+.court-date-form button {
+  min-height: 34px;
+  padding: 6px 10px;
+}
+
+.court-booking-summary-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 12px 0;
+}
+
+.court-booking-summary-grid div {
+  background: #eceff1;
+  border-radius: 4px;
+  color: #555;
+  font-size: 1.05rem;
+  font-weight: 800;
+  padding: 10px 12px;
+  text-align: center;
+  text-transform: uppercase;
 }
 
 .court-booking-table {
@@ -1485,29 +1555,43 @@ h1 {
 .court-booking-table td {
   border-bottom: 1px solid var(--line);
   border-right: 1px solid var(--line);
-  min-width: 145px;
+  min-width: 132px;
   padding: 8px;
-  text-align: left;
+  text-align: center;
   vertical-align: top;
+}
+
+.court-booking-table.is-compact {
+  min-width: min(760px, 100%);
+}
+
+.court-booking-table.is-compact th,
+.court-booking-table.is-compact td {
+  background: #f7f7f7;
+  min-width: 120px;
+  padding: 7px 8px;
+  vertical-align: middle;
 }
 
 .court-booking-table th:first-child,
 .court-booking-table td:first-child {
   left: 0;
-  min-width: 72px;
+  min-width: 76px;
   position: sticky;
   z-index: 2;
 }
 
 .court-booking-table thead th {
-  background: var(--accent-strong);
-  color: white;
-  font-size: 0.75rem;
+  background: #eceff1;
+  color: #444;
+  font-size: 0.9rem;
+  font-weight: 900;
   letter-spacing: 0;
+  text-transform: uppercase;
 }
 
 .court-booking-table tbody th {
-  background: var(--surface);
+  background: white;
   color: var(--foreground);
 }
 
@@ -1525,6 +1609,20 @@ h1 {
 .slot-booking-form {
   display: grid;
   gap: 6px;
+}
+
+.slot-booking-details summary {
+  cursor: pointer;
+  font-weight: 800;
+  list-style: none;
+}
+
+.slot-booking-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.slot-booking-details[open] summary {
+  margin-bottom: 7px;
 }
 
 .slot-reservation span {

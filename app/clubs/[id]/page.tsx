@@ -61,6 +61,22 @@ function formatDay(date: Date, locale: string) {
   return new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(date);
 }
 
+function dateKey(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function dateFromKey(value: string | undefined) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function clampDate(date: Date, start: Date, endExclusive: Date) {
+  if (date < start) return start;
+  if (date >= endExclusive) return addDays(endExclusive, -1);
+  return date;
+}
+
 function formatTime(date: Date) {
   return new Intl.DateTimeFormat("ca", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" }).format(date);
 }
@@ -96,8 +112,15 @@ function clubMapUrl(club: { name: string; address: string | null; postalCode: st
   return query ? `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed` : null;
 }
 
-export default async function ClubDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ClubDetailPage({
+  params,
+  searchParams
+}: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ bookingDate?: string }>;
+}) {
   const { id } = await params;
+  const query = await searchParams;
   const [club, currentUser, features] = await Promise.all([
     getClub(id),
     getCurrentUser(),
@@ -114,14 +137,17 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
   const mapUrl = features.club_maps && canSeeContact ? clubMapUrl(club) : null;
   const community = autonomousCommunityForLocation(club);
   const showBookings = features.court_bookings && club.managesCourtBookings && club.availableCourts > 0;
-  const currentPlayer = currentUser
-    ? await prisma.player.findUnique({ where: { userId: currentUser.id }, select: { id: true } })
-    : null;
   const bookingStart = weekStart();
   const bookingEnd = addDays(bookingStart, 14);
-  const [reservations, players] = showBookings
-    ? await Promise.all([
-        prisma.courtReservation.findMany({
+  const requestedBookingDate = dateFromKey(query?.bookingDate);
+  const selectedBookingDate = clampDate(requestedBookingDate ?? new Date(), bookingStart, bookingEnd);
+  selectedBookingDate.setUTCHours(0, 0, 0, 0);
+  const selectedBookingDateEnd = addDays(selectedBookingDate, 1);
+  const selectedBookingDateKey = dateKey(selectedBookingDate);
+  const previousBookingDate = selectedBookingDate > bookingStart ? dateKey(addDays(selectedBookingDate, -1)) : null;
+  const nextBookingDate = addDays(selectedBookingDate, 1) < bookingEnd ? dateKey(addDays(selectedBookingDate, 1)) : null;
+  const reservations = showBookings
+    ? await prisma.courtReservation.findMany({
           where: {
             clubId: club.id,
             status: "active",
@@ -133,17 +159,19 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
             partnerPlayer: true
           },
           orderBy: [{ startsAt: "asc" }, { courtNumber: "asc" }]
-        }),
-        prisma.player.findMany({
-          where: currentPlayer ? { id: { not: currentPlayer.id } } : {},
-          orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
         })
-      ])
-    : [[], []];
+    : [];
   const closedDayKeys = new Set(club.closedDays.map((day) => day.closedOn.toISOString().slice(0, 10)));
   const activeFutureReservation = currentUser
     ? reservations.find((reservation) => reservation.userId === currentUser.id && reservation.startsAt >= new Date())
     : null;
+  const selectedDayReservations = reservations.filter((reservation) =>
+    reservation.startsAt >= selectedBookingDate && reservation.startsAt < selectedBookingDateEnd
+  );
+  const slots = Array.from({ length: 27 }, (_, index) => ({
+    hour: 8 + Math.floor(index / 2),
+    minute: index % 2 === 0 ? 0 : 30
+  }));
 
   return (
     <main className="app-shell">
@@ -185,90 +213,95 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
             <h2>{t.courtBookings}</h2>
             {!currentUser ? <p className="warning-box">{t.signInToBookCourt}</p> : null}
             {activeFutureReservation ? <p className="warning-box">{t.activeCourtReservationWarning}</p> : null}
-            {[0, 1].map((weekOffset) => {
-              const days = Array.from({ length: 7 }, (_, index) => addDays(bookingStart, weekOffset * 7 + index));
-              const slots = Array.from({ length: 27 }, (_, index) => ({
-                hour: 8 + Math.floor(index / 2),
-                minute: index % 2 === 0 ? 0 : 30
-              }));
+            <div className="court-booking-toolbar">
+              {previousBookingDate ? (
+                <Link aria-label={t.previousDay} className="court-booking-arrow" href={`/clubs/${club.id}?bookingDate=${previousBookingDate}`}>‹</Link>
+              ) : <span className="court-booking-arrow is-disabled">‹</span>}
+              <form action={`/clubs/${club.id}`} className="court-date-form">
+                <label>
+                  <span>{t.selectDate}</span>
+                  <input
+                    max={dateKey(addDays(bookingEnd, -1))}
+                    min={dateKey(bookingStart)}
+                    name="bookingDate"
+                    type="date"
+                    defaultValue={selectedBookingDateKey}
+                  />
+                </label>
+                <button type="submit">{t.showDate}</button>
+              </form>
+              {nextBookingDate ? (
+                <Link aria-label={t.nextDay} className="court-booking-arrow" href={`/clubs/${club.id}?bookingDate=${nextBookingDate}`}>›</Link>
+              ) : <span className="court-booking-arrow is-disabled">›</span>}
+            </div>
+            <div className="court-booking-summary-grid">
+              <div>{formatDay(selectedBookingDate, locale)}</div>
+              <div>{club.name}</div>
+              <div>{t.activity}: {t.courtBookings}</div>
+            </div>
+            <div className="court-booking-scroll">
+              <table className="court-booking-table is-compact">
+                <thead>
+                  <tr>
+                    <th>{t.time}</th>
+                    {Array.from({ length: club.availableCourts }, (_, courtIndex) => (
+                      <th key={courtIndex}>{t.court} {courtIndex + 1}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {slots.map((slot) => (
+                    <tr key={`${slot.hour}:${slot.minute}`}>
+                      <th>{`${String(slot.hour).padStart(2, "0")}:${String(slot.minute).padStart(2, "0")}`}</th>
+                      {Array.from({ length: club.availableCourts }, (_, courtIndex) => {
+                        const startsAt = slotDate(selectedBookingDate, slot.hour, slot.minute);
+                        const reservation = selectedDayReservations.find((item) => item.courtNumber === courtIndex + 1 && isSlotCovered(item, startsAt));
+                        const isPast = startsAt < new Date();
+                        const isClosed = closedDayKeys.has(selectedBookingDateKey);
+                        const canBook = currentUser && !reservation && !isPast && !isClosed && !activeFutureReservation;
+                        const canBookOneHour = slot.hour < 20 || (slot.hour === 20 && slot.minute <= 30);
 
-              return (
-                <div className="court-booking-week" key={weekOffset}>
-                  <h3>{weekOffset === 0 ? t.currentWeek : t.nextWeek}</h3>
-                  <div className="court-booking-scroll">
-                    <table className="court-booking-table">
-                      <thead>
-                        <tr>
-                          <th>{t.time}</th>
-                          {days.flatMap((day) =>
-                            Array.from({ length: club.availableCourts }, (_, courtIndex) => (
-                              <th key={`${day.toISOString()}-${courtIndex}`}>{formatDay(day, locale)}<br />{t.court} {courtIndex + 1}</th>
-                            ))
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {slots.map((slot) => (
-                          <tr key={`${slot.hour}:${slot.minute}`}>
-                            <th>{`${String(slot.hour).padStart(2, "0")}:${String(slot.minute).padStart(2, "0")}`}</th>
-                            {days.flatMap((day) =>
-                              Array.from({ length: club.availableCourts }, (_, courtIndex) => {
-                                const startsAt = slotDate(day, slot.hour, slot.minute);
-                                const dayKey = startsAt.toISOString().slice(0, 10);
-                                const reservation = reservations.find((item) => item.courtNumber === courtIndex + 1 && isSlotCovered(item, startsAt));
-                                const isPast = startsAt < new Date();
-                                const isClosed = closedDayKeys.has(dayKey);
-                                const canBook = currentUser && !reservation && !isPast && !isClosed && !activeFutureReservation;
-                                const canBookOneHour = slot.hour < 20 || (slot.hour === 20 && slot.minute <= 30);
-
-                                return (
-                                  <td className={reservation ? "reserved-slot" : isClosed ? "closed-slot" : ""} key={`${dayKey}-${courtIndex}-${slot.hour}-${slot.minute}`}>
-                                    {reservation ? (
-                                      <div className="slot-reservation">
-                                        <strong>{reservationLabel(reservation)}</strong>
-                                        <span>{formatTime(reservation.startsAt)}-{formatTime(reservation.endsAt)}</span>
-                                        {(reservation.userId === currentUser?.id || canEdit) ? (
-                                          <form action={cancelCourtReservationAction}>
-                                            <input type="hidden" name="reservationId" value={reservation.id} />
-                                            <input type="hidden" name="clubId" value={club.id} />
-                                            <button type="submit">{t.releaseCourt}</button>
-                                          </form>
-                                        ) : null}
-                                      </div>
-                                    ) : isClosed ? (
-                                      <span>{t.closed}</span>
-                                    ) : canBook ? (
-                                      <form className="slot-booking-form" action={reserveCourtAction}>
-                                        <input type="hidden" name="clubId" value={club.id} />
-                                        <input type="hidden" name="courtNumber" value={courtIndex + 1} />
-                                        <input type="hidden" name="startsAt" value={startsAt.toISOString()} />
-                                        <select name="durationSlots" defaultValue={canBookOneHour ? "2" : "1"}>
-                                          <option value="1">30 min</option>
-                                          <option value="2" disabled={!canBookOneHour}>60 min</option>
-                                        </select>
-                                        <select name="partnerPlayerId" defaultValue="">
-                                          <option value="">{t.noPartner}</option>
-                                          {players.map((player) => (
-                                            <option key={player.id} value={player.id}>{formatPlayerListName(player)}</option>
-                                          ))}
-                                        </select>
-                                        <button type="submit">{t.bookCourt}</button>
-                                      </form>
-                                    ) : (
-                                      <span className="muted">{t.available}</span>
-                                    )}
-                                  </td>
-                                );
-                              })
+                        return (
+                          <td className={reservation ? "reserved-slot" : isClosed ? "closed-slot" : ""} key={`${selectedBookingDateKey}-${courtIndex}-${slot.hour}-${slot.minute}`}>
+                            {reservation ? (
+                              <div className="slot-reservation">
+                                <strong>{reservationLabel(reservation)}</strong>
+                                <span>{formatTime(reservation.startsAt)}-{formatTime(reservation.endsAt)}</span>
+                                {(reservation.userId === currentUser?.id || canEdit) ? (
+                                  <form action={cancelCourtReservationAction}>
+                                    <input type="hidden" name="reservationId" value={reservation.id} />
+                                    <input type="hidden" name="clubId" value={club.id} />
+                                    <button type="submit">{t.releaseCourt}</button>
+                                  </form>
+                                ) : null}
+                              </div>
+                            ) : isClosed ? (
+                              <span>{t.closed}</span>
+                            ) : canBook ? (
+                              <details className="slot-booking-details">
+                                <summary>{formatTime(startsAt)}</summary>
+                                <form className="slot-booking-form" action={reserveCourtAction}>
+                                  <input type="hidden" name="clubId" value={club.id} />
+                                  <input type="hidden" name="courtNumber" value={courtIndex + 1} />
+                                  <input type="hidden" name="startsAt" value={startsAt.toISOString()} />
+                                  <select name="durationSlots" defaultValue={canBookOneHour ? "2" : "1"}>
+                                    <option value="1">30 min</option>
+                                    <option value="2" disabled={!canBookOneHour}>60 min</option>
+                                  </select>
+                                  <button type="submit">{t.bookCourt}</button>
+                                </form>
+                              </details>
+                            ) : (
+                              <span>{formatTime(startsAt)}</span>
                             )}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              );
-            })}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </article>
         ) : null}
         {features.court_bookings && canEdit && !showBookings ? (
