@@ -181,26 +181,37 @@ export default async function ClubDetailPage({
         {canEdit ? <Link className="primary-link" href={`/clubs/${club.id}/edit`}>{t.edit}</Link> : null}
       </section>
       <section className="detail-grid">
-        <article className="list-panel">
+        <article className="list-panel club-detail-panel full-width">
           <h2>{t.clubDetails}</h2>
-          {community ? <div className="club-detail-community-flag"><RankingCodeBadge code={community.code} /></div> : null}
-          <p><strong>{t.province}:</strong> {club.province ?? t.notProvidedFemale}</p>
-          <p><strong>{t.city}:</strong> {club.city ?? t.notProvidedFemale}</p>
-          <p><strong>{t.postalCode}:</strong> {club.postalCode ?? t.notProvided}</p>
-          <p><strong>{t.availableCourts}:</strong> {club.availableCourts}</p>
-          <p><strong>{t.clubPhone}:</strong> {canSeeContact ? club.phone ?? t.notProvided : t.privateValue}</p>
-          <p><strong>{t.address}:</strong> {canSeeContact ? club.address ?? t.notProvidedFemale : t.privateFemaleValue}</p>
-          <p><strong>{t.website}:</strong> {canSeeContact ? club.websiteUrl ?? t.notProvidedFemale : t.privateFemaleValue}</p>
-          <p><strong>{t.assignedManager}:</strong> {club.manager?.displayName ?? club.manager?.email ?? t.noManager}</p>
-          {mapUrl ? (
-            <iframe
-              className="club-map"
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              src={mapUrl}
-              title={`${club.name} · ${t.location}`}
-            />
-          ) : null}
+          <div className={mapUrl ? "club-detail-content has-map" : "club-detail-content"}>
+            <div className="club-detail-data">
+              {community ? <div className="club-detail-community-flag"><RankingCodeBadge code={community.code} /></div> : null}
+              <p><strong>{t.province}:</strong> {club.province ?? t.notProvidedFemale}</p>
+              <p><strong>{t.city}:</strong> {club.city ?? t.notProvidedFemale}</p>
+              <p><strong>{t.postalCode}:</strong> {club.postalCode ?? t.notProvided}</p>
+              <p><strong>{t.availableCourts}:</strong> {club.availableCourts}</p>
+              <p><strong>{t.clubPhone}:</strong> {canSeeContact ? club.phone ?? t.notProvided : t.privateValue}</p>
+              <p><strong>{t.address}:</strong> {canSeeContact ? club.address ?? t.notProvidedFemale : t.privateFemaleValue}</p>
+              <p>
+                <strong>{t.website}:</strong>{" "}
+                {canSeeContact
+                  ? club.websiteUrl
+                    ? <a href={club.websiteUrl} rel="noreferrer" target="_blank">{club.websiteUrl}</a>
+                    : t.notProvidedFemale
+                  : t.privateFemaleValue}
+              </p>
+              <p><strong>{t.assignedManager}:</strong> {club.manager?.displayName ?? club.manager?.email ?? t.noManager}</p>
+            </div>
+            {mapUrl ? (
+              <iframe
+                className="club-map"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                src={mapUrl}
+                title={`${club.name} · ${t.location}`}
+              />
+            ) : null}
+          </div>
         </article>
         {showBookings ? (
           <article className="list-panel full-width" id="reservas">

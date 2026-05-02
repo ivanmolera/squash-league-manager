@@ -973,6 +973,25 @@ h1 {
   margin-bottom: 8px;
 }
 
+.club-detail-content {
+  align-items: start;
+  display: grid;
+  gap: 18px;
+}
+
+.club-detail-panel.full-width {
+  margin-top: 0;
+}
+
+.club-detail-content.has-map {
+  grid-template-columns: minmax(260px, 0.9fr) minmax(320px, 1.1fr);
+}
+
+.club-detail-data {
+  display: grid;
+  gap: 14px;
+}
+
 .club-teams-panel {
   align-self: start;
 }
@@ -1483,8 +1502,7 @@ h1 {
   aspect-ratio: 16 / 9;
   border: 1px solid var(--line);
   border-radius: 8px;
-  margin-top: 12px;
-  min-height: 180px;
+  min-height: 220px;
   width: 100%;
 }
 
@@ -2259,6 +2277,7 @@ h1 {
   .detail-header,
   .work-grid,
   .detail-grid,
+  .club-detail-content.has-map,
   .form-row,
   .category-config-grid,
   .player-groups-grid,
