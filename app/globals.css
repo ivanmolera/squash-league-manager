@@ -1953,6 +1953,21 @@ h1 {
   grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
 }
 
+.player-secondary-stat-sections {
+  margin-top: 18px;
+}
+
+.best-ranking-badge {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.best-ranking-badge .ranking-flag {
+  box-shadow: none;
+  height: 20px;
+}
+
 .player-donut {
   align-items: center;
   aspect-ratio: 1;
@@ -2057,7 +2072,6 @@ h1 {
 
 .latest-match-row span {
   color: var(--muted);
-  font-weight: 800;
 }
 
 .latest-match-row p {

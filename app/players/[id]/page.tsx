@@ -400,9 +400,11 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ i
   const canSeeContact = canEdit || player.showContactPublic;
   const canSeePhysical = canEdit || player.showPhysicalPublic;
   const statistics = await getPlayerStatistics(player.id, player.memberships.map((membership) => membership.seasonId));
-  const bestRanking = statistics.bestRanking
-    ? `#${statistics.bestRanking.position} · ${t[statistics.bestRanking.scope as keyof typeof t]}`
-    : t.notProvided;
+  const bestRanking = statistics.bestRanking ? (
+    <span className="best-ranking-badge">
+      #{statistics.bestRanking.position} · <RankingCodeBadge code={rankingScopeCodes[statistics.bestRanking.scope]} />
+    </span>
+  ) : t.notProvided;
 
   return (
     <main className="app-shell">
@@ -414,7 +416,7 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ i
         </div>
         {canEdit ? <Link className="primary-link" href={`/players/${player.id}/edit`}>{t.edit}</Link> : null}
       </section>
-      <section className="detail-grid">
+      <section className="detail-grid player-secondary-stat-sections">
         <article className="list-panel player-photo-card">
           <PlayerPortrait player={player} />
         </article>
