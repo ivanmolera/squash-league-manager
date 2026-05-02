@@ -1458,8 +1458,7 @@ h1 {
 }
 
 .court-booking-scroll {
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 6px;
   overflow: auto;
 }
 
@@ -1525,24 +1524,6 @@ h1 {
   padding: 6px 10px;
 }
 
-.court-booking-summary-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin: 12px 0;
-}
-
-.court-booking-summary-grid div {
-  background: #eceff1;
-  border-radius: 4px;
-  color: #555;
-  font-size: 1.05rem;
-  font-weight: 800;
-  padding: 10px 12px;
-  text-align: center;
-  text-transform: uppercase;
-}
-
 .court-booking-table {
   border-collapse: separate;
   border-spacing: 0;
@@ -1553,8 +1534,7 @@ h1 {
 
 .court-booking-table th,
 .court-booking-table td {
-  border-bottom: 1px solid var(--line);
-  border-right: 1px solid var(--line);
+  border: 0;
   min-width: 132px;
   padding: 8px;
   text-align: center;
@@ -1562,12 +1542,14 @@ h1 {
 }
 
 .court-booking-table.is-compact {
+  border-spacing: 6px 7px;
   min-width: min(760px, 100%);
 }
 
 .court-booking-table.is-compact th,
 .court-booking-table.is-compact td {
   background: #f7f7f7;
+  border-radius: 3px;
   min-width: 120px;
   padding: 7px 8px;
   vertical-align: middle;
@@ -1587,12 +1569,14 @@ h1 {
   font-size: 0.9rem;
   font-weight: 900;
   letter-spacing: 0;
+  padding: 10px 8px;
   text-transform: uppercase;
 }
 
 .court-booking-table tbody th {
   background: white;
   color: var(--foreground);
+  font-weight: 700;
 }
 
 .reserved-slot {

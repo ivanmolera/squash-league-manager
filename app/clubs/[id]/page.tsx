@@ -209,15 +209,15 @@ export default async function ClubDetailPage({
           ) : null}
         </article>
         {showBookings ? (
-          <article className="list-panel full-width">
+          <article className="list-panel full-width" id="reservas">
             <h2>{t.courtBookings}</h2>
             {!currentUser ? <p className="warning-box">{t.signInToBookCourt}</p> : null}
             {activeFutureReservation ? <p className="warning-box">{t.activeCourtReservationWarning}</p> : null}
             <div className="court-booking-toolbar">
               {previousBookingDate ? (
-                <Link aria-label={t.previousDay} className="court-booking-arrow" href={`/clubs/${club.id}?bookingDate=${previousBookingDate}`}>‹</Link>
+                <Link aria-label={t.previousDay} className="court-booking-arrow" href={`/clubs/${club.id}?bookingDate=${previousBookingDate}#reservas`}>‹</Link>
               ) : <span className="court-booking-arrow is-disabled">‹</span>}
-              <form action={`/clubs/${club.id}`} className="court-date-form">
+              <form action={`/clubs/${club.id}#reservas`} className="court-date-form" method="get">
                 <label>
                   <span>{t.selectDate}</span>
                   <input
@@ -231,13 +231,8 @@ export default async function ClubDetailPage({
                 <button type="submit">{t.showDate}</button>
               </form>
               {nextBookingDate ? (
-                <Link aria-label={t.nextDay} className="court-booking-arrow" href={`/clubs/${club.id}?bookingDate=${nextBookingDate}`}>›</Link>
+                <Link aria-label={t.nextDay} className="court-booking-arrow" href={`/clubs/${club.id}?bookingDate=${nextBookingDate}#reservas`}>›</Link>
               ) : <span className="court-booking-arrow is-disabled">›</span>}
-            </div>
-            <div className="court-booking-summary-grid">
-              <div>{formatDay(selectedBookingDate, locale)}</div>
-              <div>{club.name}</div>
-              <div>{t.activity}: {t.courtBookings}</div>
             </div>
             <div className="court-booking-scroll">
               <table className="court-booking-table is-compact">
