@@ -416,7 +416,7 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ i
         </div>
         {canEdit ? <Link className="primary-link" href={`/players/${player.id}/edit`}>{t.edit}</Link> : null}
       </section>
-      <section className="detail-grid player-secondary-stat-sections">
+      <section className="detail-grid">
         <article className="list-panel player-photo-card">
           <PlayerPortrait player={player} />
         </article>
@@ -487,7 +487,7 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ i
           )}
         </div>
       </section>
-      <section className="detail-grid">
+      <section className="detail-grid player-secondary-stat-sections">
         <article className="list-panel">
           <h2>{t.rankingPoints}</h2>
           {statistics.rankingPoints.length ? (
