@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Navigation } from "@/app/navigation";
 import { ClubCrest } from "@/src/components/club-crest";
+import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
 import { getCurrentUser } from "@/src/lib/auth";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
@@ -10,6 +11,11 @@ import { getTournamentRankingRows, type RankingScope } from "@/src/lib/tournamen
 export const dynamic = "force-dynamic";
 
 const rankingScopes: RankingScope[] = ["autonomic", "state", "psa"];
+const rankingScopeCodes: Record<RankingScope, string> = {
+  autonomic: "CAT",
+  psa: "PSA",
+  state: "RFES"
+};
 const rankingMatchTypes = ["tournament_knockout", "tournament_round_robin", "tournament_consolation", "tournament_third_place"] as const;
 const completedStatuses = ["played", "walkover", "retired"] as const;
 
@@ -314,7 +320,7 @@ function DonutChart({ won, lost, labels }: { won: number; lost: number; labels: 
   );
 }
 
-function PlayerRankingEvolutionChart({ series, labels }: { series: RankingEvolutionSeries[]; labels: Record<string, string> }) {
+function PlayerRankingEvolutionChart({ series }: { series: RankingEvolutionSeries[] }) {
   if (!series.length) return null;
 
   const width = 760;
@@ -340,7 +346,11 @@ function PlayerRankingEvolutionChart({ series, labels }: { series: RankingEvolut
 
           return (
             <g key={item.scope}>
-              <text className="evolution-player-label start-label" x={left - 18} y={yTop + 5} fill={color}>{labels[item.scope]}</text>
+              <foreignObject height="28" width="76" x={left - 94} y={yTop - 17}>
+                <div className="evolution-ranking-badge">
+                  <RankingCodeBadge code={rankingScopeCodes[item.scope]} />
+                </div>
+              </foreignObject>
               <line className="evolution-grid" x1={left} x2={width - right} y1={yTop} y2={yTop} />
               <polyline fill="none" points={coordinates} stroke={color} strokeWidth="3" />
               {points.map((point, index) => (
@@ -469,7 +479,6 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ i
           {statistics.rankingEvolution.length ? (
             <PlayerRankingEvolutionChart
               series={statistics.rankingEvolution}
-              labels={{ autonomic: t.autonomic, state: t.state, psa: t.psa }}
             />
           ) : (
             <p className="muted">{t.noPlayerRankingEvolution}</p>

@@ -1903,6 +1903,18 @@ h1 {
   text-anchor: start;
 }
 
+.evolution-ranking-badge {
+  align-items: center;
+  display: flex;
+  height: 100%;
+  justify-content: flex-end;
+}
+
+.evolution-ranking-badge .ranking-flag {
+  box-shadow: none;
+  height: 20px;
+}
+
 .player-statistics-grid {
   align-items: center;
   display: grid;

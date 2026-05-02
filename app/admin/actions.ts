@@ -5,6 +5,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getCurrentUser } from "@/src/lib/auth";
+import {
+  addDaysToCourtDateKey,
+  courtBookingHourMinute,
+  courtDateKey,
+  courtLocalDateTimeToUtc,
+  courtWeekStart
+} from "@/src/lib/court-booking-time";
 import { featureKeys, isFeatureEnabled } from "@/src/lib/features";
 import { clubGeocodingQuery, geocodeClubAddress } from "@/src/lib/geocoding";
 import { prisma } from "@/src/lib/prisma";
@@ -144,25 +151,17 @@ function hasRole(user: Awaited<ReturnType<typeof getCurrentUser>>, role: "admin"
 }
 
 function weekStart(date = new Date()) {
-  const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-  const day = start.getUTCDay() || 7;
-  start.setUTCDate(start.getUTCDate() - day + 1);
-  start.setUTCHours(0, 0, 0, 0);
-  return start;
+  return courtWeekStart(date);
 }
 
 function isBookableCourtSlot(startsAt: Date) {
   const currentWeekStart = weekStart();
-  const nextWeekEnd = new Date(currentWeekStart);
-  nextWeekEnd.setUTCDate(nextWeekEnd.getUTCDate() + 13);
-  nextWeekEnd.setUTCHours(23, 59, 59, 999);
-
-  const hour = startsAt.getUTCHours();
-  const minute = startsAt.getUTCMinutes();
+  const nextWeekEnd = courtLocalDateTimeToUtc(addDaysToCourtDateKey(courtDateKey(currentWeekStart), 14));
+  const { hour, minute } = courtBookingHourMinute(startsAt);
 
   return startsAt >= new Date() &&
     startsAt >= currentWeekStart &&
-    startsAt <= nextWeekEnd &&
+    startsAt < nextWeekEnd &&
     minute === 0 &&
     hour >= 8 &&
     hour <= 20;
@@ -2166,8 +2165,7 @@ export async function reserveCourtAction(formData: FormData) {
     throw new Error("Este club no permite reservar esta pista desde la app.");
   }
 
-  const slotDay = new Date(startsAt);
-  slotDay.setUTCHours(0, 0, 0, 0);
+  const slotDay = new Date(`${courtDateKey(startsAt)}T00:00:00.000Z`);
   const closedDay = await prisma.courtClosedDay.findUnique({
     where: {
       clubId_closedOn: {
@@ -2199,10 +2197,8 @@ export async function reserveCourtAction(formData: FormData) {
     throw new Error("Ya tienes una reserva vigente.");
   }
 
-  const sameDayStart = new Date(startsAt);
-  sameDayStart.setUTCHours(0, 0, 0, 0);
-  const sameDayEnd = new Date(sameDayStart);
-  sameDayEnd.setUTCDate(sameDayEnd.getUTCDate() + 1);
+  const sameDayStart = courtLocalDateTimeToUtc(courtDateKey(startsAt));
+  const sameDayEnd = courtLocalDateTimeToUtc(addDaysToCourtDateKey(courtDateKey(startsAt), 1));
   const sameDayReservation = await prisma.courtReservation.findFirst({
     where: {
       userId: currentUser.id,

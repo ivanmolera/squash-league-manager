@@ -6,6 +6,14 @@ import { ClubCrest } from "@/src/components/club-crest";
 import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
 import { autonomousCommunityForLocation } from "@/src/lib/autonomous-communities";
 import { getCurrentUser } from "@/src/lib/auth";
+import {
+  addDaysToCourtDateKey,
+  courtDateKey,
+  courtLocalDateTimeToUtc,
+  courtWeekStart,
+  formatCourtBookingDay,
+  formatCourtBookingTime
+} from "@/src/lib/court-booking-time";
 import { getFeatureSettings } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
@@ -37,36 +45,28 @@ async function getClub(id: string) {
 }
 
 function weekStart(date = new Date()) {
-  const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-  const day = start.getUTCDay() || 7;
-  start.setUTCDate(start.getUTCDate() - day + 1);
-  start.setUTCHours(0, 0, 0, 0);
-  return start;
+  return courtWeekStart(date);
 }
 
 function addDays(date: Date, days: number) {
-  const next = new Date(date);
-  next.setUTCDate(next.getUTCDate() + days);
-  return next;
+  return courtLocalDateTimeToUtc(addDaysToCourtDateKey(courtDateKey(date), days));
 }
 
 function slotDate(day: Date, hour: number, minute: number) {
-  const date = new Date(day);
-  date.setUTCHours(hour, minute, 0, 0);
-  return date;
+  return courtLocalDateTimeToUtc(courtDateKey(day), hour, minute);
 }
 
 function formatDay(date: Date, locale: string) {
-  return new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(date);
+  return formatCourtBookingDay(date, locale);
 }
 
 function dateKey(date: Date) {
-  return date.toISOString().slice(0, 10);
+  return courtDateKey(date);
 }
 
 function dateFromKey(value: string | undefined) {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  const date = new Date(`${value}T00:00:00.000Z`);
+  const date = courtLocalDateTimeToUtc(value);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
@@ -77,7 +77,7 @@ function clampDate(date: Date, start: Date, endExclusive: Date) {
 }
 
 function formatTime(date: Date) {
-  return new Intl.DateTimeFormat("ca", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" }).format(date);
+  return formatCourtBookingTime(date);
 }
 
 function isSlotOverlapping(reservation: { startsAt: Date; endsAt: Date }, startsAt: Date) {
@@ -135,8 +135,7 @@ export default async function ClubDetailPage({
   const bookingStart = weekStart();
   const bookingEnd = addDays(bookingStart, 14);
   const requestedBookingDate = dateFromKey(query?.bookingDate);
-  const selectedBookingDate = clampDate(requestedBookingDate ?? new Date(), bookingStart, bookingEnd);
-  selectedBookingDate.setUTCHours(0, 0, 0, 0);
+  const selectedBookingDate = courtLocalDateTimeToUtc(dateKey(clampDate(requestedBookingDate ?? new Date(), bookingStart, bookingEnd)));
   const selectedBookingDateEnd = addDays(selectedBookingDate, 1);
   const selectedBookingDateKey = dateKey(selectedBookingDate);
   const previousBookingDate = selectedBookingDate > bookingStart ? dateKey(addDays(selectedBookingDate, -1)) : null;
