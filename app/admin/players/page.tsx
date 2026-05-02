@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { savePlayerAction } from "@/app/admin/actions";
+import { savePlayerAction, updateUserOperationalRoleAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
 import { getDictionary } from "@/src/lib/i18n";
@@ -18,7 +18,7 @@ export default async function PlayersPage() {
   const [players, clubs, currentUser, dictionary] = await Promise.all([
     prisma.player.findMany({
       include: {
-        user: true,
+        user: { include: { roles: true } },
         memberships: {
           where: { toDate: null },
           include: { club: true },
@@ -76,14 +76,30 @@ export default async function PlayersPage() {
               <div className="player-letter-list">
                 {group.players.map((player) => {
                   const clubName = player.memberships[0]?.clubNameAtThatTime ?? t.independent;
+                  const playerUserRole = player.user?.roles.some((role) => role.role === "manager") ? "manager" : "player";
 
                   return isAdmin || player.id === ownPlayerId ? (
                     <article className="row-card player-list-row" key={player.id}>
                       <div>
                         <strong><Link href={`/players/${player.id}`}>{player.lastName}, {player.firstName}</Link></strong>
-                        <span>{clubName}</span>
+                        <span>{clubName}{player.user ? ` · ${playerUserRole === "manager" ? t.manager : t.player}` : ""}</span>
                       </div>
-                      <Link className="secondary-link" href={`/players/${player.id}/edit`}>{t.edit}</Link>
+                      <div className="row-actions">
+                        {isAdmin && player.user ? (
+                          <form action={updateUserOperationalRoleAction} className="role-switch-form">
+                            <input type="hidden" name="userId" value={player.user.id} />
+                            <label>
+                              <span>{t.activeRole}</span>
+                              <select name="role" defaultValue={playerUserRole}>
+                                <option value="player">{t.player}</option>
+                                <option value="manager">{t.manager}</option>
+                              </select>
+                            </label>
+                            <button type="submit">{t.save}</button>
+                          </form>
+                        ) : null}
+                        <Link className="secondary-link" href={`/players/${player.id}/edit`}>{t.edit}</Link>
+                      </div>
                     </article>
                   ) : (
                     <article className="row-card simple-row player-list-row" key={player.id}>

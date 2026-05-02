@@ -51,6 +51,11 @@ const playerPasswordSchema = z.object({
   path: ["confirmPassword"]
 });
 
+const userOperationalRoleSchema = z.object({
+  userId: z.string().uuid(),
+  role: z.enum(["player", "manager"])
+});
+
 const clubSchema = z.object({
   clubId: z.string().uuid().optional().or(z.literal("")),
   name: z.string().min(3),
@@ -1135,6 +1140,52 @@ export async function changePlayerPasswordAction(formData: FormData) {
 
   revalidatePath(`/players/${player.id}`);
   revalidatePath(`/players/${player.id}/edit`);
+}
+
+export async function updateUserOperationalRoleAction(formData: FormData) {
+  const currentUser = await requireUser();
+  if (!hasRole(currentUser, "admin")) {
+    throw new Error("Solo un admin puede modificar roles de usuario.");
+  }
+
+  const parsed = userOperationalRoleSchema.parse({
+    userId: textValue(formData.get("userId")),
+    role: textValue(formData.get("role"))
+  });
+  const user = await prisma.user.findUnique({
+    where: { id: parsed.userId },
+    include: { player: true }
+  });
+
+  if (!user) {
+    throw new Error("Usuario no encontrado.");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.userRoleAssignment.upsert({
+      where: { userId_role: { userId: user.id, role: "player" } },
+      update: {},
+      create: { userId: user.id, role: "player" }
+    });
+
+    if (parsed.role === "manager") {
+      await tx.userRoleAssignment.upsert({
+        where: { userId_role: { userId: user.id, role: "manager" } },
+        update: {},
+        create: { userId: user.id, role: "manager" }
+      });
+    } else {
+      await tx.userRoleAssignment.deleteMany({
+        where: { userId: user.id, role: "manager" }
+      });
+    }
+  });
+
+  revalidatePath("/admin/players");
+  if (user.player) {
+    revalidatePath(`/players/${user.player.id}`);
+    revalidatePath(`/players/${user.player.id}/edit`);
+  }
 }
 
 export async function saveClubAction(formData: FormData) {
