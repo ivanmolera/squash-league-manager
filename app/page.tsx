@@ -4,6 +4,7 @@ import { HomeTournamentCarousel, type HomeTournamentSlide } from "@/app/home-tou
 import { Navigation } from "@/app/navigation";
 import { ClubCrest } from "@/src/components/club-crest";
 import { getCurrentUser } from "@/src/lib/auth";
+import { getFeatureSettings } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 
@@ -66,7 +67,7 @@ function getHomeTournaments(now: Date) {
 
 export default async function Home() {
   const now = new Date();
-  const [user, { locale, t }, clubs, homeTournaments] = await Promise.all([
+  const [user, { locale, t }, clubs, features] = await Promise.all([
     getCurrentUser(),
     getDictionary(),
     prisma.club.findMany({
@@ -75,8 +76,9 @@ export default async function Home() {
       select: { id: true, name: true, logoUrl: true },
       take: 18
     }),
-    getHomeTournaments(now)
+    getFeatureSettings()
   ]);
+  const homeTournaments = features.tournaments ? await getHomeTournaments(now) : [];
   const roles = user?.roles.map((role) => role.role).join(", ");
   const modules = [
     { title: t.moduleCompetitions, text: t.moduleCompetitionsText, icon: Trophy },

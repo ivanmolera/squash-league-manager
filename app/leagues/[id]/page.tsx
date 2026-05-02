@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
 import { categoryRestrictionLabel } from "@/src/lib/category-restrictions";
+import { requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 import { LeagueStandings } from "./league-sections";
@@ -10,6 +11,7 @@ import { LeagueStandings } from "./league-sections";
 export const dynamic = "force-dynamic";
 
 export default async function LeagueDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireFeature("leagues");
   const { id } = await params;
   const [league, currentUser] = await Promise.all([
     prisma.competition.findUnique({

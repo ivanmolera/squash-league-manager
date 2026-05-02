@@ -15,6 +15,7 @@ export default async function EditClubPage({ params }: { params: Promise<{ id: s
     prisma.club.findUnique({
       where: { id },
       include: {
+        closedDays: { orderBy: { closedOn: "asc" } },
         memberships: {
           where: { toDate: null },
           include: { player: { include: { user: true } } },
@@ -50,8 +51,11 @@ export default async function EditClubPage({ params }: { params: Promise<{ id: s
           <label>{t.province}<input name="province" defaultValue={club.province ?? ""} /></label>
           <label>{t.postalCode}<input name="postalCode" defaultValue={club.postalCode ?? ""} /></label>
           <label>{t.availableCourts}<input name="availableCourts" type="number" min="0" defaultValue={club.availableCourts} /></label>
+          <label className="check-line"><input name="managesCourtBookings" type="checkbox" defaultChecked={club.managesCourtBookings} /> {t.manageCourtBookingsWithApp}</label>
           <label>{t.address}<input name="address" defaultValue={club.address ?? ""} /></label>
+          <label>{t.clubPhone}<input name="phone" type="tel" defaultValue={club.phone ?? ""} /></label>
           <label>{t.website}<input name="websiteUrl" type="url" defaultValue={club.websiteUrl ?? ""} /></label>
+          <label>{t.closedDays}<textarea name="closedDays" defaultValue={club.closedDays.map((day) => day.closedOn.toISOString().slice(0, 10)).join("\n")} placeholder="2026-01-01" /></label>
           <label className="check-line"><input name="showContactPublic" type="checkbox" defaultChecked={club.showContactPublic} /> {t.showClubContactPublic}</label>
           <label>{t.assignedManager}
             <select name="managerUserId" defaultValue={club.managerUserId ?? ""} disabled={!isAdmin}>

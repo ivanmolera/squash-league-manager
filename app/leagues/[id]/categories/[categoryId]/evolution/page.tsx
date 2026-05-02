@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Navigation } from "@/app/navigation";
+import { requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 
@@ -316,6 +317,7 @@ export default async function LeagueCategoryEvolutionPage({
 }: {
   params: Promise<{ id: string; categoryId: string }>;
 }) {
+  await requireFeature("leagues");
   const { id, categoryId } = await params;
   const competitionCategory = await prisma.competitionCategory.findFirst({
     where: { id: categoryId, competitionId: id },

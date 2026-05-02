@@ -6,6 +6,7 @@ import { ClubCrest } from "@/src/components/club-crest";
 import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
 import { autonomousCommunityForLocation } from "@/src/lib/autonomous-communities";
 import { getCurrentUser } from "@/src/lib/auth";
+import { getFeatureSettings } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { formatUserManagerName } from "@/src/lib/names";
 import { prisma } from "@/src/lib/prisma";
@@ -38,16 +39,17 @@ export default async function ClubsPage({
   searchParams?: Promise<{ clubError?: string }>;
 }) {
   const query = await searchParams;
-  const [clubs, managers, currentUser, dictionary] = await Promise.all([
+  const [clubs, managers, currentUser, dictionary, features] = await Promise.all([
     prisma.club.findMany({ include: { manager: true }, orderBy: [{ province: "asc" }, { name: "asc" }] }),
     prisma.user.findMany({ include: { player: true }, orderBy: { email: "asc" } }),
     getCurrentUser(),
-    getDictionary()
+    getDictionary(),
+    getFeatureSettings()
   ]);
   const { t } = dictionary;
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
   const clubGroups = groupClubsByCommunity(clubs, t.unknownAutonomousCommunity);
-  const hasGeocodedClubs = clubs.some((club) =>
+  const hasGeocodedClubs = features.club_maps && clubs.some((club) =>
     typeof club.latitude === "number" &&
     Number.isFinite(club.latitude) &&
     typeof club.longitude === "number" &&
@@ -127,7 +129,7 @@ function ClubFields({
   isAdmin,
   labels
 }: {
-  club?: { name?: string; city?: string | null; province?: string | null; address?: string | null; postalCode?: string | null; availableCourts?: number; websiteUrl?: string | null; logoUrl?: string | null; managerUserId?: string | null; showContactPublic?: boolean };
+  club?: { name?: string; city?: string | null; province?: string | null; address?: string | null; postalCode?: string | null; availableCourts?: number; phone?: string | null; managesCourtBookings?: boolean; websiteUrl?: string | null; logoUrl?: string | null; managerUserId?: string | null; showContactPublic?: boolean; closedDays?: Array<{ closedOn: Date }> };
   managers: Array<{ id: string; email: string; displayName: string | null; player?: { firstName: string; lastName: string } | null }>;
   isAdmin: boolean;
   labels: Record<string, string>;
@@ -145,9 +147,17 @@ function ClubFields({
       </div>
       <label>{labels.postalCode}<input name="postalCode" defaultValue={club?.postalCode ?? ""} /></label>
       <label>{labels.availableCourts}<input name="availableCourts" type="number" min="0" defaultValue={club?.availableCourts ?? 0} /></label>
+      <label className="check-line">
+        <input name="managesCourtBookings" type="checkbox" defaultChecked={club?.managesCourtBookings ?? false} />
+        {labels.manageCourtBookingsWithApp}
+      </label>
       <div className="form-row">
+        <label>{labels.clubPhone}<input name="phone" type="tel" defaultValue={club?.phone ?? ""} /></label>
         <label>{labels.website}<input name="websiteUrl" type="url" defaultValue={club?.websiteUrl ?? ""} /></label>
+      </div>
+      <div className="form-row">
         <label>{labels.address}<input name="address" defaultValue={club?.address ?? ""} /></label>
+        <label>{labels.closedDays}<textarea name="closedDays" defaultValue={club?.closedDays?.map((day) => day.closedOn.toISOString().slice(0, 10)).join("\n") ?? ""} placeholder="2026-01-01" /></label>
       </div>
       <label>{labels.assignedManager}
         <select name="managerUserId" defaultValue={club?.managerUserId ?? ""} disabled={!isAdmin}>

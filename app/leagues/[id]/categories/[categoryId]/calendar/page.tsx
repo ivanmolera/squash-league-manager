@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
+import { requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 import { LeagueCategoryCalendar } from "../../../league-sections";
@@ -13,6 +14,7 @@ export default async function LeagueCategoryCalendarPage({
 }: {
   params: Promise<{ id: string; categoryId: string }>;
 }) {
+  await requireFeature("leagues");
   const { id, categoryId } = await params;
   const [competitionCategory, currentUser] = await Promise.all([
     prisma.competitionCategory.findFirst({

@@ -117,6 +117,13 @@ enum JoinRequestStatus {
   @@map("join_request_status")
 }
 
+enum CourtReservationStatus {
+  active
+  cancelled
+
+  @@map("court_reservation_status")
+}
+
 model User {
   id          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   firebaseUid String               @unique @map("firebase_uid")
@@ -133,6 +140,9 @@ model User {
   credential  AuthCredential?
   sessions    AuthSession[]
   emailVerificationTokens EmailVerificationToken[]
+  courtReservations CourtReservation[] @relation("CourtReservationUser")
+  cancelledCourtReservations CourtReservation[] @relation("CourtReservationCancelledBy")
+  createdFeatureSettings AppFeatureSetting[]
 
   @@map("app_users")
 }
@@ -205,6 +215,8 @@ model Player {
   registrations         TournamentRegistration[]
   joinRequests          ClubJoinRequest[]
   competitionParticipants CompetitionParticipant[]
+  courtReservations CourtReservation[] @relation("CourtReservationPlayer")
+  partnerCourtReservations CourtReservation[] @relation("CourtReservationPartner")
 
   @@map("players")
 }
@@ -221,6 +233,8 @@ model Club {
   geocodedAt    DateTime?              @map("geocoded_at") @db.Timestamptz(6)
   geocodingQuery String?               @map("geocoding_query")
   availableCourts Int                   @default(0) @map("available_courts")
+  phone         String?
+  managesCourtBookings Boolean          @default(false) @map("manages_court_bookings")
   websiteUrl    String?                @map("website_url")
   logoUrl       String?                @map("logo_url")
   showContactPublic Boolean            @default(true) @map("show_contact_public")
@@ -233,8 +247,61 @@ model Club {
   joinRequests  ClubJoinRequest[]
   competitionParticipants CompetitionParticipant[]
   hostedCompetitions Competition[]
+  courtReservations CourtReservation[]
+  closedDays CourtClosedDay[]
 
   @@map("clubs")
+}
+
+model AppFeatureSetting {
+  featureKey      String   @id @map("feature_key")
+  enabled         Boolean  @default(true)
+  updatedByUserId String?  @map("updated_by_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy       User?    @relation(fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@map("app_feature_settings")
+}
+
+model CourtReservation {
+  id                String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId            String                 @map("club_id") @db.Uuid
+  courtNumber       Int                    @map("court_number")
+  userId            String                 @map("user_id") @db.Uuid
+  playerId          String?                @map("player_id") @db.Uuid
+  partnerPlayerId   String?                @map("partner_player_id") @db.Uuid
+  startsAt          DateTime               @map("starts_at") @db.Timestamptz(6)
+  endsAt            DateTime               @map("ends_at") @db.Timestamptz(6)
+  status            CourtReservationStatus @default(active)
+  cancelledAt       DateTime?              @map("cancelled_at") @db.Timestamptz(6)
+  cancelledByUserId String?                @map("cancelled_by_user_id") @db.Uuid
+  createdAt         DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime               @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId   String?                @map("created_by_user_id") @db.Uuid
+  updatedByUserId   String?                @map("updated_by_user_id") @db.Uuid
+  club              Club                   @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  user              User                   @relation("CourtReservationUser", fields: [userId], references: [id], onDelete: Cascade)
+  player            Player?                @relation("CourtReservationPlayer", fields: [playerId], references: [id], onDelete: SetNull)
+  partnerPlayer     Player?                @relation("CourtReservationPartner", fields: [partnerPlayerId], references: [id], onDelete: SetNull)
+  cancelledBy       User?                  @relation("CourtReservationCancelledBy", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
+
+  @@map("court_reservations")
+}
+
+model CourtClosedDay {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId          String   @map("club_id") @db.Uuid
+  closedOn        DateTime @map("closed_on") @db.Date
+  reason          String?
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String?  @map("created_by_user_id") @db.Uuid
+  updatedByUserId String?  @map("updated_by_user_id") @db.Uuid
+  club            Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+
+  @@unique([clubId, closedOn])
+  @@map("club_closed_days")
 }
 
 model Season {

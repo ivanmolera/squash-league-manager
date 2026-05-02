@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getCurrentUser } from "@/src/lib/auth";
+import { featureKeys, isFeatureEnabled } from "@/src/lib/features";
 import { clubGeocodingQuery, geocodeClubAddress } from "@/src/lib/geocoding";
 import { prisma } from "@/src/lib/prisma";
 import { rankingCodeValues, rankingScopeForCode } from "@/src/lib/ranking-codes";
@@ -51,6 +52,9 @@ const clubSchema = z.object({
   address: z.string().optional(),
   postalCode: z.string().max(16).optional(),
   availableCourts: z.coerce.number().int().min(0).max(99).default(0),
+  phone: z.string().optional(),
+  managesCourtBookings: z.coerce.boolean().default(false),
+  closedDays: z.string().optional(),
   websiteUrl: z.string().url().optional().or(z.literal("")),
   showContactPublic: z.coerce.boolean().default(false),
   managerUserId: z.string().uuid().optional().or(z.literal(""))
@@ -112,6 +116,23 @@ const tournamentSeedsSchema = z.object({
   seedPlayerIds: z.array(z.string().uuid()).default([])
 });
 
+const featureSettingsSchema = z.object({
+  enabledFeatures: z.array(z.enum(featureKeys)).default([])
+});
+
+const courtReservationSchema = z.object({
+  clubId: z.string().uuid(),
+  courtNumber: z.coerce.number().int().min(1).max(99),
+  startsAt: z.string().datetime(),
+  durationSlots: z.coerce.number().int().min(1).max(2),
+  partnerPlayerId: z.string().uuid().optional().or(z.literal(""))
+});
+
+const cancelCourtReservationSchema = z.object({
+  reservationId: z.string().uuid(),
+  clubId: z.string().uuid()
+});
+
 function textValue(value: unknown) {
   return value?.toString().trim() || undefined;
 }
@@ -122,6 +143,39 @@ function toArray(formData: FormData, key: string) {
 
 function hasRole(user: Awaited<ReturnType<typeof getCurrentUser>>, role: "admin" | "manager" | "player") {
   return Boolean(user?.roles.some((assignment) => assignment.role === role));
+}
+
+function weekStart(date = new Date()) {
+  const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const day = start.getUTCDay() || 7;
+  start.setUTCDate(start.getUTCDate() - day + 1);
+  start.setUTCHours(0, 0, 0, 0);
+  return start;
+}
+
+function isBookableCourtSlot(startsAt: Date) {
+  const currentWeekStart = weekStart();
+  const nextWeekEnd = new Date(currentWeekStart);
+  nextWeekEnd.setUTCDate(nextWeekEnd.getUTCDate() + 13);
+  nextWeekEnd.setUTCHours(23, 59, 59, 999);
+
+  const hour = startsAt.getUTCHours();
+  const minute = startsAt.getUTCMinutes();
+
+  return startsAt >= new Date() &&
+    startsAt >= currentWeekStart &&
+    startsAt <= nextWeekEnd &&
+    (minute === 0 || minute === 30) &&
+    hour >= 8 &&
+    (hour < 21 || (hour === 21 && minute === 0));
+}
+
+function parseClosedDays(value?: string) {
+  return [...new Set((value ?? "")
+    .split(/\r?\n|,/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item) => /^\d{4}-\d{2}-\d{2}$/.test(item)))];
 }
 
 function genericProfileVariant(gender: "male" | "female" | "other" | "not_specified") {
@@ -887,6 +941,7 @@ export async function savePlayerAction(formData: FormData) {
   const currentUser = await requireUser();
   const isAdmin = hasRole(currentUser, "admin");
   const uploadedProfilePhotoUrl = await readProfilePhoto(formData);
+  const communicationsEnabled = await isFeatureEnabled("player_communications");
   const parsed = playerSchema.parse({
     playerId: textValue(formData.get("playerId")),
     firstName: textValue(formData.get("firstName")),
@@ -902,7 +957,7 @@ export async function savePlayerAction(formData: FormData) {
     racketBrand: textValue(formData.get("racketBrand")),
     showContactPublic: formData.get("showContactPublic") === "on",
     showPhysicalPublic: formData.get("showPhysicalPublic") === "on",
-    receivesMatchCommunications: formData.get("receivesMatchCommunications") === "on",
+    receivesMatchCommunications: communicationsEnabled && formData.get("receivesMatchCommunications") === "on",
     clubId: textValue(formData.get("clubId")) ?? "",
     profilePhotoUrl: uploadedProfilePhotoUrl ?? textValue(formData.get("profilePhotoUrl"))
   });
@@ -981,7 +1036,7 @@ export async function savePlayerAction(formData: FormData) {
           genericProfileVariant: genericProfileVariant(parsed.gender),
           showContactPublic: parsed.showContactPublic,
           showPhysicalPublic: parsed.showPhysicalPublic,
-          receivesMatchCommunications: parsed.receivesMatchCommunications
+          ...(communicationsEnabled ? { receivesMatchCommunications: parsed.receivesMatchCommunications } : {})
         }
       })
     : await prisma.player.create({
@@ -1097,6 +1152,9 @@ export async function saveClubAction(formData: FormData) {
     address: textValue(formData.get("address")),
     postalCode: textValue(formData.get("postalCode")),
     availableCourts: textValue(formData.get("availableCourts")) ?? "0",
+    phone: textValue(formData.get("phone")),
+    managesCourtBookings: formData.get("managesCourtBookings") === "on",
+    closedDays: formData.get("closedDays")?.toString(),
     websiteUrl: textValue(formData.get("websiteUrl")) ?? "",
     showContactPublic: formData.get("showContactPublic") === "on",
     managerUserId: textValue(formData.get("managerUserId")) ?? ""
@@ -1160,6 +1218,8 @@ export async function saveClubAction(formData: FormData) {
           postalCode: parsed.postalCode,
           ...geocodingData,
           availableCourts: parsed.availableCourts,
+          phone: parsed.phone,
+          managesCourtBookings: parsed.managesCourtBookings,
           websiteUrl: parsed.websiteUrl || null,
           logoUrl,
           showContactPublic: parsed.showContactPublic,
@@ -1175,6 +1235,8 @@ export async function saveClubAction(formData: FormData) {
           postalCode: parsed.postalCode,
           ...geocodingData,
           availableCourts: parsed.availableCourts,
+          phone: parsed.phone,
+          managesCourtBookings: parsed.managesCourtBookings,
           websiteUrl: parsed.websiteUrl || null,
           logoUrl: logoUrl ?? null,
           showContactPublic: parsed.showContactPublic,
@@ -1189,6 +1251,21 @@ export async function saveClubAction(formData: FormData) {
       create: { userId: parsed.managerUserId, role: "manager" }
     });
   }
+
+  const closedDays = parseClosedDays(parsed.closedDays);
+  await prisma.$transaction([
+    prisma.courtClosedDay.deleteMany({ where: { clubId: club.id } }),
+    ...closedDays.map((closedOn) =>
+      prisma.courtClosedDay.create({
+        data: {
+          clubId: club.id,
+          closedOn: new Date(`${closedOn}T00:00:00.000Z`),
+          createdByUserId: currentUser.id,
+          updatedByUserId: currentUser.id
+        }
+      })
+    )
+  ]);
 
   const season = await getDefaultSeason();
   const [membershipPlayerIds, rosterPlayerIds] = await Promise.all([
@@ -1327,6 +1404,9 @@ async function upsertCompetitionCategoryByDisplayName({
 }
 
 export async function saveLeagueAction(formData: FormData) {
+  if (!(await isFeatureEnabled("leagues"))) {
+    throw new Error("La gestión de ligas no está activa.");
+  }
   await requireAdmin();
   const shouldRegenerateSchedule = formData.get("mode")?.toString() === "regenerate" || !textValue(formData.get("competitionId"));
   const parsed = competitionSchema.parse({
@@ -1550,6 +1630,9 @@ export async function saveLeagueAction(formData: FormData) {
 }
 
 export async function saveTournamentAction(formData: FormData) {
+  if (!(await isFeatureEnabled("tournaments"))) {
+    throw new Error("La gestión de torneos no está activa.");
+  }
   const currentUser = await requireUser();
   const isAdmin = hasRole(currentUser, "admin");
   const shouldGenerateDraw = formData.get("mode")?.toString() === "generate";
@@ -1844,6 +1927,9 @@ export async function saveTournamentAction(formData: FormData) {
 }
 
 export async function registerSelfForTournamentAction(formData: FormData) {
+  if (!(await isFeatureEnabled("tournament_online_registration"))) {
+    throw new Error("La inscripción online a torneos no está activa.");
+  }
   const currentUser = await requireUser();
   const parsed = tournamentRegistrationSchema.parse({
     competitionCategoryId: textValue(formData.get("competitionCategoryId"))
@@ -1861,6 +1947,9 @@ export async function registerSelfForTournamentAction(formData: FormData) {
 }
 
 export async function registerPlayerForTournamentAction(formData: FormData) {
+  if (!(await isFeatureEnabled("tournament_online_registration"))) {
+    throw new Error("La inscripción online a torneos no está activa.");
+  }
   const currentUser = await requireUser();
   const parsed = tournamentRegistrationSchema.parse({
     competitionCategoryId: textValue(formData.get("competitionCategoryId")),
@@ -1880,6 +1969,9 @@ export async function registerPlayerForTournamentAction(formData: FormData) {
 }
 
 export async function saveTournamentSeedsAction(formData: FormData) {
+  if (!(await isFeatureEnabled("tournaments"))) {
+    throw new Error("La gestión de torneos no está activa.");
+  }
   const currentUser = await requireUser();
   const parsed = tournamentSeedsSchema.parse({
     competitionCategoryId: textValue(formData.get("competitionCategoryId")),
@@ -1895,6 +1987,9 @@ export async function saveTournamentSeedsAction(formData: FormData) {
 }
 
 export async function suggestTournamentSeedsAction(formData: FormData) {
+  if (!(await isFeatureEnabled("tournaments"))) {
+    throw new Error("La gestión de torneos no está activa.");
+  }
   const currentUser = await requireUser();
   const parsed = tournamentSeedsSchema.parse({
     competitionCategoryId: textValue(formData.get("competitionCategoryId")),
@@ -1932,6 +2027,9 @@ export async function suggestTournamentSeedsAction(formData: FormData) {
 }
 
 export async function saveTeamAction(formData: FormData) {
+  if (!(await isFeatureEnabled("teams"))) {
+    throw new Error("La gestión de equipos no está activa.");
+  }
   const currentUser = await requireUser();
   const isAdmin = hasRole(currentUser, "admin");
   const parsed = teamSchema.parse({
@@ -2007,7 +2105,179 @@ export async function saveTeamAction(formData: FormData) {
   redirect(`/teams/${parsed.teamId}`);
 }
 
+export async function saveFeatureSettingsAction(formData: FormData) {
+  const currentUser = await requireUser();
+  if (!hasRole(currentUser, "admin")) {
+    throw new Error("Solo un admin puede modificar la configuración de la aplicación.");
+  }
+
+  const parsed = featureSettingsSchema.parse({
+    enabledFeatures: toArray(formData, "enabledFeatures")
+  });
+  const enabled = new Set(parsed.enabledFeatures);
+
+  await prisma.$transaction(
+    featureKeys.map((featureKey) =>
+      prisma.appFeatureSetting.upsert({
+        where: { featureKey },
+        update: {
+          enabled: enabled.has(featureKey),
+          updatedByUserId: currentUser.id
+        },
+        create: {
+          featureKey,
+          enabled: enabled.has(featureKey),
+          updatedByUserId: currentUser.id
+        }
+      })
+    )
+  );
+
+  revalidatePath("/");
+  revalidatePath("/admin/settings");
+  revalidatePath("/admin/leagues");
+  revalidatePath("/manager/tournaments");
+  revalidatePath("/rankings");
+}
+
+export async function reserveCourtAction(formData: FormData) {
+  const currentUser = await requireUser();
+  if (!(await isFeatureEnabled("court_bookings"))) {
+    throw new Error("La gestión de reservas no está activa.");
+  }
+
+  const parsed = courtReservationSchema.parse({
+    clubId: textValue(formData.get("clubId")),
+    courtNumber: textValue(formData.get("courtNumber")),
+    startsAt: textValue(formData.get("startsAt")),
+    durationSlots: textValue(formData.get("durationSlots")),
+    partnerPlayerId: textValue(formData.get("partnerPlayerId")) ?? ""
+  });
+  const startsAt = new Date(parsed.startsAt);
+  const endsAt = new Date(startsAt.getTime() + parsed.durationSlots * 30 * 60 * 1000);
+  const latestEnd = new Date(startsAt);
+  latestEnd.setUTCHours(21, 30, 0, 0);
+
+  if (!isBookableCourtSlot(startsAt) || parsed.durationSlots > 2 || endsAt > latestEnd) {
+    throw new Error("La franja seleccionada no se puede reservar.");
+  }
+
+  const club = await prisma.club.findUniqueOrThrow({
+    where: { id: parsed.clubId },
+    select: { id: true, availableCourts: true, managesCourtBookings: true }
+  });
+
+  if (!club.managesCourtBookings || club.availableCourts < parsed.courtNumber) {
+    throw new Error("Este club no permite reservar esta pista desde la app.");
+  }
+
+  const slotDay = new Date(startsAt);
+  slotDay.setUTCHours(0, 0, 0, 0);
+  const closedDay = await prisma.courtClosedDay.findUnique({
+    where: {
+      clubId_closedOn: {
+        clubId: club.id,
+        closedOn: slotDay
+      }
+    },
+    select: { id: true }
+  });
+
+  if (closedDay) {
+    throw new Error("El club está cerrado en la fecha seleccionada.");
+  }
+
+  const player = await prisma.player.findUnique({
+    where: { userId: currentUser.id },
+    select: { id: true }
+  });
+  const activeFutureReservation = await prisma.courtReservation.findFirst({
+    where: {
+      userId: currentUser.id,
+      status: "active",
+      startsAt: { gte: new Date() }
+    },
+    select: { id: true }
+  });
+
+  if (activeFutureReservation) {
+    throw new Error("Ya tienes una reserva vigente.");
+  }
+
+  const sameDayStart = new Date(startsAt);
+  sameDayStart.setUTCHours(0, 0, 0, 0);
+  const sameDayEnd = new Date(sameDayStart);
+  sameDayEnd.setUTCDate(sameDayEnd.getUTCDate() + 1);
+  const sameDayReservations = await prisma.courtReservation.findMany({
+    where: {
+      userId: currentUser.id,
+      status: "active",
+      startsAt: { gte: sameDayStart, lt: sameDayEnd }
+    },
+    select: { startsAt: true, endsAt: true }
+  });
+  const alreadyReservedSlots = sameDayReservations.reduce((total, reservation) =>
+    total + Math.ceil((reservation.endsAt.getTime() - reservation.startsAt.getTime()) / (30 * 60 * 1000)), 0);
+
+  if (alreadyReservedSlots + parsed.durationSlots > 2) {
+    throw new Error("Solo puedes reservar una hora de pista al día.");
+  }
+
+  await prisma.courtReservation.create({
+    data: {
+      clubId: club.id,
+      courtNumber: parsed.courtNumber,
+      userId: currentUser.id,
+      playerId: player?.id ?? null,
+      partnerPlayerId: parsed.partnerPlayerId || null,
+      startsAt,
+      endsAt,
+      createdByUserId: currentUser.id,
+      updatedByUserId: currentUser.id
+    }
+  });
+
+  revalidatePath(`/clubs/${club.id}`);
+}
+
+export async function cancelCourtReservationAction(formData: FormData) {
+  const currentUser = await requireUser();
+  if (!(await isFeatureEnabled("court_bookings"))) {
+    throw new Error("La gestión de reservas no está activa.");
+  }
+
+  const parsed = cancelCourtReservationSchema.parse({
+    reservationId: textValue(formData.get("reservationId")),
+    clubId: textValue(formData.get("clubId"))
+  });
+  const reservation = await prisma.courtReservation.findUniqueOrThrow({
+    where: { id: parsed.reservationId },
+    include: { club: true }
+  });
+  const isAdmin = hasRole(currentUser, "admin");
+  const canManageClub = reservation.club.managerUserId === currentUser.id;
+
+  if (!isAdmin && !canManageClub && reservation.userId !== currentUser.id) {
+    throw new Error("No puedes cancelar esta reserva.");
+  }
+
+  await prisma.courtReservation.update({
+    where: { id: reservation.id },
+    data: {
+      status: "cancelled",
+      cancelledAt: new Date(),
+      cancelledByUserId: currentUser.id,
+      updatedByUserId: currentUser.id
+    }
+  });
+
+  revalidatePath(`/clubs/${parsed.clubId}`);
+}
+
 export async function saveMatchResultAction(formData: FormData) {
+  if (!(await isFeatureEnabled("player_result_entry"))) {
+    throw new Error("La introducción de resultados por jugadores no está activa.");
+  }
   const currentUser = await requireUser();
   const parsed = matchResultSchema.parse({
     matchId: textValue(formData.get("matchId"))

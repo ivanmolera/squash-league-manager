@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { Navigation } from "@/app/navigation";
+import { requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { RegisterForm } from "./register-form";
 
 export default async function RegisterPage() {
+  await requireFeature("public_registration");
   const { t } = await getDictionary();
 
   return (

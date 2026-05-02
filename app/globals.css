@@ -1448,6 +1448,90 @@ h1 {
   width: 100%;
 }
 
+.court-booking-week {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.court-booking-week h3 {
+  margin: 0;
+}
+
+.court-booking-scroll {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: auto;
+}
+
+.court-booking-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.82rem;
+  min-width: 980px;
+  width: 100%;
+}
+
+.court-booking-table th,
+.court-booking-table td {
+  border-bottom: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  min-width: 145px;
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.court-booking-table th:first-child,
+.court-booking-table td:first-child {
+  left: 0;
+  min-width: 72px;
+  position: sticky;
+  z-index: 2;
+}
+
+.court-booking-table thead th {
+  background: var(--accent-strong);
+  color: white;
+  font-size: 0.75rem;
+  letter-spacing: 0;
+}
+
+.court-booking-table tbody th {
+  background: var(--surface);
+  color: var(--foreground);
+}
+
+.reserved-slot {
+  background: #fff7e6;
+}
+
+.closed-slot {
+  background: #eef1f4;
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.slot-reservation,
+.slot-booking-form {
+  display: grid;
+  gap: 6px;
+}
+
+.slot-reservation span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.slot-booking-form select,
+.slot-booking-form button,
+.slot-reservation button {
+  font-size: 0.78rem;
+  min-height: 30px;
+  padding: 6px 8px;
+  width: 100%;
+}
+
 .player-photo,
 .player-avatar {
   aspect-ratio: 1;

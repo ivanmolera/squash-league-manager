@@ -7,6 +7,7 @@ import { ClubCrest } from "@/src/components/club-crest";
 import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
 import { getCurrentUser } from "@/src/lib/auth";
 import { categoryRestrictionLabel } from "@/src/lib/category-restrictions";
+import { getFeatureSettings, requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 import { rankingCodeForScope } from "@/src/lib/ranking-codes";
@@ -45,8 +46,9 @@ function canPlayerRegisterForCategory(
 }
 
 export default async function TournamentDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireFeature("tournaments");
   const { id } = await params;
-  const [tournament, currentUser, dictionary] = await Promise.all([
+  const [tournament, currentUser, dictionary, features] = await Promise.all([
     prisma.competition.findUnique({
       where: { id },
       include: {
@@ -55,7 +57,8 @@ export default async function TournamentDetailPage({ params }: { params: Promise
       }
     }),
     getCurrentUser(),
-    getDictionary()
+    getDictionary(),
+    getFeatureSettings()
   ]);
   const { locale, t } = dictionary;
 
@@ -146,7 +149,7 @@ export default async function TournamentDetailPage({ params }: { params: Promise
                     ) : null}
                   </div>
                 )) : <p className="muted">{t.noRegisteredPlayers}</p>}
-                {currentPlayer && registrationOpen && !isRegistered && isEligible ? (
+                {features.tournament_online_registration && currentPlayer && registrationOpen && !isRegistered && isEligible ? (
                   <form className="compact-form" action={registerSelfForTournamentAction}>
                     <input type="hidden" name="competitionCategoryId" value={competitionCategory.id} />
                     <button type="submit">{t.registerMyself}</button>

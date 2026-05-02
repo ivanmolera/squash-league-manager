@@ -5,6 +5,7 @@ import { Navigation } from "@/app/navigation";
 import { ClubCrest } from "@/src/components/club-crest";
 import { RankingCodeBadge, RankingCodePicker } from "@/src/components/ranking-code-picker";
 import { getCurrentUser } from "@/src/lib/auth";
+import { requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 import { rankingCodeForScope } from "@/src/lib/ranking-codes";
@@ -37,6 +38,7 @@ export default async function TournamentsPage({
 }: {
   searchParams?: Promise<{ tab?: string; seasonId?: string }>;
 }) {
+  await requireFeature("tournaments");
   const query = await searchParams;
   const tab = selectedTab(query?.tab);
   const [categories, clubs, seasons, currentUser, dictionary] = await Promise.all([

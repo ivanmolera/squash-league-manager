@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
+import { requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { formatPlayerListName } from "@/src/lib/names";
 import { prisma } from "@/src/lib/prisma";
@@ -9,6 +10,7 @@ import { prisma } from "@/src/lib/prisma";
 export const dynamic = "force-dynamic";
 
 export default async function TeamDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireFeature("teams");
   const { id } = await params;
   const [team, currentUser] = await Promise.all([
     prisma.team.findUnique({

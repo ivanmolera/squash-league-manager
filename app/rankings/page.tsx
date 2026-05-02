@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Navigation } from "@/app/navigation";
 import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
+import { requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { rankingOptions } from "@/src/lib/ranking-codes";
 import { getTournamentRankingRows } from "@/src/lib/tournament-rankings";
@@ -8,6 +9,7 @@ import { getTournamentRankingRows } from "@/src/lib/tournament-rankings";
 export const dynamic = "force-dynamic";
 
 export default async function RankingsPage() {
+  await requireFeature("rankings_statistics");
   const scoreableRankings = rankingOptions.filter((option) => option.code !== "none");
   const [{ t }, rankings] = await Promise.all([
     getDictionary(),

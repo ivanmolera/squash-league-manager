@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { hashSessionToken } from "@/src/lib/auth";
+import { isFeatureEnabled } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 
@@ -29,6 +30,10 @@ function createEmailVerificationToken() {
 
 export async function registerPlayerAction(_state: RegisterState, formData: FormData): Promise<RegisterState> {
   const { locale, t } = await getDictionary();
+  if (!(await isFeatureEnabled("public_registration"))) {
+    return { error: t.unavailable };
+  }
+
   const parsed = registerSchema.safeParse({
     firstName: formData.get("firstName"),
     lastName: formData.get("lastName"),

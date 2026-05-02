@@ -6,6 +6,7 @@ import { TournamentMatches } from "@/app/tournaments/[id]/tournament-matches";
 import { RankingCodePicker } from "@/src/components/ranking-code-picker";
 import { getCurrentUser } from "@/src/lib/auth";
 import { categoryRestrictionLabel } from "@/src/lib/category-restrictions";
+import { getFeatureSettings, requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 import { rankingCodeForScope } from "@/src/lib/ranking-codes";
@@ -48,8 +49,9 @@ function playerMeetsCategoryRestrictions(
 }
 
 export default async function EditTournamentPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireFeature("tournaments");
   const { id } = await params;
-  const [tournament, players, clubs, categories, currentUser, dictionary] = await Promise.all([
+  const [tournament, players, clubs, categories, currentUser, dictionary, features] = await Promise.all([
     prisma.competition.findUnique({
       where: { id },
       include: {
@@ -86,7 +88,8 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
     prisma.club.findMany({ orderBy: [{ province: "asc" }, { name: "asc" }] }),
     prisma.category.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     getCurrentUser(),
-    getDictionary()
+    getDictionary(),
+    getFeatureSettings()
   ]);
   const { t } = dictionary;
   const restrictionText = (category: { genderScope: string; minAge: number | null; maxAge: number | null }) =>
@@ -200,19 +203,21 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
                     <button type="submit" formAction={suggestTournamentSeedsAction}>{t.selectByRanking}</button>
                   </div>
                 </form>
-                <form className="compact-form" action={registerPlayerForTournamentAction}>
-                  <input type="hidden" name="competitionCategoryId" value={competitionCategory.id} />
-                  <label>{t.registerPlayer}
-                    <select name="playerId" required>
-                      {eligiblePlayers.map((player) => (
-                        <option key={player.id} value={player.id}>
-                          {player.lastName}, {player.firstName} · {player.memberships[0]?.clubNameAtThatTime ?? t.independent}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button type="submit" disabled={!eligiblePlayers.length}>{t.registerPlayer}</button>
-                </form>
+                {features.tournament_online_registration ? (
+                  <form className="compact-form" action={registerPlayerForTournamentAction}>
+                    <input type="hidden" name="competitionCategoryId" value={competitionCategory.id} />
+                    <label>{t.registerPlayer}
+                      <select name="playerId" required>
+                        {eligiblePlayers.map((player) => (
+                          <option key={player.id} value={player.id}>
+                            {player.lastName}, {player.firstName} · {player.memberships[0]?.clubNameAtThatTime ?? t.independent}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button type="submit" disabled={!eligiblePlayers.length}>{t.registerPlayer}</button>
+                  </form>
+                ) : null}
               </div>
               {participants.length ? participants.map((participant) => (
                 <p key={participant.id}>

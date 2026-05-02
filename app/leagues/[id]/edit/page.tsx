@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { saveLeagueAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
+import { requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 import { LeagueStandings } from "../league-sections";
@@ -21,6 +22,7 @@ export default async function EditLeaguePage({
   params: Promise<{ id: string }>;
   searchParams?: Promise<{ saved?: string }>;
 }) {
+  await requireFeature("leagues");
   const { id } = await params;
   const query = await searchParams;
   const [league, players, clubs, currentUser, dictionary] = await Promise.all([

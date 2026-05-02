@@ -2,12 +2,14 @@ import Link from "next/link";
 import { saveLeagueAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
+import { requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export default async function LeaguesPage() {
+  await requireFeature("leagues");
   const [players, clubs, leagues, currentUser, dictionary] = await Promise.all([
     prisma.player.findMany({
       include: {

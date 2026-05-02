@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { MatchResultForm } from "@/app/match-result-form";
 import { getCurrentUser } from "@/src/lib/auth";
+import { isFeatureEnabled } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 
@@ -339,6 +340,7 @@ export async function LeagueCategoryCalendar({
   currentUser: CurrentUser;
 }) {
   const editContext = await getEditContext(currentUser);
+  const canEnterResults = await isFeatureEnabled("player_result_entry");
   const { locale, t } = await getDictionary();
   const matches = await getLeagueMatches(competitionId, competitionCategoryId);
 
@@ -372,7 +374,7 @@ export async function LeagueCategoryCalendar({
                           </div>
                         );
                       })()}
-                      {canEditLeagueMatch(match, editContext) ? <MatchResultForm match={match} labels={{ sets: t.sets, set: t.set, home: t.homeSide, away: t.awaySide, save: t.saveResult }} /> : null}
+                      {canEnterResults && canEditLeagueMatch(match, editContext) ? <MatchResultForm match={match} labels={{ sets: t.sets, set: t.set, home: t.homeSide, away: t.awaySide, save: t.saveResult }} /> : null}
                     </div>
                   </div>
                 ))}
@@ -429,7 +431,7 @@ export async function LeagueCategoryCalendar({
                               <p>{match.matchOrder}. {match.homePlayerNameAtMatchTime} vs {match.awayPlayerNameAtMatchTime}: <strong>{score.main}</strong>{score.partials ? ` · ${score.partials}` : ""}</p>
                             );
                           })()}
-                          {canEditLeagueMatch(match, editContext) ? <MatchResultForm match={match} labels={{ sets: t.sets, set: t.set, home: t.homeSide, away: t.awaySide, save: t.saveResult }} /> : null}
+                          {canEnterResults && canEditLeagueMatch(match, editContext) ? <MatchResultForm match={match} labels={{ sets: t.sets, set: t.set, home: t.homeSide, away: t.awaySide, save: t.saveResult }} /> : null}
                         </div>
                       ))}
                     </div>

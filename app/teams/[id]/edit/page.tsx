@@ -2,12 +2,14 @@ import { notFound } from "next/navigation";
 import { saveTeamAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
+import { requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditTeamPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireFeature("teams");
   const { id } = await params;
   const [team, currentUser, dictionary] = await Promise.all([
     prisma.team.findUnique({ where: { id }, include: { club: true } }),

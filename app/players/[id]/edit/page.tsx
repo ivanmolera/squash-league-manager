@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { changePlayerPasswordAction, savePlayerAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
+import { getFeatureSettings } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 
@@ -9,10 +10,11 @@ export const dynamic = "force-dynamic";
 
 export default async function EditPlayerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [player, currentUser, dictionary] = await Promise.all([
+  const [player, currentUser, dictionary, features] = await Promise.all([
     prisma.player.findUnique({ where: { id }, include: { user: true } }),
     getCurrentUser(),
-    getDictionary()
+    getDictionary(),
+    getFeatureSettings()
   ]);
   const { t } = dictionary;
   if (!player) notFound();
@@ -52,7 +54,9 @@ export default async function EditPlayerPage({ params }: { params: Promise<{ id:
           <label>{t.racket}<input name="racketBrand" defaultValue={player.racketBrand ?? ""} /></label>
           <label className="check-line"><input name="showContactPublic" type="checkbox" defaultChecked={player.showContactPublic} /> {t.showContactPublic}</label>
           <label className="check-line"><input name="showPhysicalPublic" type="checkbox" defaultChecked={player.showPhysicalPublic} /> {t.showPhysicalPublic}</label>
-          <label className="check-line"><input name="receivesMatchCommunications" type="checkbox" defaultChecked={player.receivesMatchCommunications} /> {t.receiveMatchCommunications}</label>
+          {features.player_communications ? (
+            <label className="check-line"><input name="receivesMatchCommunications" type="checkbox" defaultChecked={player.receivesMatchCommunications} /> {t.receiveMatchCommunications}</label>
+          ) : null}
           {isAdmin ? <label className="check-line"><input name="emailVerified" type="checkbox" defaultChecked={player.user?.emailVerified ?? false} /> {t.emailVerified}</label> : null}
           <button type="submit">{t.save}</button>
         </form>
