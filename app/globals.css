@@ -1548,7 +1548,6 @@ h1 {
 
 .court-booking-table.is-compact th,
 .court-booking-table.is-compact td {
-  background: #f7f7f7;
   border-radius: 3px;
   min-width: 120px;
   padding: 7px 8px;
@@ -1564,7 +1563,7 @@ h1 {
 }
 
 .court-booking-table thead th {
-  background: #eceff1;
+  background: #e5e7eb;
   color: #444;
   font-size: 0.9rem;
   font-weight: 900;
@@ -1574,13 +1573,23 @@ h1 {
 }
 
 .court-booking-table tbody th {
-  background: white;
+  background: #fff;
   color: var(--foreground);
   font-weight: 700;
 }
 
+.available-slot {
+  background: #fff;
+}
+
+.court-booking-table td:has(.slot-booking-details[open]) {
+  background: #dcfce7;
+}
+
 .reserved-slot {
-  background: #fff7e6;
+  background: #fee2e2;
+  color: #991b1b;
+  font-weight: 900;
 }
 
 .closed-slot {
@@ -1599,6 +1608,7 @@ h1 {
   cursor: pointer;
   font-weight: 800;
   list-style: none;
+  min-height: 22px;
 }
 
 .slot-booking-details summary::-webkit-details-marker {

@@ -123,8 +123,7 @@ const featureSettingsSchema = z.object({
 const courtReservationSchema = z.object({
   clubId: z.string().uuid(),
   courtNumber: z.coerce.number().int().min(1).max(99),
-  startsAt: z.string().datetime(),
-  durationSlots: z.coerce.number().int().min(1).max(2)
+  startsAt: z.string().datetime()
 });
 
 const cancelCourtReservationSchema = z.object({
@@ -164,9 +163,9 @@ function isBookableCourtSlot(startsAt: Date) {
   return startsAt >= new Date() &&
     startsAt >= currentWeekStart &&
     startsAt <= nextWeekEnd &&
-    (minute === 0 || minute === 30) &&
+    minute === 0 &&
     hour >= 8 &&
-    (hour < 21 || (hour === 21 && minute === 0));
+    hour <= 20;
 }
 
 function parseClosedDays(value?: string) {
@@ -2149,15 +2148,12 @@ export async function reserveCourtAction(formData: FormData) {
   const parsed = courtReservationSchema.parse({
     clubId: textValue(formData.get("clubId")),
     courtNumber: textValue(formData.get("courtNumber")),
-    startsAt: textValue(formData.get("startsAt")),
-    durationSlots: textValue(formData.get("durationSlots"))
+    startsAt: textValue(formData.get("startsAt"))
   });
   const startsAt = new Date(parsed.startsAt);
-  const endsAt = new Date(startsAt.getTime() + parsed.durationSlots * 30 * 60 * 1000);
-  const latestEnd = new Date(startsAt);
-  latestEnd.setUTCHours(21, 30, 0, 0);
+  const endsAt = new Date(startsAt.getTime() + 60 * 60 * 1000);
 
-  if (!isBookableCourtSlot(startsAt) || parsed.durationSlots > 2 || endsAt > latestEnd) {
+  if (!isBookableCourtSlot(startsAt)) {
     throw new Error("La franja seleccionada no se puede reservar.");
   }
 
@@ -2207,18 +2203,16 @@ export async function reserveCourtAction(formData: FormData) {
   sameDayStart.setUTCHours(0, 0, 0, 0);
   const sameDayEnd = new Date(sameDayStart);
   sameDayEnd.setUTCDate(sameDayEnd.getUTCDate() + 1);
-  const sameDayReservations = await prisma.courtReservation.findMany({
+  const sameDayReservation = await prisma.courtReservation.findFirst({
     where: {
       userId: currentUser.id,
       status: "active",
       startsAt: { gte: sameDayStart, lt: sameDayEnd }
     },
-    select: { startsAt: true, endsAt: true }
+    select: { id: true }
   });
-  const alreadyReservedSlots = sameDayReservations.reduce((total, reservation) =>
-    total + Math.ceil((reservation.endsAt.getTime() - reservation.startsAt.getTime()) / (30 * 60 * 1000)), 0);
 
-  if (alreadyReservedSlots + parsed.durationSlots > 2) {
+  if (sameDayReservation) {
     throw new Error("Solo puedes reservar una hora de pista al día.");
   }
 

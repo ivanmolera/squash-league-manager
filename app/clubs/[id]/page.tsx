@@ -8,7 +8,6 @@ import { autonomousCommunityForLocation } from "@/src/lib/autonomous-communities
 import { getCurrentUser } from "@/src/lib/auth";
 import { getFeatureSettings } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
-import { formatPlayerListName } from "@/src/lib/names";
 import { prisma } from "@/src/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -81,13 +80,9 @@ function formatTime(date: Date) {
   return new Intl.DateTimeFormat("ca", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" }).format(date);
 }
 
-function isSlotCovered(reservation: { startsAt: Date; endsAt: Date }, startsAt: Date) {
-  return reservation.startsAt <= startsAt && reservation.endsAt > startsAt;
-}
-
-function reservationLabel(reservation: { user: { displayName: string | null; email: string }; player: { firstName: string; lastName: string } | null; partnerPlayer: { firstName: string; lastName: string } | null }) {
-  const owner = reservation.player ? formatPlayerListName(reservation.player) : reservation.user.displayName ?? reservation.user.email;
-  return reservation.partnerPlayer ? `${owner} / ${formatPlayerListName(reservation.partnerPlayer)}` : owner;
+function isSlotOverlapping(reservation: { startsAt: Date; endsAt: Date }, startsAt: Date) {
+  const endsAt = new Date(startsAt.getTime() + 60 * 60 * 1000);
+  return reservation.startsAt < endsAt && reservation.endsAt > startsAt;
 }
 
 function groupMembershipsBySeason(memberships: ClubMembership[]) {
@@ -168,9 +163,9 @@ export default async function ClubDetailPage({
   const selectedDayReservations = reservations.filter((reservation) =>
     reservation.startsAt >= selectedBookingDate && reservation.startsAt < selectedBookingDateEnd
   );
-  const slots = Array.from({ length: 27 }, (_, index) => ({
-    hour: 8 + Math.floor(index / 2),
-    minute: index % 2 === 0 ? 0 : 30
+  const slots = Array.from({ length: 13 }, (_, index) => ({
+    hour: 8 + index,
+    minute: 0
   }));
 
   return (
@@ -250,18 +245,16 @@ export default async function ClubDetailPage({
                       <th>{`${String(slot.hour).padStart(2, "0")}:${String(slot.minute).padStart(2, "0")}`}</th>
                       {Array.from({ length: club.availableCourts }, (_, courtIndex) => {
                         const startsAt = slotDate(selectedBookingDate, slot.hour, slot.minute);
-                        const reservation = selectedDayReservations.find((item) => item.courtNumber === courtIndex + 1 && isSlotCovered(item, startsAt));
+                        const reservation = selectedDayReservations.find((item) => item.courtNumber === courtIndex + 1 && isSlotOverlapping(item, startsAt));
                         const isPast = startsAt < new Date();
                         const isClosed = closedDayKeys.has(selectedBookingDateKey);
                         const canBook = currentUser && !reservation && !isPast && !isClosed && !activeFutureReservation;
-                        const canBookOneHour = slot.hour < 20 || (slot.hour === 20 && slot.minute <= 30);
 
                         return (
-                          <td className={reservation ? "reserved-slot" : isClosed ? "closed-slot" : ""} key={`${selectedBookingDateKey}-${courtIndex}-${slot.hour}-${slot.minute}`}>
+                          <td className={reservation ? "reserved-slot" : isClosed ? "closed-slot" : "available-slot"} key={`${selectedBookingDateKey}-${courtIndex}-${slot.hour}-${slot.minute}`}>
                             {reservation ? (
                               <div className="slot-reservation">
-                                <strong>{reservationLabel(reservation)}</strong>
-                                <span>{formatTime(reservation.startsAt)}-{formatTime(reservation.endsAt)}</span>
+                                <strong>{t.reserved.toUpperCase()}</strong>
                                 {(reservation.userId === currentUser?.id || canEdit) ? (
                                   <form action={cancelCourtReservationAction}>
                                     <input type="hidden" name="reservationId" value={reservation.id} />
@@ -279,10 +272,6 @@ export default async function ClubDetailPage({
                                   <input type="hidden" name="clubId" value={club.id} />
                                   <input type="hidden" name="courtNumber" value={courtIndex + 1} />
                                   <input type="hidden" name="startsAt" value={startsAt.toISOString()} />
-                                  <select name="durationSlots" defaultValue={canBookOneHour ? "2" : "1"}>
-                                    <option value="1">30 min</option>
-                                    <option value="2" disabled={!canBookOneHour}>60 min</option>
-                                  </select>
                                   <button type="submit">{t.bookCourt}</button>
                                 </form>
                               </details>
