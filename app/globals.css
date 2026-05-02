@@ -561,6 +561,15 @@ h1 {
   flex-direction: row;
 }
 
+.feature-toggle-line {
+  gap: 9px;
+}
+
+.feature-toggle-line svg {
+  color: var(--accent-strong);
+  flex: 0 0 auto;
+}
+
 .check-grid {
   border: 1px solid var(--line);
   border-radius: 8px;

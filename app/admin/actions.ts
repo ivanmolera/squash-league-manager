@@ -2138,6 +2138,7 @@ export async function saveFeatureSettingsAction(formData: FormData) {
   revalidatePath("/admin/leagues");
   revalidatePath("/manager/tournaments");
   revalidatePath("/rankings");
+  redirect("/admin/settings?saved=1");
 }
 
 export async function reserveCourtAction(formData: FormData) {

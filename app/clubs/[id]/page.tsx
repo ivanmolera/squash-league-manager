@@ -271,6 +271,15 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
             })}
           </article>
         ) : null}
+        {features.court_bookings && canEdit && !showBookings ? (
+          <article className="list-panel full-width">
+            <h2>{t.courtBookings}</h2>
+            <p className="warning-box">
+              {club.availableCourts > 0 ? t.courtBookingsDisabledHint : t.courtBookingsNoCourtsHint}
+            </p>
+            <Link className="secondary-link" href={`/clubs/${club.id}/edit`}>{t.editClub}</Link>
+          </article>
+        ) : null}
         <article className="list-panel club-teams-panel">
           <h2>{t.teams}</h2>
           {club.teams.map((team) => (
