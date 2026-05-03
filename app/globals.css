@@ -992,6 +992,19 @@ h1 {
   gap: 14px;
 }
 
+.club-location-lines {
+  display: grid;
+  gap: 4px;
+}
+
+.club-location-lines p {
+  margin: 0;
+}
+
+.club-location-lines p:first-child {
+  font-weight: 800;
+}
+
 .club-teams-panel {
   align-self: start;
 }

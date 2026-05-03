@@ -107,6 +107,18 @@ function clubMapUrl(club: { name: string; address: string | null; postalCode: st
   return query ? `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed` : null;
 }
 
+function websiteHref(value: string) {
+  return /^https?:\/\//i.test(value) ? value : `https://${value}`;
+}
+
+function websiteLabel(value: string) {
+  try {
+    return new URL(websiteHref(value)).hostname.replace(/^www\./i, "");
+  } catch {
+    return value.replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/\/$/, "");
+  }
+}
+
 export default async function ClubDetailPage({
   params,
   searchParams
@@ -186,21 +198,25 @@ export default async function ClubDetailPage({
           <div className={mapUrl ? "club-detail-content has-map" : "club-detail-content"}>
             <div className="club-detail-data">
               {community ? <div className="club-detail-community-flag"><RankingCodeBadge code={community.code} /></div> : null}
-              <p><strong>{t.province}:</strong> {club.province ?? t.notProvidedFemale}</p>
-              <p><strong>{t.city}:</strong> {club.city ?? t.notProvidedFemale}</p>
-              <p><strong>{t.postalCode}:</strong> {club.postalCode ?? t.notProvided}</p>
-              <p><strong>{t.availableCourts}:</strong> {club.availableCourts}</p>
-              <p><strong>{t.clubPhone}:</strong> {canSeeContact ? club.phone ?? t.notProvided : t.privateValue}</p>
-              <p><strong>{t.address}:</strong> {canSeeContact ? club.address ?? t.notProvidedFemale : t.privateFemaleValue}</p>
+              <div className="club-location-lines">
+                <p>{club.city ?? t.notProvidedFemale}</p>
+                <p>{canSeeContact ? club.address ?? t.notProvidedFemale : t.privateFemaleValue}</p>
+                <p>
+                  {club.postalCode ?? t.notProvided}
+                  {club.province ? ` (${club.province})` : ""}
+                </p>
+              </div>
               <p>
                 <strong>{t.website}:</strong>{" "}
                 {canSeeContact
                   ? club.websiteUrl
-                    ? <a href={club.websiteUrl} rel="noreferrer" target="_blank">{club.websiteUrl}</a>
+                    ? <a href={websiteHref(club.websiteUrl)} rel="noreferrer" target="_blank">{websiteLabel(club.websiteUrl)}</a>
                     : t.notProvidedFemale
                   : t.privateFemaleValue}
               </p>
+              <p><strong>{t.clubPhone}:</strong> {canSeeContact ? club.phone ?? t.notProvided : t.privateValue}</p>
               <p><strong>{t.assignedManager}:</strong> {club.manager?.displayName ?? club.manager?.email ?? t.noManager}</p>
+              <p><strong>{t.availableCourts}:</strong> {club.availableCourts}</p>
             </div>
             {mapUrl ? (
               <iframe
