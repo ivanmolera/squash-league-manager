@@ -10,7 +10,7 @@ export default async function LoginPage() {
     <main className="auth-shell">
       <Navigation />
       <section className="auth-panel">
-        <p className="eyebrow">Squash League Manager</p>
+        <p className="eyebrow">{t.app}</p>
         <h1>{t.loginTitle}</h1>
         <p className="muted">{t.loginText}</p>
         <LoginForm labels={{ email: t.email, password: t.password, signingIn: t.signingIn, signIn: t.signIn }} />

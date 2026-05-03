@@ -5,8 +5,8 @@ import { getDictionary } from "@/src/lib/i18n";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Squash League Manager",
-  description: "Gestión de ligas, equipos, torneos y ránkings de squash."
+  title: "SquashFlow",
+  description: "SquashFlow: gestión de ligas, equipos, torneos, reservas y ránkings de squash."
 };
 
 export default async function RootLayout({

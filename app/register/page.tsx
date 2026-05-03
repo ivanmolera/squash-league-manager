@@ -12,7 +12,7 @@ export default async function RegisterPage() {
     <main className="auth-shell">
       <Navigation />
       <section className="auth-panel">
-        <p className="eyebrow">Squash League Manager</p>
+        <p className="eyebrow">{t.app}</p>
         <h1>{t.registerTitle}</h1>
         <p className="muted">{t.registerText}</p>
         <RegisterForm

@@ -93,7 +93,7 @@ export default async function Home() {
     <main className="app-shell">
       <Navigation />
       <section className="public-hero">
-        <p className="eyebrow">Squash League Manager</p>
+        <p className="eyebrow">{t.app}</p>
         <h1>{user ? `${t.hello}, ${user.displayName ?? user.email}` : t.homeTitle}</h1>
         {user ? <p className="muted">{t.activeRole}: {roles}</p> : null}
       </section>

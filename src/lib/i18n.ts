@@ -8,7 +8,7 @@ export type Locale = (typeof locales)[number];
 
 const dictionary = {
   ca: {
-    app: "Gestor de lligues de Squash",
+    app: "SquashFlow",
     home: "Inici",
     hello: "Hola",
     publicAccess: "Consulta pública",
@@ -30,7 +30,7 @@ const dictionary = {
     chooseLanguage: "Tria idioma",
     backToTop: "Tornar a l'inici de la pàgina",
     backToTopShort: "Tornar a dalt",
-    homeTitle: "Consulta lligues, tornejos, resultats i rànquings de squash.",
+    homeTitle: "Consulta lligues, tornejos, reserves, resultats i rànquings de squash amb SquashFlow.",
     homeText: "",
     viewApp: "Veure app",
     moduleCompetitions: "Competicions",
@@ -337,7 +337,7 @@ const dictionary = {
     tournamentType: "Torneig"
   },
   es: {
-    app: "Gestor de ligas de Squash",
+    app: "SquashFlow",
     home: "Inicio",
     hello: "Hola",
     publicAccess: "Consulta pública",
@@ -359,7 +359,7 @@ const dictionary = {
     chooseLanguage: "Selecciona idioma",
     backToTop: "Volver al inicio de la página",
     backToTopShort: "Volver arriba",
-    homeTitle: "Consulta ligas, torneos, resultados y ránkings de squash.",
+    homeTitle: "Consulta ligas, torneos, reservas, resultados y ránkings de squash con SquashFlow.",
     homeText: "",
     viewApp: "Ver app",
     moduleCompetitions: "Competiciones",
@@ -666,7 +666,7 @@ const dictionary = {
     tournamentType: "Torneo"
   },
   en: {
-    app: "Squash League Manager",
+    app: "SquashFlow",
     home: "Home",
     hello: "Hello",
     publicAccess: "Public access",
@@ -688,7 +688,7 @@ const dictionary = {
     chooseLanguage: "Choose language",
     backToTop: "Back to the top of the page",
     backToTopShort: "Back to top",
-    homeTitle: "Browse squash leagues, tournaments, results and rankings.",
+    homeTitle: "Browse squash leagues, tournaments, bookings, results and rankings with SquashFlow.",
     homeText: "",
     viewApp: "Open app",
     moduleCompetitions: "Competitions",

@@ -48,7 +48,7 @@ export default async function VerifyEmailPage({
     <main className="auth-shell">
       <Navigation />
       <section className="auth-panel">
-        <p className="eyebrow">Squash League Manager</p>
+        <p className="eyebrow">{t.app}</p>
         <h1>{title}</h1>
         <p className="muted">{text}</p>
         <Link className="back-link" href="/login">
