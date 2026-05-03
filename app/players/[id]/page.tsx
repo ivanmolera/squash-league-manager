@@ -19,13 +19,17 @@ const rankingScopeCodes: Record<RankingScope, string> = {
 const rankingMatchTypes = ["tournament_knockout", "tournament_round_robin", "tournament_consolation", "tournament_third_place"] as const;
 const completedStatuses = ["played", "walkover", "retired"] as const;
 
-function PlayerPortrait({ player }: { player: { firstName: string; lastName: string; profilePhotoUrl: string | null; genericProfileVariant: string } }) {
+function PlayerPortrait({ player }: { player: { firstName: string; lastName: string; gender: string; profilePhotoUrl: string | null; genericProfileVariant: string } }) {
   if (player.profilePhotoUrl) {
     return <img className="player-photo" src={player.profilePhotoUrl} alt={`${player.firstName} ${player.lastName}`} />;
   }
 
+  const variant = player.gender === "male" || player.gender === "female"
+    ? player.gender
+    : player.genericProfileVariant;
+
   return (
-    <div className={`player-avatar ${player.genericProfileVariant}`} aria-hidden="true">
+    <div className={`player-avatar ${variant}`} aria-label={`${player.firstName} ${player.lastName}`} role="img">
       <span className="avatar-head" />
       <span className="avatar-shoulders" />
     </div>
@@ -114,8 +118,13 @@ async function getPlayerRankingEvolution(playerId: string) {
     const points: RankingEvolutionSeries["points"] = [];
 
     for (const competition of competitions) {
+      const competitionRows = buildRankingRows([competition]);
+      const playerScoredInCompetition = competitionRows.some((row) => row.playerId === playerId && row.points > 0);
       const seriesKey = normalizeRankingSeriesKey(competition.name) || competition.id;
       activeBySeries.set(seriesKey, competition);
+
+      if (!playerScoredInCompetition) continue;
+
       const rows = buildRankingRows([...activeBySeries.values()]);
       const playerIndex = rows.findIndex((row) => row.playerId === playerId && row.points > 0);
       if (playerIndex >= 0) {
@@ -424,7 +433,6 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ i
           <h2>{t.personalData}</h2>
           <p><strong>{t.email}:</strong> {canSeeContact ? player.user?.email ?? t.unavailable : t.privateValue}</p>
           <p><strong>{t.phone}:</strong> {canSeeContact ? player.user?.phone ?? t.notProvided : t.privateValue}</p>
-          <p><strong>{t.gender}:</strong> {t[player.gender as keyof typeof t]}</p>
           <p><strong>{t.dominantHand}:</strong> {t[player.dominantHand as keyof typeof t]}</p>
           <p><strong>{t.height}:</strong> {canSeePhysical ? player.heightCm ?? t.notProvidedFemale : t.privateFemaleValue}</p>
           <p><strong>{t.weight}:</strong> {canSeePhysical ? String(player.weightKg ?? t.notProvided) : t.privateValue}</p>
