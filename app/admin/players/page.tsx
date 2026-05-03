@@ -14,6 +14,27 @@ function playerInitial(lastName: string) {
   return /^[A-Z]$/.test(initial) ? initial : "#";
 }
 
+function PlayerListThumbnail({
+  player
+}: {
+  player: { firstName: string; lastName: string; gender: string; profilePhotoUrl: string | null; genericProfileVariant: string };
+}) {
+  if (player.profilePhotoUrl) {
+    return <img className="player-list-thumbnail" src={player.profilePhotoUrl} alt={`${player.firstName} ${player.lastName}`} />;
+  }
+
+  const variant = player.gender === "male" || player.gender === "female"
+    ? player.gender
+    : player.genericProfileVariant;
+
+  return (
+    <div className={`player-list-thumbnail player-list-avatar ${variant}`} aria-label={`${player.firstName} ${player.lastName}`} role="img">
+      <span className="avatar-head" />
+      <span className="avatar-shoulders" />
+    </div>
+  );
+}
+
 export default async function PlayersPage() {
   const [players, clubs, currentUser, dictionary] = await Promise.all([
     prisma.player.findMany({
@@ -80,9 +101,12 @@ export default async function PlayersPage() {
 
                   return isAdmin || player.id === ownPlayerId ? (
                     <article className="row-card player-list-row" key={player.id}>
-                      <div>
-                        <strong><Link href={`/players/${player.id}`}>{player.lastName}, {player.firstName}</Link></strong>
-                        <span>{clubName}{player.user ? ` · ${playerUserRole === "manager" ? t.manager : t.player}` : ""}</span>
+                      <div className="player-list-main">
+                        <PlayerListThumbnail player={player} />
+                        <div className="player-list-text">
+                          <strong><Link href={`/players/${player.id}`}>{player.lastName}, {player.firstName}</Link></strong>
+                          <span>{clubName}{player.user ? ` · ${playerUserRole === "manager" ? t.manager : t.player}` : ""}</span>
+                        </div>
                       </div>
                       <div className="row-actions">
                         {isAdmin && player.user ? (
@@ -103,9 +127,12 @@ export default async function PlayersPage() {
                     </article>
                   ) : (
                     <article className="row-card simple-row player-list-row" key={player.id}>
-                      <div>
-                        <strong><Link href={`/players/${player.id}`}>{player.lastName}, {player.firstName}</Link></strong>
-                        <span>{clubName}</span>
+                      <div className="player-list-main">
+                        <PlayerListThumbnail player={player} />
+                        <div className="player-list-text">
+                          <strong><Link href={`/players/${player.id}`}>{player.lastName}, {player.firstName}</Link></strong>
+                          <span>{clubName}</span>
+                        </div>
                       </div>
                     </article>
                   );

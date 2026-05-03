@@ -805,6 +805,42 @@ h1 {
   min-width: 0;
 }
 
+.player-list-main {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 36px minmax(0, 1fr);
+}
+
+.player-list-thumbnail {
+  aspect-ratio: 1;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  height: 36px;
+  object-fit: cover;
+  overflow: hidden;
+  position: relative;
+  width: 36px;
+}
+
+.player-list-avatar {
+  background: #e6f4f1;
+}
+
+.player-list-avatar.female {
+  background: #fdecef;
+}
+
+.player-list-avatar.male {
+  background: #e8f0fe;
+}
+
+.player-list-text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
 .player-list-row span {
   color: var(--muted);
   font-size: 0.9rem;
