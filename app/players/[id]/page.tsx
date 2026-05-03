@@ -275,7 +275,7 @@ async function getPlayerStatistics(playerId: string, membershipSeasonIds: string
 
   const won = matches.filter((match) => match.winnerPlayerId === playerId).length;
   const lost = matches.length - won;
-  const rankingPositions = currentRankings.flatMap((ranking) => {
+  const currentRankingPositions = currentRankings.flatMap((ranking) => {
     const index = ranking.rows.findIndex((row) => row.playerId === playerId && row.points > 0);
     return index >= 0 ? [{ scope: ranking.scope, position: index + 1 }] : [];
   });
@@ -283,7 +283,11 @@ async function getPlayerStatistics(playerId: string, membershipSeasonIds: string
     const row = ranking.rows.find((item) => item.playerId === playerId && item.points > 0);
     return row ? [{ scope: ranking.scope, tournaments: row.tournaments, points: row.points, averagePoints: row.averagePoints }] : [];
   });
-  const bestRanking = rankingPositions.sort((left, right) => left.position - right.position)[0] ?? null;
+  const historicalRankingPositions = rankingEvolution.flatMap((ranking) =>
+    ranking.points.map((point) => ({ scope: ranking.scope, position: point.position }))
+  );
+  const bestRanking = (historicalRankingPositions.length ? historicalRankingPositions : currentRankingPositions)
+    .sort((left, right) => left.position - right.position)[0] ?? null;
 
   return {
     seasonsPlayed: seasonIds.size,
