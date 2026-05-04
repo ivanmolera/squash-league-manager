@@ -1093,6 +1093,7 @@ export async function savePlayerAction(formData: FormData) {
   revalidatePath(`/players/${player.id}`);
   revalidatePath(`/players/${player.id}/edit`);
   affectedTeamIds.forEach((teamId) => revalidatePath(`/teams/${teamId}`));
+  redirect(`/players/${player.id}/edit?saved=1`);
 }
 
 export async function changePlayerPasswordAction(formData: FormData) {

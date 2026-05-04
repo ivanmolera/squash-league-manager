@@ -5,11 +5,19 @@ import { getCurrentUser } from "@/src/lib/auth";
 import { getFeatureSettings } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
+import { SaveConfirmation } from "./save-confirmation";
 
 export const dynamic = "force-dynamic";
 
-export default async function EditPlayerPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EditPlayerPage({
+  params,
+  searchParams
+}: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ saved?: string }>;
+}) {
   const { id } = await params;
+  const query = await searchParams;
   const [player, currentUser, dictionary, features] = await Promise.all([
     prisma.player.findUnique({ where: { id }, include: { user: true } }),
     getCurrentUser(),
@@ -26,7 +34,8 @@ export default async function EditPlayerPage({ params }: { params: Promise<{ id:
       <Navigation />
       <section className="edit-stack">
         <form className="admin-form" action={savePlayerAction}>
-          <h1>{t.editPlayer}</h1>
+          <h1>{t.myProfile}</h1>
+          {query?.saved === "1" ? <SaveConfirmation message={t.savedChanges} /> : null}
           <input type="hidden" name="playerId" value={player.id} />
           <input type="hidden" name="profilePhotoUrl" value={player.profilePhotoUrl ?? ""} />
           <label>{t.firstName}<input name="firstName" defaultValue={player.firstName} required /></label>
