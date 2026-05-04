@@ -28,15 +28,15 @@ export function RegisterForm({
     <form className="auth-form" action={formAction}>
       <label>
         {labels.firstName}
-        <input name="firstName" autoComplete="given-name" required />
+        <input name="firstName" autoComplete="given-name" required defaultValue={state.values?.firstName ?? ""} />
       </label>
       <label>
         {labels.lastName}
-        <input name="lastName" autoComplete="family-name" required />
+        <input name="lastName" autoComplete="family-name" required defaultValue={state.values?.lastName ?? ""} />
       </label>
       <label>
         {labels.email}
-        <input name="email" type="email" autoComplete="email" required />
+        <input name="email" type="email" autoComplete="email" required defaultValue={state.values?.email ?? ""} />
       </label>
       <label>
         {labels.password}

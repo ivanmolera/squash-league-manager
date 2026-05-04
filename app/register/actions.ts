@@ -23,6 +23,11 @@ export type RegisterState = {
   error?: string;
   success?: string;
   verificationUrl?: string;
+  values?: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+  };
 };
 
 function createEmailVerificationToken() {
@@ -45,27 +50,34 @@ function verificationEmailHtml({ title, text, cta, url }: { title: string; text:
 
 export async function registerPlayerAction(_state: RegisterState, formData: FormData): Promise<RegisterState> {
   const { locale, t } = await getDictionary();
+  const values = {
+    firstName: String(formData.get("firstName") ?? ""),
+    lastName: String(formData.get("lastName") ?? ""),
+    email: String(formData.get("email") ?? "")
+  };
+
   if (!(await isFeatureEnabled("public_registration"))) {
-    return { error: t.unavailable };
+    return { error: t.unavailable, values };
   }
 
   const parsed = registerSchema.safeParse({
-    firstName: formData.get("firstName"),
-    lastName: formData.get("lastName"),
-    email: formData.get("email"),
+    firstName: values.firstName,
+    lastName: values.lastName,
+    email: values.email,
     password: formData.get("password"),
     confirmPassword: formData.get("confirmPassword")
   });
 
   if (!parsed.success) {
-    return { error: t.registrationInvalid };
+    const hasPasswordMismatch = parsed.error.issues.some((issue) => issue.path.join(".") === "confirmPassword" && issue.code === "custom");
+    return { error: hasPasswordMismatch ? t.passwordsDoNotMatch : t.registrationInvalid, values };
   }
 
   const email = parsed.data.email.toLowerCase();
   const existingUser = await prisma.user.findUnique({ where: { email } });
 
   if (existingUser) {
-    return { error: t.registrationEmailExists };
+    return { error: t.registrationEmailExists, values };
   }
 
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);
@@ -135,6 +147,6 @@ export async function registerPlayerAction(_state: RegisterState, formData: Form
       await prisma.player.delete({ where: { id: user.player.id } });
     }
     await prisma.user.delete({ where: { id: user.id } });
-    return { error: t.registrationEmailSendFailed };
+    return { error: t.registrationEmailSendFailed, values };
   }
 }
