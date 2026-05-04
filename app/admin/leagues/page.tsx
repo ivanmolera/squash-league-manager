@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/src/lib/auth";
 import { requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
+import { LeagueParticipantFields } from "./league-participant-fields";
 
 export const dynamic = "force-dynamic";
 
@@ -118,6 +119,16 @@ function LeagueForm({
   labels: Record<string, string>;
   participants: Array<{ id: string; label: string; clubId?: string }>;
 }) {
+  const weekdayOptions = [
+    ["1", labels.monday],
+    ["2", labels.tuesday],
+    ["3", labels.wednesday],
+    ["4", labels.thursday],
+    ["5", labels.friday],
+    ["6", labels.saturday],
+    ["7", labels.sunday]
+  ];
+
   return (
     <form className="admin-form" action={saveLeagueAction}>
       <h2>{title}</h2>
@@ -130,28 +141,29 @@ function LeagueForm({
           <option value="3">{labels.bestOf3}</option>
         </select>
       </label>
-      <label>{labels.restrictedClub}
-        <select name="hostClubId" defaultValue="">
-          <option value="">{labels.noRestriction}</option>
-          {clubs.map((club) => <option key={club.id} value={club.id}>{club.name}</option>)}
+      <label>{labels.matchFrequency}
+        <select name="matchFrequency" defaultValue="biweekly">
+          <option value="weekly">{labels.weekly}</option>
+          <option value="biweekly">{labels.biweekly}</option>
+        </select>
+      </label>
+      <label>{labels.preferredMatchDay}
+        <select name="preferredMatchWeekday" defaultValue="">
+          <option value="">{labels.distributeDuringWeek}</option>
+          {weekdayOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
       </label>
       <div className="form-row">
         <label>{labels.registrationDeadline}<input name="registrationDeadline" type="date" required /></label>
         <label>{labels.start}<input name="startsAt" type="date" required /></label>
       </div>
-      <div className="form-row">
-        <label>{labels.end}<input name="endsAt" type="date" required /></label>
-      </div>
-      <fieldset className="check-grid">
-        <legend>{type === "individual_league" ? labels.players : labels.clubs}</legend>
-        {participants.map((participant) => (
-          <label key={participant.id}>
-            <input type="checkbox" name="participantIds" value={participant.id} data-club-id={participant.clubId ?? ""} />
-            {participant.label}
-          </label>
-        ))}
-      </fieldset>
+      <LeagueParticipantFields
+        clubs={clubs}
+        filterByClub={type === "individual_league"}
+        labels={labels}
+        legend={type === "individual_league" ? labels.players : labels.clubs}
+        participants={participants}
+      />
       <button type="submit">{labels.createAndGenerateMatchdays}</button>
     </form>
   );

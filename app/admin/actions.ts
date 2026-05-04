@@ -86,7 +86,8 @@ const competitionSchema = z.object({
   bestOfSets: z.coerce.number().int().refine((value) => value === 3 || value === 5),
   registrationDeadline: z.string().min(10),
   startsAt: z.string().min(10),
-  endsAt: z.string().min(10),
+  matchFrequency: z.enum(["weekly", "biweekly"]).default("biweekly"),
+  preferredMatchWeekday: z.coerce.number().int().min(1).max(7).optional().or(z.literal("")),
   hostClubId: z.string().uuid().optional().or(z.literal("")),
   participantIds: z.array(z.string().uuid()).default([])
 });
@@ -500,19 +501,49 @@ function tournamentMatchDate(startsAt: Date | null, matchType: string, roundNumb
   return date;
 }
 
-function leagueMatchDate(startsAt: string, roundIndex: number) {
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function leagueFrequencyDays(matchFrequency: "weekly" | "biweekly") {
+  return matchFrequency === "weekly" ? 7 : 14;
+}
+
+function isoWeekday(date: Date) {
+  const day = date.getDay();
+  return day === 0 ? 7 : day;
+}
+
+function leagueRoundStart(startsAt: string, roundIndex: number, matchFrequency: "weekly" | "biweekly") {
   const date = new Date(startsAt);
-  date.setDate(date.getDate() + roundIndex * 14);
+  date.setDate(date.getDate() + roundIndex * leagueFrequencyDays(matchFrequency));
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function leagueMatchDate(
+  startsAt: string,
+  roundIndex: number,
+  matchIndex: number,
+  matchFrequency: "weekly" | "biweekly",
+  preferredMatchWeekday?: number | ""
+) {
+  const start = leagueRoundStart(startsAt, roundIndex, matchFrequency);
+  const date = new Date(start);
+  if (preferredMatchWeekday) {
+    date.setDate(start.getDate() + ((preferredMatchWeekday - isoWeekday(start) + 7) % 7));
+  } else {
+    date.setDate(start.getDate() + (matchIndex % 7));
+  }
   date.setHours(19, 0, 0, 0);
   return date;
 }
 
-function leagueMatchdayWindow(startsAt: string, roundIndex: number) {
-  const start = new Date(startsAt);
-  start.setDate(start.getDate() + roundIndex * 14);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 13);
+function leagueMatchdayWindow(startsAt: string, roundIndex: number, matchFrequency: "weekly" | "biweekly") {
+  const start = leagueRoundStart(startsAt, roundIndex, matchFrequency);
+  const end = addDays(start, leagueFrequencyDays(matchFrequency) - 1);
   return { startsAt: start, endsAt: end };
 }
 
@@ -1527,7 +1558,8 @@ export async function saveLeagueAction(formData: FormData) {
     bestOfSets: textValue(formData.get("bestOfSets")) ?? "5",
     registrationDeadline: textValue(formData.get("registrationDeadline")),
     startsAt: textValue(formData.get("startsAt")),
-    endsAt: textValue(formData.get("endsAt")),
+    matchFrequency: textValue(formData.get("matchFrequency")) ?? "biweekly",
+    preferredMatchWeekday: textValue(formData.get("preferredMatchWeekday")) ?? "",
     hostClubId: textValue(formData.get("hostClubId")) ?? "",
     participantIds: toArray(formData, "participantIds")
   });
@@ -1545,7 +1577,8 @@ export async function saveLeagueAction(formData: FormData) {
           hostClubId: parsed.hostClubId || null,
           registrationDeadline: new Date(parsed.registrationDeadline),
           startsAt: new Date(parsed.startsAt),
-          endsAt: new Date(parsed.endsAt)
+          matchFrequency: parsed.matchFrequency,
+          preferredMatchWeekday: parsed.preferredMatchWeekday || null
         }
       })
     : await prisma.competition.create({
@@ -1559,7 +1592,9 @@ export async function saveLeagueAction(formData: FormData) {
           status: "draft",
           registrationDeadline: new Date(parsed.registrationDeadline),
           startsAt: new Date(parsed.startsAt),
-          endsAt: new Date(parsed.endsAt)
+          endsAt: null,
+          matchFrequency: parsed.matchFrequency,
+          preferredMatchWeekday: parsed.preferredMatchWeekday || null
         }
       });
 
@@ -1584,6 +1619,10 @@ export async function saveLeagueAction(formData: FormData) {
   await prisma.teamTie.deleteMany({ where: { competitionId: competition.id } });
   await prisma.leagueMatchday.deleteMany({ where: { competitionId: competition.id } });
   if (parsed.participantIds.length < 2) {
+    await prisma.competition.update({
+      where: { id: competition.id },
+      data: { endsAt: null }
+    });
     revalidatePath("/admin/leagues");
     revalidatePath(`/leagues/${competition.id}`);
     revalidatePath(`/leagues/${competition.id}/edit`);
@@ -1601,6 +1640,10 @@ export async function saveLeagueAction(formData: FormData) {
       include: { memberships: { include: { club: true }, take: 1 } }
     });
     if (players.length < 2) {
+      await prisma.competition.update({
+        where: { id: competition.id },
+        data: { endsAt: null }
+      });
       revalidatePath("/admin/leagues");
       revalidatePath(`/leagues/${competition.id}`);
       revalidatePath(`/leagues/${competition.id}/edit`);
@@ -1618,7 +1661,7 @@ export async function saveLeagueAction(formData: FormData) {
     const rounds = generateRoundRobin(shuffle(players));
     const matchdays = await Promise.all(
       rounds.map((_, roundIndex) => {
-        const window = leagueMatchdayWindow(parsed.startsAt, roundIndex);
+        const window = leagueMatchdayWindow(parsed.startsAt, roundIndex, parsed.matchFrequency);
         return prisma.leagueMatchday.create({
           data: {
             seasonId: season.id,
@@ -1641,7 +1684,7 @@ export async function saveLeagueAction(formData: FormData) {
           matchType: "individual_league",
           roundNumber: roundIndex + 1,
           matchOrder: matchIndex + 1,
-          scheduledAt: leagueMatchDate(parsed.startsAt, roundIndex),
+          scheduledAt: leagueMatchDate(parsed.startsAt, roundIndex, matchIndex, parsed.matchFrequency, parsed.preferredMatchWeekday),
           status: "scheduled",
           homePlayerId: home.id,
           awayPlayerId: away.id,
@@ -1662,6 +1705,10 @@ export async function saveLeagueAction(formData: FormData) {
       }
     });
     if (clubs.length < 2) {
+      await prisma.competition.update({
+        where: { id: competition.id },
+        data: { endsAt: null }
+      });
       revalidatePath("/admin/leagues");
       revalidatePath(`/leagues/${competition.id}`);
       revalidatePath(`/leagues/${competition.id}/edit`);
@@ -1701,7 +1748,7 @@ export async function saveLeagueAction(formData: FormData) {
     const rounds = generateRoundRobin(shuffle(teams));
     const matchdays = await Promise.all(
       rounds.map((_, roundIndex) => {
-        const window = leagueMatchdayWindow(parsed.startsAt, roundIndex);
+        const window = leagueMatchdayWindow(parsed.startsAt, roundIndex, parsed.matchFrequency);
         return prisma.leagueMatchday.create({
           data: {
             seasonId: season.id,
@@ -1716,12 +1763,12 @@ export async function saveLeagueAction(formData: FormData) {
     );
     await prisma.teamTie.createMany({
       data: rounds.flatMap((round, roundIndex) =>
-        round.map(([home, away]) => ({
+        round.map(([home, away], matchIndex) => ({
           seasonId: season.id,
           competitionId: competition.id,
           competitionCategoryId: competitionCategory.id,
           leagueMatchdayId: matchdays[roundIndex].id,
-          scheduledAt: leagueMatchDate(parsed.startsAt, roundIndex),
+          scheduledAt: leagueMatchDate(parsed.startsAt, roundIndex, matchIndex, parsed.matchFrequency, parsed.preferredMatchWeekday),
           homeTeamId: home.id,
           awayTeamId: away.id,
           status: "scheduled",
@@ -1733,6 +1780,16 @@ export async function saveLeagueAction(formData: FormData) {
       )
     });
   }
+
+  const latestMatchday = await prisma.leagueMatchday.findFirst({
+    where: { competitionId: competition.id },
+    orderBy: { endsAt: "desc" }
+  });
+
+  await prisma.competition.update({
+    where: { id: competition.id },
+    data: { endsAt: latestMatchday?.endsAt ?? null }
+  });
 
   revalidatePath("/admin/leagues");
   revalidatePath(`/leagues/${competition.id}`);

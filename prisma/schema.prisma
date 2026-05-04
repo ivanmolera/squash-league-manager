@@ -366,6 +366,8 @@ model Competition {
   registrationDeadline DateTime?        @map("registration_deadline") @db.Timestamptz(6)
   startsAt    DateTime?              @map("starts_at") @db.Timestamptz(6)
   endsAt      DateTime?              @map("ends_at") @db.Timestamptz(6)
+  matchFrequency String               @default("biweekly") @map("match_frequency") @db.VarChar(16)
+  preferredMatchWeekday Int?          @map("preferred_match_weekday")
   hostClubId  String?                @map("host_club_id") @db.Uuid
   createdAt   DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime               @default(now()) @map("updated_at") @db.Timestamptz(6)
