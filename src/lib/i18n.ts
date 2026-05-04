@@ -10,6 +10,7 @@ const dictionary = {
   ca: {
     app: "SquashFlow",
     home: "Inici",
+    myProfile: "La meva fitxa",
     hello: "Hola",
     publicAccess: "Consulta pública",
     adminAccess: "Accés admin",
@@ -363,6 +364,7 @@ const dictionary = {
   es: {
     app: "SquashFlow",
     home: "Inicio",
+    myProfile: "Mi ficha",
     hello: "Hola",
     publicAccess: "Consulta pública",
     adminAccess: "Acceso admin",
@@ -716,6 +718,7 @@ const dictionary = {
   en: {
     app: "SquashFlow",
     home: "Home",
+    myProfile: "My profile",
     hello: "Hello",
     publicAccess: "Public access",
     adminAccess: "Admin access",

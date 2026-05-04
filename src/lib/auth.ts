@@ -28,7 +28,12 @@ export const getCurrentUser = cache(async () => {
     include: {
       user: {
         include: {
-          roles: true
+          roles: true,
+          player: {
+            select: {
+              id: true
+            }
+          }
         }
       }
     }

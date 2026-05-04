@@ -13,6 +13,7 @@ export async function Navigation() {
   return (
     <nav className="nav">
       <Link href="/">{t.home}</Link>
+      {currentUser?.player ? <Link href={`/players/${currentUser.player.id}/edit`}>{t.myProfile}</Link> : null}
       <Link href="/admin/players">{t.players}</Link>
       <Link href="/admin/clubs">{t.clubs}</Link>
       {features.leagues ? <Link href="/admin/leagues">{t.leagues}</Link> : null}
