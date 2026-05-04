@@ -14,6 +14,12 @@ export default async function LoginPage() {
         <h1>{t.loginTitle}</h1>
         <p className="muted">{t.loginText}</p>
         <LoginForm labels={{ email: t.email, password: t.password, signingIn: t.signingIn, signIn: t.signIn }} />
+        <Link className="back-link" href="/forgot-password">
+          {t.forgotPassword}
+        </Link>
+        <Link className="back-link" href="/resend-verification">
+          {t.resendVerification}
+        </Link>
         <Link className="back-link" href="/register">
           {t.createAccount}
         </Link>

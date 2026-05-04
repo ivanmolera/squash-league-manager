@@ -42,6 +42,10 @@ export async function loginAction(_state: LoginState, formData: FormData): Promi
     return { error: t.invalidCredentials };
   }
 
+  if (user.suspendedAt) {
+    return { error: t.accountSuspended };
+  }
+
   if (!user.emailVerified) {
     return { error: t.emailNotVerified };
   }

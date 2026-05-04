@@ -799,6 +799,11 @@ h1 {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
+.player-list-row.is-suspended {
+  background: #f8fafc;
+  opacity: 0.78;
+}
+
 .player-list-row > div {
   display: grid;
   gap: 4px;
@@ -875,6 +880,28 @@ h1 {
 .role-switch-form select {
   min-height: 34px;
   padding: 6px 8px;
+}
+
+.account-suspension-form {
+  align-items: flex-end;
+  display: flex;
+  gap: 6px;
+}
+
+.account-suspension-form input {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  min-height: 34px;
+  padding: 6px 8px;
+  width: min(180px, 40vw);
+}
+
+.account-suspension-form button:disabled,
+.role-switch-form button:disabled,
+.role-switch-form select:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .club-player-row {

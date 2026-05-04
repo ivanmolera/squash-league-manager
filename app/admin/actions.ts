@@ -56,6 +56,12 @@ const userOperationalRoleSchema = z.object({
   role: z.enum(["player", "manager"])
 });
 
+const userSuspensionSchema = z.object({
+  userId: z.string().uuid(),
+  action: z.enum(["suspend", "reactivate"]),
+  reason: z.string().max(500).optional()
+});
+
 const clubSchema = z.object({
   clubId: z.string().uuid().optional().or(z.literal("")),
   name: z.string().min(3),
@@ -1180,6 +1186,61 @@ export async function updateUserOperationalRoleAction(formData: FormData) {
       });
     }
   });
+
+  revalidatePath("/admin/players");
+  if (user.player) {
+    revalidatePath(`/players/${user.player.id}`);
+    revalidatePath(`/players/${user.player.id}/edit`);
+  }
+}
+
+export async function updateUserSuspensionAction(formData: FormData) {
+  const currentUser = await requireUser();
+  if (!hasRole(currentUser, "admin")) {
+    throw new Error("Solo un admin puede suspender o reactivar usuarios.");
+  }
+
+  const parsed = userSuspensionSchema.parse({
+    userId: textValue(formData.get("userId")),
+    action: textValue(formData.get("action")),
+    reason: textValue(formData.get("reason"))
+  });
+
+  if (parsed.userId === currentUser.id) {
+    throw new Error("No puedes suspender tu propia cuenta.");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: parsed.userId },
+    include: { player: true }
+  });
+
+  if (!user) {
+    throw new Error("Usuario no encontrado.");
+  }
+
+  if (parsed.action === "suspend") {
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: user.id },
+        data: {
+          suspendedAt: new Date(),
+          suspendedByUserId: currentUser.id,
+          suspensionReason: parsed.reason ?? null
+        }
+      }),
+      prisma.authSession.deleteMany({ where: { userId: user.id } })
+    ]);
+  } else {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        suspendedAt: null,
+        suspendedByUserId: null,
+        suspensionReason: null
+      }
+    });
+  }
 
   revalidatePath("/admin/players");
   if (user.player) {

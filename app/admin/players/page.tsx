@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { savePlayerAction, updateUserOperationalRoleAction } from "@/app/admin/actions";
+import { savePlayerAction, updateUserOperationalRoleAction, updateUserSuspensionAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
 import { getDictionary } from "@/src/lib/i18n";
@@ -98,29 +98,49 @@ export default async function PlayersPage() {
                 {group.players.map((player) => {
                   const clubName = player.memberships[0]?.clubNameAtThatTime ?? t.independent;
                   const playerUserRole = player.user?.roles.some((role) => role.role === "manager") ? "manager" : "player";
+                  const isSuspended = Boolean(player.user?.suspendedAt);
 
                   return isAdmin || player.id === ownPlayerId ? (
-                    <article className="row-card player-list-row" key={player.id}>
+                    <article className={`row-card player-list-row${isSuspended ? " is-suspended" : ""}`} key={player.id}>
                       <div className="player-list-main">
                         <PlayerListThumbnail player={player} />
                         <div className="player-list-text">
                           <strong><Link href={`/players/${player.id}`}>{player.lastName}, {player.firstName}</Link></strong>
-                          <span>{clubName}{player.user ? ` · ${playerUserRole === "manager" ? t.manager : t.player}` : ""}</span>
+                          <span>
+                            {clubName}{player.user ? ` · ${playerUserRole === "manager" ? t.manager : t.player}` : ""}
+                            {isSuspended ? ` · ${t.suspendedAccount}` : ""}
+                          </span>
                         </div>
                       </div>
                       <div className="row-actions">
                         {isAdmin && player.user ? (
-                          <form action={updateUserOperationalRoleAction} className="role-switch-form">
-                            <input type="hidden" name="userId" value={player.user.id} />
-                            <label>
-                              <span>{t.activeRole}</span>
-                              <select name="role" defaultValue={playerUserRole}>
-                                <option value="player">{t.player}</option>
-                                <option value="manager">{t.manager}</option>
-                              </select>
-                            </label>
-                            <button type="submit">{t.save}</button>
-                          </form>
+                          <>
+                            <form action={updateUserOperationalRoleAction} className="role-switch-form">
+                              <input type="hidden" name="userId" value={player.user.id} />
+                              <label>
+                                <span>{t.activeRole}</span>
+                                <select name="role" defaultValue={playerUserRole} disabled={isSuspended}>
+                                  <option value="player">{t.player}</option>
+                                  <option value="manager">{t.manager}</option>
+                                </select>
+                              </label>
+                              <button type="submit" disabled={isSuspended}>{t.save}</button>
+                            </form>
+                            <form action={updateUserSuspensionAction} className="account-suspension-form">
+                              <input type="hidden" name="userId" value={player.user.id} />
+                              <input type="hidden" name="action" value={isSuspended ? "reactivate" : "suspend"} />
+                              {!isSuspended ? (
+                                <input aria-label={t.suspensionReason} name="reason" placeholder={t.suspensionReason} />
+                              ) : null}
+                              <button
+                                className={isSuspended ? "secondary-button" : "danger-button"}
+                                disabled={player.user.id === currentUser?.id}
+                                type="submit"
+                              >
+                                {isSuspended ? t.reactivateAccount : t.suspendAccount}
+                              </button>
+                            </form>
+                          </>
                         ) : null}
                         <Link className="secondary-link" href={`/players/${player.id}/edit`}>{t.edit}</Link>
                       </div>

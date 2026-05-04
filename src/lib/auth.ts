@@ -34,7 +34,7 @@ export const getCurrentUser = cache(async () => {
     }
   });
 
-  if (!session || session.expiresAt <= new Date()) {
+  if (!session || session.expiresAt <= new Date() || session.user.suspendedAt) {
     return null;
   }
 
