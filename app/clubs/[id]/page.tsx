@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { cancelCourtReservationAction, reserveCourtAction } from "@/app/admin/actions";
+import { cancelCourtReservationAction, reserveCourtAction, reviewClubJoinRequestAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { ClubCrest } from "@/src/components/club-crest";
 import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
@@ -38,6 +38,14 @@ async function getClub(id: string) {
           { player: { lastName: "asc" } },
           { player: { firstName: "asc" } }
         ]
+      },
+      joinRequests: {
+        where: { status: "pending" },
+        include: {
+          player: { include: { user: true } },
+          season: true
+        },
+        orderBy: [{ requestedAt: "asc" }]
       },
       closedDays: true
     }
@@ -124,7 +132,7 @@ export default async function ClubDetailPage({
   searchParams
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ bookingDate?: string }>;
+  searchParams?: Promise<{ bookingDate?: string; joinReviewed?: string }>;
 }) {
   const { id } = await params;
   const query = await searchParams;
@@ -193,6 +201,9 @@ export default async function ClubDetailPage({
         {canEdit ? <Link className="primary-link" href={`/clubs/${club.id}/edit`}>{t.edit}</Link> : null}
       </section>
       <section className="detail-grid">
+        {query?.joinReviewed === "1" ? (
+          <p className="success-message full-width" role="status">{t.clubJoinRequestReviewed}</p>
+        ) : null}
         <article className="list-panel club-detail-panel full-width">
           <h2>{t.clubDetails}</h2>
           <div className={mapUrl ? "club-detail-content has-map" : "club-detail-content"}>
@@ -311,6 +322,36 @@ export default async function ClubDetailPage({
               {club.availableCourts > 0 ? t.courtBookingsDisabledHint : t.courtBookingsNoCourtsHint}
             </p>
             <Link className="secondary-link" href={`/clubs/${club.id}/edit`}>{t.editClub}</Link>
+          </article>
+        ) : null}
+        {canEdit ? (
+          <article className="list-panel full-width">
+            <h2>{t.clubJoinRequests}</h2>
+            {club.joinRequests.length ? club.joinRequests.map((request) => (
+              <div className="row-card" key={request.id}>
+                <div>
+                  <strong>
+                    <Link href={`/players/${request.playerId}`}>{request.player.lastName}, {request.player.firstName}</Link>
+                  </strong>
+                  <p className="muted">
+                    {request.player.user?.email ?? t.noUser}
+                    {request.season ? ` · ${request.season.name}` : ""}
+                  </p>
+                </div>
+                <div className="row-actions">
+                  <form action={reviewClubJoinRequestAction}>
+                    <input type="hidden" name="requestId" value={request.id} />
+                    <input type="hidden" name="action" value="accept" />
+                    <button type="submit">{t.accept}</button>
+                  </form>
+                  <form action={reviewClubJoinRequestAction}>
+                    <input type="hidden" name="requestId" value={request.id} />
+                    <input type="hidden" name="action" value="reject" />
+                    <button className="secondary-button" type="submit">{t.reject}</button>
+                  </form>
+                </div>
+              </div>
+            )) : <p className="muted">{t.noClubJoinRequests}</p>}
           </article>
         ) : null}
         <article className="list-panel club-teams-panel">

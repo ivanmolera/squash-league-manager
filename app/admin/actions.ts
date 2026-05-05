@@ -14,6 +14,8 @@ import {
 } from "@/src/lib/court-booking-time";
 import { featureKeys, isFeatureEnabled } from "@/src/lib/features";
 import { clubGeocodingQuery, geocodeClubAddress } from "@/src/lib/geocoding";
+import { getDictionary } from "@/src/lib/i18n";
+import { appBaseUrl, sendTransactionalEmail } from "@/src/lib/email";
 import { prisma } from "@/src/lib/prisma";
 import { rankingCodeValues, rankingScopeForCode } from "@/src/lib/ranking-codes";
 import { generateRoundRobin, nextPowerOfTwo, shuffle } from "@/src/lib/schedule";
@@ -70,6 +72,16 @@ const playerLinkRequestSchema = z.object({
 const playerMergeSchema = z.object({
   primaryPlayerId: z.string().uuid(),
   duplicatePlayerId: z.string().uuid()
+});
+
+const clubJoinRequestSchema = z.object({
+  playerId: z.string().uuid(),
+  clubId: z.string().uuid()
+});
+
+const clubJoinReviewSchema = z.object({
+  requestId: z.string().uuid(),
+  action: z.enum(["accept", "reject"])
 });
 
 const clubSchema = z.object({
@@ -170,6 +182,30 @@ function toArray(formData: FormData, key: string) {
 
 function hasRole(user: Awaited<ReturnType<typeof getCurrentUser>>, role: "admin" | "manager" | "player") {
   return Boolean(user?.roles.some((assignment) => assignment.role === role));
+}
+
+function clubJoinRequestEmailHtml({
+  title,
+  text,
+  cta,
+  url
+}: {
+  title: string;
+  text: string;
+  cta: string;
+  url: string;
+}) {
+  return `
+    <div style="font-family:Arial,sans-serif;line-height:1.5;color:#0f172a;max-width:560px">
+      <h1 style="font-size:24px;margin:0 0 16px">SquashFlow</h1>
+      <p style="font-size:16px;margin:0 0 18px">${title}</p>
+      <p style="font-size:15px;margin:0 0 22px">${text}</p>
+      <p style="margin:0 0 24px">
+        <a href="${url}" style="background:#0f766e;border-radius:6px;color:#fff;display:inline-block;font-weight:700;padding:12px 18px;text-decoration:none">${cta}</a>
+      </p>
+      <p style="color:#64748b;font-size:13px;margin:0">${url}</p>
+    </div>
+  `;
 }
 
 function weekStart(date = new Date()) {
@@ -1593,6 +1629,198 @@ export async function mergePlayerProfilesAction(formData: FormData) {
   revalidatePath(`/players/${parsed.primaryPlayerId}`);
   revalidatePath(`/players/${parsed.duplicatePlayerId}`);
   redirect(`/players/${parsed.primaryPlayerId}`);
+}
+
+export async function requestJoinClubAction(formData: FormData) {
+  const currentUser = await requireUser();
+  const { t } = await getDictionary();
+  const parsed = clubJoinRequestSchema.parse({
+    playerId: textValue(formData.get("playerId")),
+    clubId: textValue(formData.get("clubId"))
+  });
+
+  const [player, club, season] = await Promise.all([
+    prisma.player.findUnique({
+      where: { id: parsed.playerId },
+      include: { user: true }
+    }),
+    prisma.club.findUnique({
+      where: { id: parsed.clubId },
+      include: { manager: true }
+    }),
+    getDefaultSeason()
+  ]);
+
+  if (!player || player.userId !== currentUser.id) {
+    throw new Error("Solo puedes solicitar club desde tu propia ficha.");
+  }
+
+  if (player.mergedIntoPlayerId) {
+    throw new Error("Esta ficha está fusionada con otra ficha principal.");
+  }
+
+  if (!club) {
+    throw new Error("Club no encontrado.");
+  }
+
+  if (!club.manager?.email) {
+    throw new Error("Este club no tiene responsable con email configurado.");
+  }
+
+  const currentMembership = await prisma.playerClubMembership.findFirst({
+    where: {
+      playerId: player.id,
+      seasonId: season.id
+    },
+    include: { club: true }
+  });
+
+  if (currentMembership) {
+    throw new Error("Ya perteneces a un club en esta temporada.");
+  }
+
+  await prisma.clubJoinRequest.upsert({
+    where: {
+      playerId_clubId_seasonId: {
+        playerId: player.id,
+        clubId: club.id,
+        seasonId: season.id
+      }
+    },
+    update: {
+      status: "pending",
+      requestedAt: new Date(),
+      resolvedAt: null,
+      resolvedByUserId: null,
+      notes: null
+    },
+    create: {
+      playerId: player.id,
+      clubId: club.id,
+      seasonId: season.id,
+      status: "pending"
+    }
+  });
+
+  const url = `${appBaseUrl()}/clubs/${club.id}`;
+  const playerName = `${player.firstName} ${player.lastName}`;
+
+  try {
+    await sendTransactionalEmail({
+      to: club.manager.email,
+      subject: t.clubJoinRequestEmailSubject,
+      text: `${playerName} ${t.clubJoinRequestEmailText} ${club.name}\n\n${url}`,
+      html: clubJoinRequestEmailHtml({
+        title: t.clubJoinRequestEmailTitle,
+        text: `${playerName} ${t.clubJoinRequestEmailText} ${club.name}.`,
+        cta: t.reviewClubJoinRequests,
+        url
+      })
+    });
+  } catch (error) {
+    console.error("Club join request email failed", error);
+    revalidatePath(`/players/${player.id}/edit`);
+    redirect(`/players/${player.id}/edit?joinEmailFailed=1`);
+  }
+
+  revalidatePath(`/players/${player.id}/edit`);
+  revalidatePath(`/clubs/${club.id}`);
+  redirect(`/players/${player.id}/edit?joinRequested=1`);
+}
+
+export async function reviewClubJoinRequestAction(formData: FormData) {
+  const currentUser = await requireUser();
+  const isAdmin = hasRole(currentUser, "admin");
+  const parsed = clubJoinReviewSchema.parse({
+    requestId: textValue(formData.get("requestId")),
+    action: textValue(formData.get("action"))
+  });
+
+  const request = await prisma.clubJoinRequest.findUnique({
+    where: { id: parsed.requestId },
+    include: {
+      player: true,
+      club: true,
+      season: true
+    }
+  });
+
+  if (!request || request.status !== "pending") {
+    throw new Error("Solicitud no encontrada o ya revisada.");
+  }
+
+  if (!isAdmin && request.club.managerUserId !== currentUser.id) {
+    throw new Error("Solo el responsable del club puede revisar esta solicitud.");
+  }
+
+  if (parsed.action === "reject") {
+    await prisma.clubJoinRequest.update({
+      where: { id: request.id },
+      data: {
+        status: "rejected",
+        resolvedAt: new Date(),
+        resolvedByUserId: currentUser.id
+      }
+    });
+  } else {
+    if (!request.seasonId) {
+      throw new Error("La solicitud no tiene temporada asociada.");
+    }
+    if (!request.season) {
+      throw new Error("No se ha encontrado la temporada de la solicitud.");
+    }
+
+    const existingMembership = await prisma.playerClubMembership.findFirst({
+      where: {
+        playerId: request.playerId,
+        seasonId: request.seasonId
+      }
+    });
+
+    if (existingMembership) {
+      throw new Error("Este jugador ya pertenece a un club en esta temporada.");
+    }
+
+    await prisma.$transaction([
+      prisma.playerClubMembership.create({
+        data: {
+          playerId: request.playerId,
+          clubId: request.clubId,
+          seasonId: request.seasonId,
+          clubNameAtThatTime: request.club.name,
+          fromDate: request.season.startsAt
+        }
+      }),
+      prisma.clubJoinRequest.update({
+        where: { id: request.id },
+        data: {
+          status: "approved",
+          resolvedAt: new Date(),
+          resolvedByUserId: currentUser.id
+        }
+      }),
+      prisma.clubJoinRequest.updateMany({
+        where: {
+          playerId: request.playerId,
+          seasonId: request.seasonId,
+          status: "pending",
+          id: { not: request.id }
+        },
+        data: {
+          status: "rejected",
+          resolvedAt: new Date(),
+          resolvedByUserId: currentUser.id,
+          notes: "Rejected automatically because another club request was accepted for the season."
+        }
+      })
+    ]);
+  }
+
+  revalidatePath(`/clubs/${request.clubId}`);
+  revalidatePath(`/clubs/${request.clubId}/edit`);
+  revalidatePath(`/players/${request.playerId}`);
+  revalidatePath(`/players/${request.playerId}/edit`);
+  redirect(`/clubs/${request.clubId}?joinReviewed=1`);
 }
 
 export async function saveClubAction(formData: FormData) {

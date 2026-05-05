@@ -388,6 +388,7 @@ model Season {
   memberships PlayerClubMembership[]
   competitions Competition[]
   leagueMatchdays LeagueMatchday[]
+  joinRequests ClubJoinRequest[]
 
   @@map("seasons")
 }
@@ -509,6 +510,7 @@ model PlayerClubMembership {
   season    Season    @relation(fields: [seasonId], references: [id], onDelete: Cascade)
 
   @@unique([playerId, clubId, seasonId])
+  @@unique([playerId, seasonId])
   @@map("player_club_memberships")
 }
 
@@ -652,6 +654,7 @@ model ClubJoinRequest {
   notes            String?
   player           Player            @relation(fields: [playerId], references: [id], onDelete: Cascade)
   club             Club              @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  season           Season?           @relation(fields: [seasonId], references: [id], onDelete: SetNull)
 
   @@unique([playerId, clubId, seasonId])
   @@map("club_join_requests")

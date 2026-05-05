@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { changePlayerPasswordAction, savePlayerAction } from "@/app/admin/actions";
+import { changePlayerPasswordAction, requestJoinClubAction, savePlayerAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
 import { getFeatureSettings } from "@/src/lib/features";
@@ -14,21 +14,45 @@ export default async function EditPlayerPage({
   searchParams
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ saved?: string }>;
+  searchParams?: Promise<{ saved?: string; joinRequested?: string; joinEmailFailed?: string }>;
 }) {
   const { id } = await params;
   const query = await searchParams;
-  const [player, currentUser, dictionary, features] = await Promise.all([
-    prisma.player.findUnique({ where: { id }, include: { user: true } }),
+  const [player, currentUser, dictionary, features, currentSeason, clubs] = await Promise.all([
+    prisma.player.findUnique({
+      where: { id },
+      include: {
+        user: true,
+        memberships: {
+          include: { club: true, season: true },
+          orderBy: [{ season: { startsAt: "desc" } }, { fromDate: "desc" }]
+        },
+        joinRequests: {
+          where: { status: "pending" },
+          include: { club: true, season: true },
+          orderBy: { requestedAt: "desc" }
+        }
+      }
+    }),
     getCurrentUser(),
     getDictionary(),
-    getFeatureSettings()
+    getFeatureSettings(),
+    prisma.season.findFirst({ where: { status: "active" }, orderBy: { startsAt: "desc" } }),
+    prisma.club.findMany({ include: { manager: true }, orderBy: [{ province: "asc" }, { name: "asc" }] })
   ]);
   const { t } = dictionary;
   if (!player) notFound();
   if (player.mergedIntoPlayerId) redirect(`/players/${player.mergedIntoPlayerId}/edit`);
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
   if (!isAdmin && player.userId !== currentUser?.id) notFound();
+  const isOwnProfile = player.userId === currentUser?.id;
+  const currentMembership = currentSeason
+    ? player.memberships.find((membership) => membership.seasonId === currentSeason.id)
+    : null;
+  const pendingJoinRequest = currentSeason
+    ? player.joinRequests.find((request) => request.seasonId === currentSeason.id)
+    : player.joinRequests[0] ?? null;
+  const requestableClubs = clubs.filter((club) => club.id !== currentMembership?.clubId && club.manager?.email);
 
   return (
     <main className="app-shell">
@@ -37,6 +61,8 @@ export default async function EditPlayerPage({
         <form className="admin-form" action={savePlayerAction}>
           <h1>{t.myProfile}</h1>
           {query?.saved === "1" ? <SaveConfirmation message={t.savedChanges} /> : null}
+          {query?.joinRequested === "1" ? <SaveConfirmation message={t.clubJoinRequestSent} /> : null}
+          {query?.joinEmailFailed === "1" ? <p className="warning-box">{t.clubJoinRequestEmailFailed}</p> : null}
           <input type="hidden" name="playerId" value={player.id} />
           <input type="hidden" name="profilePhotoUrl" value={player.profilePhotoUrl ?? ""} />
           <label>{t.firstName}<input name="firstName" defaultValue={player.firstName} required /></label>
@@ -78,6 +104,31 @@ export default async function EditPlayerPage({
             <label>{t.newPassword}<input name="newPassword" type="password" autoComplete="new-password" minLength={8} required /></label>
             <label>{t.repeatNewPassword}<input name="confirmPassword" type="password" autoComplete="new-password" minLength={8} required /></label>
             <button type="submit">{isAdmin ? t.updatePassword : t.changePassword}</button>
+          </form>
+        ) : null}
+        {isOwnProfile ? (
+          <form className="admin-form" action={requestJoinClubAction}>
+            <h2>{t.requestJoinClub}</h2>
+            <input type="hidden" name="playerId" value={player.id} />
+            {currentMembership ? (
+              <p className="muted">{t.alreadyBelongsToClub}: {currentMembership.club.name} · {currentMembership.season.name}</p>
+            ) : pendingJoinRequest ? (
+              <p className="warning-box">{t.pendingClubJoinRequest}: {pendingJoinRequest.club.name}</p>
+            ) : requestableClubs.length ? (
+              <>
+                <label>{t.club}
+                  <select name="clubId" required>
+                    <option value="">{t.selectClub}</option>
+                    {requestableClubs.map((club) => (
+                      <option key={club.id} value={club.id}>{club.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <button type="submit">{t.sendClubJoinRequest}</button>
+              </>
+            ) : (
+              <p className="muted">{t.noClubsAvailableForJoinRequest}</p>
+            )}
           </form>
         ) : null}
       </section>
