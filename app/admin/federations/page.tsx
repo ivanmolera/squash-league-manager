@@ -24,6 +24,9 @@ export default async function FederationsPage() {
   ]);
   const { t } = dictionary;
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
+  const sortedUsers = [...users].sort((left, right) =>
+    formatUserManagerName(left).localeCompare(formatUserManagerName(right), dictionary.locale, { sensitivity: "base" })
+  );
 
   if (!isAdmin) {
     redirect("/");
@@ -39,7 +42,7 @@ export default async function FederationsPage() {
       <section className="list-panel">
         {federations.map((federation) => (
           <article className="row-card" key={federation.id}>
-            <div>
+            <div className="federation-row-details">
               <strong>{federation.name}</strong>
               <span>{federation.code}{federation.ranking ? ` · ${federation.ranking.code}` : ""}</span>
               <span>{federation.city ?? t.noCity}{federation.province ? ` · ${federation.province}` : ""}</span>
@@ -51,7 +54,7 @@ export default async function FederationsPage() {
                 {t.federationManager}
                 <select name="managerUserId" defaultValue={federation.managerUserId ?? ""}>
                   <option value="">{t.noManager}</option>
-                  {users.map((user) => (
+                  {sortedUsers.map((user) => (
                     <option key={user.id} value={user.id}>
                       {formatUserManagerName(user)}
                     </option>

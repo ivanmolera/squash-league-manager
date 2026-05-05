@@ -733,6 +733,12 @@ h1 {
   padding: 12px;
 }
 
+.federation-row-details {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
 .player-directory {
   display: grid;
   gap: 18px;
