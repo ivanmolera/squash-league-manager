@@ -38,6 +38,7 @@ function PlayerListThumbnail({
 export default async function PlayersPage() {
   const [players, clubs, currentUser, dictionary] = await Promise.all([
     prisma.player.findMany({
+      where: { mergedIntoPlayerId: null },
       include: {
         user: { include: { roles: true } },
         memberships: {
@@ -72,6 +73,7 @@ export default async function PlayersPage() {
         <p className="eyebrow">{t.admin}</p>
         <h1>{t.players}</h1>
         <p className="muted">{t.playerProfileIntro}</p>
+        {isAdmin ? <Link className="secondary-link" href="/admin/players/duplicates">{t.duplicateManagement}</Link> : null}
       </section>
 
       {isAdmin || canCreateOwnProfile ? (

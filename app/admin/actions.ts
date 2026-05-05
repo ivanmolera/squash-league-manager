@@ -62,6 +62,16 @@ const userSuspensionSchema = z.object({
   reason: z.string().max(500).optional()
 });
 
+const playerLinkRequestSchema = z.object({
+  requestId: z.string().uuid(),
+  action: z.enum(["approve", "reject"])
+});
+
+const playerMergeSchema = z.object({
+  primaryPlayerId: z.string().uuid(),
+  duplicatePlayerId: z.string().uuid()
+});
+
 const clubSchema = z.object({
   clubId: z.string().uuid().optional().or(z.literal("")),
   name: z.string().min(3),
@@ -823,8 +833,11 @@ async function assertPlayerEligibleForCompetitionCategory(competitionCategoryId:
   });
   const player = await prisma.player.findUniqueOrThrow({
     where: { id: playerId },
-    select: { gender: true, birthDate: true }
+    select: { gender: true, birthDate: true, mergedIntoPlayerId: true }
   });
+  if (player.mergedIntoPlayerId) {
+    throw new Error("Esta ficha de jugador está fusionada con otra ficha principal.");
+  }
   const referenceDate = competitionCategory.competition.startsAt ?? new Date();
   const age = playerAgeAt(referenceDate, player.birthDate);
   const genderMatches = competitionCategory.category.genderScope === "not_specified" || player.gender === competitionCategory.category.genderScope;
@@ -1279,6 +1292,307 @@ export async function updateUserSuspensionAction(formData: FormData) {
     revalidatePath(`/players/${user.player.id}`);
     revalidatePath(`/players/${user.player.id}/edit`);
   }
+}
+
+export async function reviewPlayerLinkRequestAction(formData: FormData) {
+  const currentUser = await requireUser();
+  if (!hasRole(currentUser, "admin")) {
+    throw new Error("Solo un admin puede revisar solicitudes de vinculación.");
+  }
+
+  const parsed = playerLinkRequestSchema.parse({
+    requestId: textValue(formData.get("requestId")),
+    action: textValue(formData.get("action"))
+  });
+
+  const request = await prisma.playerLinkRequest.findUnique({
+    where: { id: parsed.requestId },
+    include: {
+      user: { include: { player: true } },
+      candidatePlayer: true
+    }
+  });
+
+  if (!request || request.status !== "pending") {
+    throw new Error("Solicitud no encontrada o ya revisada.");
+  }
+
+  if (parsed.action === "reject") {
+    await prisma.playerLinkRequest.update({
+      where: { id: request.id },
+      data: {
+        status: "rejected",
+        reviewedByUserId: currentUser.id,
+        reviewedAt: new Date()
+      }
+    });
+  } else {
+    if (request.user.player) {
+      throw new Error("El usuario ya tiene una ficha de jugador vinculada.");
+    }
+
+    if (request.candidatePlayer.userId) {
+      throw new Error("La ficha candidata ya tiene una cuenta vinculada.");
+    }
+
+    if (request.candidatePlayer.mergedIntoPlayerId) {
+      throw new Error("La ficha candidata ya está fusionada con otra ficha principal.");
+    }
+
+    await prisma.$transaction([
+      prisma.player.update({
+        where: { id: request.candidatePlayerId },
+        data: { userId: request.userId }
+      }),
+      prisma.user.update({
+        where: { id: request.userId },
+        data: {
+          displayName: `${request.candidatePlayer.firstName} ${request.candidatePlayer.lastName}`
+        }
+      }),
+      prisma.playerLinkRequest.update({
+        where: { id: request.id },
+        data: {
+          status: "approved",
+          reviewedByUserId: currentUser.id,
+          reviewedAt: new Date()
+        }
+      })
+    ]);
+  }
+
+  revalidatePath("/admin/players");
+  revalidatePath("/admin/players/duplicates");
+  revalidatePath(`/players/${request.candidatePlayerId}`);
+  revalidatePath(`/players/${request.candidatePlayerId}/edit`);
+}
+
+export async function mergePlayerProfilesAction(formData: FormData) {
+  const currentUser = await requireUser();
+  if (!hasRole(currentUser, "admin")) {
+    throw new Error("Solo un admin puede fusionar fichas de jugador.");
+  }
+
+  const parsed = playerMergeSchema.parse({
+    primaryPlayerId: textValue(formData.get("primaryPlayerId")),
+    duplicatePlayerId: textValue(formData.get("duplicatePlayerId"))
+  });
+
+  if (parsed.primaryPlayerId === parsed.duplicatePlayerId) {
+    throw new Error("Selecciona dos fichas distintas.");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const [primary, duplicate] = await Promise.all([
+      tx.player.findUnique({ where: { id: parsed.primaryPlayerId }, include: { user: true } }),
+      tx.player.findUnique({ where: { id: parsed.duplicatePlayerId }, include: { user: true } })
+    ]);
+
+    if (!primary || !duplicate) {
+      throw new Error("No se han encontrado las fichas seleccionadas.");
+    }
+
+    if (duplicate.mergedIntoPlayerId) {
+      throw new Error("La ficha duplicada ya está fusionada.");
+    }
+
+    if (primary.mergedIntoPlayerId) {
+      throw new Error("La ficha principal ya está fusionada en otra ficha.");
+    }
+
+    if (primary.userId && duplicate.userId && primary.userId !== duplicate.userId) {
+      throw new Error("No se pueden fusionar dos fichas con cuentas de usuario distintas.");
+    }
+
+    const displayName = `${primary.firstName} ${primary.lastName}`;
+    const beforeData = JSON.parse(JSON.stringify({ primary, duplicate }));
+
+    if (!primary.userId && duplicate.userId) {
+      await tx.player.update({
+        where: { id: duplicate.id },
+        data: { userId: null }
+      });
+      await tx.player.update({
+        where: { id: primary.id },
+        data: { userId: duplicate.userId }
+      });
+    }
+
+    await tx.$executeRaw`
+      DELETE FROM player_club_memberships duplicate_membership
+      WHERE duplicate_membership.player_id = ${duplicate.id}
+        AND EXISTS (
+          SELECT 1 FROM player_club_memberships primary_membership
+          WHERE primary_membership.player_id = ${primary.id}
+            AND primary_membership.club_id = duplicate_membership.club_id
+            AND primary_membership.season_id = duplicate_membership.season_id
+        )
+    `;
+    await tx.$executeRaw`UPDATE player_club_memberships SET player_id = ${primary.id} WHERE player_id = ${duplicate.id}`;
+
+    await tx.$executeRaw`
+      DELETE FROM team_rosters duplicate_roster
+      WHERE duplicate_roster.player_id = ${duplicate.id}
+        AND EXISTS (
+          SELECT 1 FROM team_rosters primary_roster
+          WHERE primary_roster.player_id = ${primary.id}
+            AND primary_roster.team_id = duplicate_roster.team_id
+            AND primary_roster.season_id = duplicate_roster.season_id
+            AND primary_roster.category_id = duplicate_roster.category_id
+        )
+    `;
+    await tx.$executeRaw`
+      UPDATE team_rosters
+      SET player_id = ${primary.id}, player_name_at_that_time = ${displayName}
+      WHERE player_id = ${duplicate.id}
+    `;
+
+    await tx.$executeRaw`
+      DELETE FROM tournament_registrations duplicate_registration
+      WHERE duplicate_registration.player_id = ${duplicate.id}
+        AND EXISTS (
+          SELECT 1 FROM tournament_registrations primary_registration
+          WHERE primary_registration.player_id = ${primary.id}
+            AND primary_registration.competition_category_id = duplicate_registration.competition_category_id
+        )
+    `;
+    await tx.$executeRaw`
+      UPDATE tournament_registrations
+      SET player_id = ${primary.id}, player_name_at_registration = ${displayName}
+      WHERE player_id = ${duplicate.id}
+    `;
+
+    await tx.$executeRaw`
+      DELETE FROM competition_participants duplicate_participant
+      WHERE duplicate_participant.player_id = ${duplicate.id}
+        AND EXISTS (
+          SELECT 1 FROM competition_participants primary_participant
+          WHERE primary_participant.player_id = ${primary.id}
+            AND primary_participant.competition_category_id = duplicate_participant.competition_category_id
+        )
+    `;
+    await tx.$executeRaw`UPDATE competition_participants SET player_id = ${primary.id} WHERE player_id = ${duplicate.id}`;
+
+    await tx.$executeRaw`
+      DELETE FROM club_join_requests duplicate_request
+      WHERE duplicate_request.player_id = ${duplicate.id}
+        AND EXISTS (
+          SELECT 1 FROM club_join_requests primary_request
+          WHERE primary_request.player_id = ${primary.id}
+            AND primary_request.club_id = duplicate_request.club_id
+            AND primary_request.season_id IS NOT DISTINCT FROM duplicate_request.season_id
+        )
+    `;
+    await tx.$executeRaw`UPDATE club_join_requests SET player_id = ${primary.id} WHERE player_id = ${duplicate.id}`;
+
+    await tx.$executeRaw`
+      DELETE FROM tournament_seeds duplicate_seed
+      WHERE duplicate_seed.player_id = ${duplicate.id}
+        AND EXISTS (
+          SELECT 1 FROM tournament_seeds primary_seed
+          WHERE primary_seed.player_id = ${primary.id}
+            AND primary_seed.competition_category_id = duplicate_seed.competition_category_id
+        )
+    `;
+    await tx.$executeRaw`
+      UPDATE tournament_seeds
+      SET player_id = ${primary.id}, player_name_at_time = ${displayName}
+      WHERE player_id = ${duplicate.id}
+    `;
+
+    await tx.$executeRaw`
+      UPDATE tournament_draw_entries
+      SET player_id = ${primary.id}, player_name_at_time = ${displayName}
+      WHERE player_id = ${duplicate.id}
+    `;
+
+    await tx.$executeRaw`
+      DELETE FROM individual_ranking_snapshots duplicate_snapshot
+      WHERE duplicate_snapshot.player_id = ${duplicate.id}
+        AND EXISTS (
+          SELECT 1 FROM individual_ranking_snapshots primary_snapshot
+          WHERE primary_snapshot.player_id = ${primary.id}
+            AND primary_snapshot.season_id = duplicate_snapshot.season_id
+            AND primary_snapshot.competition_id = duplicate_snapshot.competition_id
+            AND primary_snapshot.competition_category_id = duplicate_snapshot.competition_category_id
+        )
+    `;
+    await tx.$executeRaw`
+      UPDATE individual_ranking_snapshots
+      SET player_id = ${primary.id}, player_name_at_that_time = ${displayName}
+      WHERE player_id = ${duplicate.id}
+    `;
+
+    await tx.$executeRaw`
+      UPDATE court_reservations
+      SET player_id = ${primary.id}
+      WHERE player_id = ${duplicate.id}
+    `;
+    await tx.$executeRaw`
+      UPDATE court_reservations
+      SET partner_player_id = ${primary.id}
+      WHERE partner_player_id = ${duplicate.id}
+    `;
+
+    await tx.$executeRaw`
+      UPDATE matches
+      SET
+        home_player_name_at_match_time = CASE WHEN home_player_id = ${duplicate.id} THEN ${displayName} ELSE home_player_name_at_match_time END,
+        away_player_name_at_match_time = CASE WHEN away_player_id = ${duplicate.id} THEN ${displayName} ELSE away_player_name_at_match_time END,
+        home_player_id = CASE WHEN home_player_id = ${duplicate.id} THEN ${primary.id} ELSE home_player_id END,
+        away_player_id = CASE WHEN away_player_id = ${duplicate.id} THEN ${primary.id} ELSE away_player_id END,
+        winner_player_id = CASE WHEN winner_player_id = ${duplicate.id} THEN ${primary.id} ELSE winner_player_id END,
+        walkover_by_player_id = CASE WHEN walkover_by_player_id = ${duplicate.id} THEN ${primary.id} ELSE walkover_by_player_id END,
+        retired_by_player_id = CASE WHEN retired_by_player_id = ${duplicate.id} THEN ${primary.id} ELSE retired_by_player_id END
+      WHERE home_player_id = ${duplicate.id}
+        OR away_player_id = ${duplicate.id}
+        OR winner_player_id = ${duplicate.id}
+        OR walkover_by_player_id = ${duplicate.id}
+        OR retired_by_player_id = ${duplicate.id}
+    `;
+
+    await tx.playerLinkRequest.updateMany({
+      where: { candidatePlayerId: duplicate.id, status: "pending" },
+      data: {
+        status: "rejected",
+        reviewedByUserId: currentUser.id,
+        reviewedAt: new Date()
+      }
+    });
+    if (duplicate.userId) {
+      await tx.playerLinkRequest.updateMany({
+        where: { userId: duplicate.userId, status: "pending" },
+        data: {
+          candidatePlayerId: primary.id,
+          updatedAt: new Date()
+        }
+      });
+    }
+
+    await tx.player.update({
+      where: { id: duplicate.id },
+      data: {
+        userId: null,
+        mergedIntoPlayerId: primary.id,
+        mergedAt: new Date()
+      }
+    });
+
+    await tx.playerMergeLog.create({
+      data: {
+        primaryPlayerId: primary.id,
+        duplicatePlayerId: duplicate.id,
+        mergedByUserId: currentUser.id,
+        beforeData
+      }
+    });
+  });
+
+  revalidatePath("/admin/players");
+  revalidatePath("/admin/players/duplicates");
+  revalidatePath(`/players/${parsed.primaryPlayerId}`);
+  revalidatePath(`/players/${parsed.duplicatePlayerId}`);
+  redirect(`/players/${parsed.primaryPlayerId}`);
 }
 
 export async function saveClubAction(formData: FormData) {

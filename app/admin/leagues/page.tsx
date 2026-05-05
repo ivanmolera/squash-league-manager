@@ -13,6 +13,7 @@ export default async function LeaguesPage() {
   await requireFeature("leagues");
   const [players, clubs, leagues, currentUser, dictionary] = await Promise.all([
     prisma.player.findMany({
+      where: { mergedIntoPlayerId: null },
       include: {
         user: true,
         memberships: {

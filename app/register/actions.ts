@@ -7,6 +7,7 @@ import { hashSessionToken } from "@/src/lib/auth";
 import { appBaseUrl, sendTransactionalEmail } from "@/src/lib/email";
 import { isFeatureEnabled } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
+import { findPlayerLinkCandidates } from "@/src/lib/player-identity";
 import { prisma } from "@/src/lib/prisma";
 
 const registerSchema = z.object({
@@ -85,6 +86,15 @@ export async function registerPlayerAction(_state: RegisterState, formData: Form
   const tokenHash = hashSessionToken(token);
   const displayName = `${parsed.data.firstName} ${parsed.data.lastName}`;
   const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
+  const linkCandidates = await findPlayerLinkCandidates({
+    firstName: parsed.data.firstName,
+    lastName: parsed.data.lastName,
+    email,
+    onlyUnlinked: true,
+    minimumScore: 82,
+    take: 1
+  });
+  const linkCandidate = linkCandidates[0];
 
   const user = await prisma.user.create({
     data: {
@@ -103,15 +113,30 @@ export async function registerPlayerAction(_state: RegisterState, formData: Form
           role: "player"
         }
       },
-      player: {
-        create: {
-          firstName: parsed.data.firstName,
-          lastName: parsed.data.lastName,
-          genericProfileVariant: "neutral",
-          showContactPublic: false,
-          showPhysicalPublic: false
-        }
-      },
+      ...(linkCandidate
+        ? {
+            playerLinkRequests: {
+              create: {
+                candidatePlayerId: linkCandidate.player.id,
+                requestedFirstName: parsed.data.firstName,
+                requestedLastName: parsed.data.lastName,
+                requestedEmail: email,
+                matchScore: linkCandidate.score,
+                matchReasons: linkCandidate.reasons
+              }
+            }
+          }
+        : {
+            player: {
+              create: {
+                firstName: parsed.data.firstName,
+                lastName: parsed.data.lastName,
+                genericProfileVariant: "neutral",
+                showContactPublic: false,
+                showPhysicalPublic: false
+              }
+            }
+          }),
       emailVerificationTokens: {
         create: {
           tokenHash,
@@ -138,7 +163,7 @@ export async function registerPlayerAction(_state: RegisterState, formData: Form
     });
 
     return {
-      success: t.registrationCreated,
+      success: linkCandidate ? t.registrationLinkRequestCreated : t.registrationCreated,
       verificationUrl: emailResult.sent ? undefined : `/verify-email?token=${encodeURIComponent(token)}`
     };
   } catch (error) {

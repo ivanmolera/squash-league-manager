@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { changePlayerPasswordAction, savePlayerAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
@@ -26,6 +26,7 @@ export default async function EditPlayerPage({
   ]);
   const { t } = dictionary;
   if (!player) notFound();
+  if (player.mergedIntoPlayerId) redirect(`/players/${player.mergedIntoPlayerId}/edit`);
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
   if (!isAdmin && player.userId !== currentUser?.id) notFound();
 

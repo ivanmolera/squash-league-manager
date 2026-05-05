@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Navigation } from "@/app/navigation";
 import { ClubCrest } from "@/src/components/club-crest";
 import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
@@ -406,6 +406,7 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ i
   const { locale, t } = await getDictionary();
 
   if (!player) notFound();
+  if (player.mergedIntoPlayerId) redirect(`/players/${player.mergedIntoPlayerId}`);
 
   const openSeasonIds = new Set(openSeasons.map((season) => season.id));
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));

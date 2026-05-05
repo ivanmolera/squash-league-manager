@@ -75,6 +75,7 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
       }
     }),
     prisma.player.findMany({
+      where: { mergedIntoPlayerId: null },
       include: {
         memberships: {
           where: { toDate: null },
