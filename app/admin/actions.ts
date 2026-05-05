@@ -1663,10 +1663,6 @@ export async function requestJoinClubAction(formData: FormData) {
     throw new Error("Club no encontrado.");
   }
 
-  if (!club.manager?.email) {
-    throw new Error("Este club no tiene responsable con email configurado.");
-  }
-
   const currentMembership = await prisma.playerClubMembership.findFirst({
     where: {
       playerId: player.id,
@@ -1704,22 +1700,36 @@ export async function requestJoinClubAction(formData: FormData) {
 
   const url = `${appBaseUrl()}/clubs/${club.id}`;
   const playerName = `${player.firstName} ${player.lastName}`;
+  const notificationRecipients = club.manager?.email
+    ? [club.manager.email]
+    : (await prisma.user.findMany({
+        where: { roles: { some: { role: "admin" } } },
+        select: { email: true }
+      })).map((admin) => admin.email);
 
-  try {
-    await sendTransactionalEmail({
-      to: club.manager.email,
-      subject: t.clubJoinRequestEmailSubject,
-      text: `${playerName} ${t.clubJoinRequestEmailText} ${club.name}\n\n${url}`,
-      html: clubJoinRequestEmailHtml({
-        title: t.clubJoinRequestEmailTitle,
-        text: `${playerName} ${t.clubJoinRequestEmailText} ${club.name}.`,
-        cta: t.reviewClubJoinRequests,
-        url
-      })
-    });
-  } catch (error) {
-    console.error("Club join request email failed", error);
+  if (notificationRecipients.length) {
+    try {
+      await Promise.all(
+        notificationRecipients.map((recipient) => sendTransactionalEmail({
+          to: recipient,
+          subject: t.clubJoinRequestEmailSubject,
+          text: `${playerName} ${t.clubJoinRequestEmailText} ${club.name}\n\n${url}`,
+          html: clubJoinRequestEmailHtml({
+            title: t.clubJoinRequestEmailTitle,
+            text: `${playerName} ${t.clubJoinRequestEmailText} ${club.name}.`,
+            cta: t.reviewClubJoinRequests,
+            url
+          })
+        })
+      ));
+    } catch (error) {
+      console.error("Club join request email failed", error);
+      revalidatePath(`/players/${player.id}/edit`);
+      redirect(`/players/${player.id}/edit?joinEmailFailed=1`);
+    }
+  } else {
     revalidatePath(`/players/${player.id}/edit`);
+    revalidatePath(`/clubs/${club.id}`);
     redirect(`/players/${player.id}/edit?joinEmailFailed=1`);
   }
 

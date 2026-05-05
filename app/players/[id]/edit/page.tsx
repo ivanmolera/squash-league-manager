@@ -52,7 +52,7 @@ export default async function EditPlayerPage({
   const pendingJoinRequest = currentSeason
     ? player.joinRequests.find((request) => request.seasonId === currentSeason.id)
     : player.joinRequests[0] ?? null;
-  const requestableClubs = clubs.filter((club) => club.id !== currentMembership?.clubId && club.manager?.email);
+  const requestableClubs = clubs.filter((club) => club.id !== currentMembership?.clubId);
 
   return (
     <main className="app-shell">
@@ -120,7 +120,9 @@ export default async function EditPlayerPage({
                   <select name="clubId" required>
                     <option value="">{t.selectClub}</option>
                     {requestableClubs.map((club) => (
-                      <option key={club.id} value={club.id}>{club.name}</option>
+                      <option key={club.id} value={club.id}>
+                        {club.name}{club.manager?.email ? "" : ` · ${t.noManager}`}
+                      </option>
                     ))}
                   </select>
                 </label>
