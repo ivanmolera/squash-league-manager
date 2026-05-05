@@ -1475,8 +1475,42 @@ h1 {
 }
 
 .ranking-flag-nav a {
+  border: 2px solid transparent;
+  border-radius: 999px;
   display: inline-flex;
+  padding: 2px;
   text-decoration: none;
+}
+
+.ranking-flag-nav a[aria-current="page"] {
+  border-color: var(--accent);
+}
+
+.rankings-detail-grid {
+  align-items: flex-start;
+}
+
+.ranking-table-panel {
+  align-self: flex-start;
+  width: min(100%, 980px);
+}
+
+.ranking-table-panel .data-table th,
+.ranking-table-panel .data-table td {
+  vertical-align: top;
+}
+
+.ranking-category-list {
+  display: grid;
+  gap: 22px;
+}
+
+.ranking-category-section {
+  align-self: flex-start;
+}
+
+.ranking-category-section h3 {
+  margin: 0 0 10px;
 }
 
 .flag-none {

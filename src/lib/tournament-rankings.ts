@@ -5,6 +5,15 @@ import { formatPlayerListName } from "@/src/lib/names";
 export type RankingScope = "autonomic" | "state" | "psa";
 export type RankingCode = string;
 
+type RankingRowAccumulator = {
+  playerId: string;
+  name: string;
+  totalPoints: number;
+  averagePoints: number;
+  tournaments: Map<string, number>;
+  wins: number;
+};
+
 const rankingMatchTypes = ["tournament_knockout", "tournament_round_robin", "tournament_consolation", "tournament_third_place"] as const;
 
 function normalizeRankingSeriesKey(name: string) {
@@ -42,6 +51,32 @@ function rankingCompetitionWhere(scopeOrCode: RankingScope | RankingCode): Prism
   }
 
   return { rankingCode: scopeOrCode };
+}
+
+function toSortedRankingRows(rows: Iterable<RankingRowAccumulator>) {
+  const items = [...rows];
+
+  for (const row of items) {
+    row.totalPoints = [...row.tournaments.values()].reduce((total, points) => total + points, 0);
+    row.averagePoints = row.totalPoints / Math.max(2, row.tournaments.size);
+  }
+
+  return items
+    .filter((row) => row.tournaments.size > 0)
+    .sort((left, right) =>
+      right.averagePoints - left.averagePoints ||
+      right.totalPoints - left.totalPoints ||
+      right.wins - left.wins ||
+      left.name.localeCompare(right.name)
+    )
+    .map((row) => ({
+      playerId: row.playerId,
+      name: row.name,
+      points: row.totalPoints,
+      averagePoints: row.averagePoints,
+      tournaments: row.tournaments.size,
+      wins: row.wins
+    }));
 }
 
 export async function getTournamentRankingRows(scopeOrCode: RankingScope | RankingCode, playerIds?: string[]) {
@@ -85,14 +120,7 @@ export async function getTournamentRankingRows(scopeOrCode: RankingScope | Ranki
     }
   }
 
-  const rows = new Map<string, {
-    playerId: string;
-    name: string;
-    totalPoints: number;
-    averagePoints: number;
-    tournaments: Map<string, number>;
-    wins: number;
-  }>();
+  const rows = new Map<string, RankingRowAccumulator>();
 
   const ensure = (playerId: string, name: string | null) => {
     const existing = rows.get(playerId) ?? {
@@ -131,25 +159,128 @@ export async function getTournamentRankingRows(scopeOrCode: RankingScope | Ranki
     }
   }
 
-  for (const row of rows.values()) {
-    row.totalPoints = [...row.tournaments.values()].reduce((total, points) => total + points, 0);
-    row.averagePoints = row.totalPoints / Math.max(2, row.tournaments.size);
+  return toSortedRankingRows(rows.values());
+}
+
+export async function getTournamentRankingCategoryGroups(scopeOrCode: RankingScope | RankingCode) {
+  const competitions = await prisma.competition.findMany({
+    where: {
+      type: "tournament",
+      ...rankingCompetitionWhere(scopeOrCode)
+    },
+    include: {
+      categories: {
+        include: {
+          category: true,
+          participants: {
+            include: { player: true }
+          }
+        }
+      },
+      matches: {
+        where: {
+          winnerPlayerId: { not: null },
+          matchType: { in: [...rankingMatchTypes] }
+        },
+        select: {
+          competitionCategoryId: true,
+          homePlayerId: true,
+          awayPlayerId: true,
+          winnerPlayerId: true,
+          homePlayerNameAtMatchTime: true,
+          awayPlayerNameAtMatchTime: true,
+          matchType: true,
+          roundNumber: true
+        }
+      }
+    },
+    orderBy: [{ startsAt: "desc" }, { createdAt: "desc" }]
+  });
+  const latestCategoriesBySeries = new Map<string, {
+    competition: typeof competitions[number];
+    competitionCategory: typeof competitions[number]["categories"][number];
+  }>();
+
+  for (const competition of competitions) {
+    for (const competitionCategory of competition.categories) {
+      const tournamentSeriesKey = normalizeRankingSeriesKey(competition.name) || competition.id;
+      const categorySeriesKey = normalizeRankingSeriesKey(competitionCategory.category.name || competitionCategory.displayName);
+      const seriesKey = `${tournamentSeriesKey}:${categorySeriesKey || competitionCategory.categoryId}`;
+      if (!latestCategoriesBySeries.has(seriesKey)) {
+        latestCategoriesBySeries.set(seriesKey, { competition, competitionCategory });
+      }
+    }
   }
 
-  return [...rows.values()]
-    .filter((row) => row.tournaments.size > 0)
-    .sort((left, right) =>
-      right.averagePoints - left.averagePoints ||
-      right.totalPoints - left.totalPoints ||
-      right.wins - left.wins ||
-      left.name.localeCompare(right.name)
-    )
-    .map((row) => ({
-      playerId: row.playerId,
-      name: row.name,
-      points: row.totalPoints,
-      averagePoints: row.averagePoints,
-      tournaments: row.tournaments.size,
-      wins: row.wins
-    }));
+  const groups = new Map<string, {
+    categoryId: string;
+    categoryName: string;
+    sortOrder: number;
+    rows: Map<string, RankingRowAccumulator>;
+  }>();
+
+  const groupFor = (competitionCategory: typeof competitions[number]["categories"][number]) => {
+    const key = competitionCategory.categoryId;
+    const existing = groups.get(key) ?? {
+      categoryId: key,
+      categoryName: competitionCategory.category.name,
+      sortOrder: competitionCategory.category.sortOrder,
+      rows: new Map<string, RankingRowAccumulator>()
+    };
+    groups.set(key, existing);
+    return existing;
+  };
+
+  const ensure = (
+    group: ReturnType<typeof groupFor>,
+    playerId: string,
+    name: string | null
+  ) => {
+    const existing = group.rows.get(playerId) ?? {
+      playerId,
+      name: name ?? "Jugador",
+      totalPoints: 0,
+      averagePoints: 0,
+      tournaments: new Map<string, number>(),
+      wins: 0
+    };
+    group.rows.set(playerId, existing);
+    return existing;
+  };
+
+  for (const { competition, competitionCategory } of latestCategoriesBySeries.values()) {
+    const group = groupFor(competitionCategory);
+    const tournamentKey = `${competition.id}:${competitionCategory.id}`;
+    const categoryMatches = competition.matches.filter((match) => match.competitionCategoryId === competitionCategory.id);
+    const totalRounds = Math.max(...categoryMatches.map((match) => match.roundNumber ?? 1), 1);
+
+    for (const participant of competitionCategory.participants) {
+      if (!participant.playerId || !participant.player) continue;
+      const row = ensure(group, participant.playerId, formatPlayerListName(participant.player));
+      row.tournaments.set(tournamentKey, row.tournaments.get(tournamentKey) ?? 0);
+    }
+
+    for (const match of categoryMatches) {
+      if (!match.winnerPlayerId) continue;
+      const winnerName = match.winnerPlayerId === match.homePlayerId
+        ? match.homePlayerNameAtMatchTime
+        : match.awayPlayerNameAtMatchTime;
+      const row = ensure(group, match.winnerPlayerId, winnerName);
+      row.wins += 1;
+      row.tournaments.set(
+        tournamentKey,
+        (row.tournaments.get(tournamentKey) ?? 0) + roundWinPoints(match, totalRounds)
+      );
+    }
+  }
+
+  return [...groups.values()]
+    .map((group) => ({
+      categoryId: group.categoryId,
+      categoryName: group.categoryName,
+      sortOrder: group.sortOrder,
+      rows: toSortedRankingRows(group.rows.values())
+    }))
+    .filter((group) => group.rows.some((row) => row.points > 0))
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.categoryName.localeCompare(right.categoryName));
 }
