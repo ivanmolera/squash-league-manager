@@ -53,6 +53,36 @@ function rankingCompetitionWhere(scopeOrCode: RankingScope | RankingCode): Prism
   return { rankingCode: scopeOrCode };
 }
 
+function playerAgeAt(referenceDate: Date, birthDate: Date | null) {
+  if (!birthDate) return null;
+  let age = referenceDate.getFullYear() - birthDate.getFullYear();
+  const birthdayThisYear = new Date(referenceDate);
+  birthdayThisYear.setMonth(birthDate.getMonth(), birthDate.getDate());
+  if (referenceDate < birthdayThisYear) age -= 1;
+  return age;
+}
+
+function playerMatchesCategoryRestrictions(
+  player: { gender: string; birthDate: Date | null },
+  category: { genderScope: string; minAge: number | null; maxAge: number | null },
+  referenceDate: Date
+) {
+  if (category.genderScope !== "not_specified" && player.gender !== category.genderScope) {
+    return false;
+  }
+
+  const age = playerAgeAt(referenceDate, player.birthDate);
+  if (category.minAge !== null && (age === null || age < category.minAge)) {
+    return false;
+  }
+
+  if (category.maxAge !== null && (age === null || age > category.maxAge)) {
+    return false;
+  }
+
+  return true;
+}
+
 function toSortedRankingRows(rows: Iterable<RankingRowAccumulator>) {
   const items = [...rows];
 
@@ -253,15 +283,27 @@ export async function getTournamentRankingCategoryGroups(scopeOrCode: RankingSco
     const tournamentKey = `${competition.id}:${competitionCategory.id}`;
     const categoryMatches = competition.matches.filter((match) => match.competitionCategoryId === competitionCategory.id);
     const totalRounds = Math.max(...categoryMatches.map((match) => match.roundNumber ?? 1), 1);
+    const referenceDate = competition.startsAt ?? new Date();
+    const eligiblePlayerIds = new Set(
+      competitionCategory.participants
+        .filter((participant) =>
+          participant.player &&
+          playerMatchesCategoryRestrictions(participant.player, competitionCategory.category, referenceDate)
+        )
+        .map((participant) => participant.playerId)
+        .filter(Boolean) as string[]
+    );
 
     for (const participant of competitionCategory.participants) {
       if (!participant.playerId || !participant.player) continue;
+      if (!eligiblePlayerIds.has(participant.playerId)) continue;
       const row = ensure(group, participant.playerId, formatPlayerListName(participant.player));
       row.tournaments.set(tournamentKey, row.tournaments.get(tournamentKey) ?? 0);
     }
 
     for (const match of categoryMatches) {
       if (!match.winnerPlayerId) continue;
+      if (!eligiblePlayerIds.has(match.winnerPlayerId)) continue;
       const winnerName = match.winnerPlayerId === match.homePlayerId
         ? match.homePlayerNameAtMatchTime
         : match.awayPlayerNameAtMatchTime;

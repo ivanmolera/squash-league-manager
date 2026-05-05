@@ -80,6 +80,7 @@ export default async function EditPlayerPage({
               <option value="male">{t.male}</option><option value="female">{t.female}</option><option value="other">{t.other}</option><option value="not_specified">{t.not_specified}</option>
             </select>
           </label>
+          <label>{t.birthDate}<input name="birthDate" type="date" defaultValue={player.birthDate?.toISOString().slice(0, 10) ?? ""} /></label>
           <label>{t.dominantHand}
             <select name="dominantHand" defaultValue={player.dominantHand}>
               <option value="right">{t.right}</option><option value="left">{t.left}</option><option value="ambidextrous">{t.ambidextrous}</option><option value="not_specified">{t.not_specified}</option>

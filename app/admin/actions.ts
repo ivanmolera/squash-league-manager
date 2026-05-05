@@ -32,6 +32,7 @@ const playerSchema = z.object({
   emailVerified: z.coerce.boolean().default(false),
   preferredLocale: z.enum(["ca", "es", "en"]).default("es"),
   gender: z.enum(["male", "female", "other", "not_specified"]),
+  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
   dominantHand: z.enum(["right", "left", "ambidextrous", "not_specified"]),
   heightCm: z.coerce.number().int().min(90).max(240).optional().or(z.literal("")),
   weightKg: z.coerce.number().min(20).max(250).optional().or(z.literal("")),
@@ -236,6 +237,13 @@ function parseClosedDays(value?: string) {
 function genericProfileVariant(gender: "male" | "female" | "other" | "not_specified") {
   if (gender === "male" || gender === "female") return gender;
   return "neutral";
+}
+
+function parseOptionalBirthDate(value: string | undefined) {
+  if (!value) return null;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
 }
 
 async function syncOpenPlayerNameSnapshots(playerId: string, displayName: string) {
@@ -1039,6 +1047,7 @@ export async function savePlayerAction(formData: FormData) {
     emailVerified: formData.get("emailVerified") === "on",
     preferredLocale: textValue(formData.get("preferredLocale")) ?? "es",
     gender: textValue(formData.get("gender")) ?? "not_specified",
+    birthDate: textValue(formData.get("birthDate")) ?? "",
     dominantHand: textValue(formData.get("dominantHand")) ?? "not_specified",
     heightCm: textValue(formData.get("heightCm")) ?? "",
     weightKg: textValue(formData.get("weightKg")) ?? "",
@@ -1070,6 +1079,7 @@ export async function savePlayerAction(formData: FormData) {
 
   const displayName = `${parsed.firstName} ${parsed.lastName}`;
   const parsedEmail = parsed.email || null;
+  const parsedBirthDate = parseOptionalBirthDate(parsed.birthDate);
   const user = isAdmin
     ? parsedEmail
       ? await prisma.user.upsert({
@@ -1116,6 +1126,7 @@ export async function savePlayerAction(formData: FormData) {
           firstName: parsed.firstName,
           lastName: parsed.lastName,
           gender: parsed.gender,
+          birthDate: parsedBirthDate,
           dominantHand: parsed.dominantHand,
           heightCm: parsed.heightCm || null,
           weightKg: parsed.weightKg || null,
@@ -1133,6 +1144,7 @@ export async function savePlayerAction(formData: FormData) {
           firstName: parsed.firstName,
           lastName: parsed.lastName,
           gender: parsed.gender,
+          birthDate: parsedBirthDate,
           dominantHand: parsed.dominantHand,
           heightCm: parsed.heightCm || null,
           weightKg: parsed.weightKg || null,

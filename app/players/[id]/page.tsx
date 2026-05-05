@@ -19,6 +19,15 @@ const rankingScopeCodes: Record<RankingScope, string> = {
 const rankingMatchTypes = ["tournament_knockout", "tournament_round_robin", "tournament_consolation", "tournament_third_place"] as const;
 const completedStatuses = ["played", "walkover", "retired"] as const;
 
+function ageAt(dateOfBirth: Date | null, atDate = new Date()) {
+  if (!dateOfBirth) return null;
+  let age = atDate.getFullYear() - dateOfBirth.getFullYear();
+  const birthdayThisYear = new Date(atDate);
+  birthdayThisYear.setMonth(dateOfBirth.getMonth(), dateOfBirth.getDate());
+  if (atDate < birthdayThisYear) age -= 1;
+  return age;
+}
+
 function PlayerPortrait({ player }: { player: { firstName: string; lastName: string; gender: string; profilePhotoUrl: string | null; genericProfileVariant: string } }) {
   if (player.profilePhotoUrl) {
     return <img className="player-photo" src={player.profilePhotoUrl} alt={`${player.firstName} ${player.lastName}`} />;
@@ -414,6 +423,7 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ i
   const canSeeContact = canEdit || player.showContactPublic;
   const canSeePhysical = canEdit || player.showPhysicalPublic;
   const statistics = await getPlayerStatistics(player.id, player.memberships.map((membership) => membership.seasonId));
+  const playerAge = ageAt(player.birthDate);
   const bestRanking = statistics.bestRanking ? (
     <span className="best-ranking-badge">
       #{statistics.bestRanking.position} · <RankingCodeBadge code={rankingScopeCodes[statistics.bestRanking.scope]} />
@@ -438,6 +448,7 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ i
           <h2>{t.personalData}</h2>
           <p><strong>{t.email}:</strong> {canSeeContact ? player.user?.email ?? t.unavailable : t.privateValue}</p>
           <p><strong>{t.phone}:</strong> {canSeeContact ? player.user?.phone ?? t.notProvided : t.privateValue}</p>
+          <p><strong>{t.age}:</strong> {canSeePhysical ? playerAge ?? t.notProvidedFemale : t.privateFemaleValue}</p>
           <p><strong>{t.dominantHand}:</strong> {t[player.dominantHand as keyof typeof t]}</p>
           <p><strong>{t.height}:</strong> {canSeePhysical ? player.heightCm ?? t.notProvidedFemale : t.privateFemaleValue}</p>
           <p><strong>{t.weight}:</strong> {canSeePhysical ? String(player.weightKg ?? t.notProvided) : t.privateValue}</p>
