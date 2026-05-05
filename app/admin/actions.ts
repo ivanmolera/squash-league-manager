@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getCurrentUser } from "@/src/lib/auth";
+import { maxTournamentSeedCount } from "@/src/lib/competition-rules";
 import {
   addDaysToCourtDateKey,
   courtBookingHourMinute,
@@ -107,6 +108,7 @@ const competitionSchema = z.object({
   name: z.string().min(3),
   description: z.string().optional(),
   type: z.enum(["individual_league", "team_league"]),
+  rankingCode: z.enum(rankingCodeValues).default("none"),
   bestOfSets: z.coerce.number().int().refine((value) => value === 3 || value === 5),
   registrationDeadline: z.string().min(10),
   startsAt: z.string().min(10),
@@ -478,8 +480,40 @@ function parseSetScores(formData: FormData, bestOfSets: number) {
   return { sets, homeSets, awaySets };
 }
 
+function seedPositionGroups(bracketSize: number) {
+  const groups = [
+    [0],
+    [bracketSize - 1],
+    [bracketSize / 2 - 1, bracketSize / 2],
+    [bracketSize / 4 - 1, bracketSize - bracketSize / 4, bracketSize / 4, bracketSize - bracketSize / 4 - 1],
+    [
+      bracketSize / 8 - 1,
+      bracketSize - bracketSize / 8,
+      bracketSize / 2 - bracketSize / 8 - 1,
+      bracketSize / 2 + bracketSize / 8,
+      bracketSize / 8,
+      bracketSize - bracketSize / 8 - 1,
+      bracketSize / 2 - bracketSize / 8,
+      bracketSize / 2 + bracketSize / 8 - 1
+    ]
+  ];
+
+  return groups
+    .map((group) => Array.from(new Set(group.filter((position) => Number.isInteger(position) && position >= 0 && position < bracketSize))))
+    .filter((group) => group.length > 0);
+}
+
 function seededBracketPositions(bracketSize: number) {
-  const positions = [
+  return seedPositionGroups(bracketSize).flat();
+}
+
+function seedPlacementPositions(bracketSize: number) {
+  const groups = seedPositionGroups(bracketSize);
+  return groups.flatMap((group, index) => index < 2 ? group : shuffle(group));
+}
+
+function legacySeededBracketPositions(bracketSize: number) {
+  return [
     0,
     bracketSize - 1,
     bracketSize / 2 - 1,
@@ -488,9 +522,7 @@ function seededBracketPositions(bracketSize: number) {
     bracketSize - bracketSize / 4,
     bracketSize / 4,
     bracketSize - bracketSize / 4 - 1
-  ];
-
-  return Array.from(new Set(positions.filter((position) => Number.isInteger(position) && position >= 0 && position < bracketSize)));
+  ].filter((position) => Number.isInteger(position) && position >= 0 && position < bracketSize);
 }
 
 function opponentPosition(position: number) {
@@ -499,7 +531,7 @@ function opponentPosition(position: number) {
 
 function buildSeededBracketEntries<T extends { id: string }>(players: T[], seeds: Array<{ playerId: string; index: number }>, bracketSize: number) {
   const entries = Array<T | null>(bracketSize).fill(null);
-  const seedPositions = seededBracketPositions(bracketSize);
+  const seedPositions = seedPlacementPositions(bracketSize);
   const reservedByes = new Set<number>();
   const seededPlayers = seeds
     .map((seed) => {
@@ -526,7 +558,7 @@ function buildSeededBracketEntries<T extends { id: string }>(players: T[], seeds
     }
   }
 
-  const spreadPositions = seededBracketPositions(bracketSize)
+  const spreadPositions = legacySeededBracketPositions(bracketSize)
     .flatMap((position) => [opponentPosition(position), position])
     .filter((position) => position >= 0 && position < bracketSize);
   for (const position of spreadPositions) {
@@ -827,17 +859,22 @@ async function tournamentRankingScores(scope: "autonomic" | "state" | "psa", pla
 }
 
 async function saveTournamentSeeds(competitionCategoryId: string, playerIds: string[]) {
-  if (playerIds.length > 8) {
-    throw new Error("Selecciona como máximo 8 cabezas de serie por categoría.");
-  }
-
   const competitionCategory = await prisma.competitionCategory.findUniqueOrThrow({
     where: { id: competitionCategoryId },
-    include: { participants: { include: { player: true } } }
+    include: {
+      competition: { select: { rankingCode: true } },
+      participants: { include: { player: true } }
+    }
   });
   const participantPlayers = competitionCategory.participants.flatMap((participant) => participant.player ? [participant.player] : []);
   const participantIds = new Set(participantPlayers.map((player) => player.id));
-  const selectedIds = playerIds.filter((playerId, index) => participantIds.has(playerId) && playerIds.indexOf(playerId) === index).slice(0, 8);
+  const maxSeeds = maxTournamentSeedCount(competitionCategory.competition.rankingCode, participantIds.size);
+
+  if (playerIds.length > maxSeeds) {
+    throw new Error(`Selecciona como máximo ${maxSeeds} cabezas de serie por categoría.`);
+  }
+
+  const selectedIds = playerIds.filter((playerId, index) => participantIds.has(playerId) && playerIds.indexOf(playerId) === index).slice(0, maxSeeds);
 
   await prisma.$transaction([
     prisma.tournamentSeed.deleteMany({ where: { competitionCategoryId } }),
@@ -2090,6 +2127,7 @@ export async function saveLeagueAction(formData: FormData) {
     name: textValue(formData.get("name")),
     description: textValue(formData.get("description")),
     type: textValue(formData.get("type")) ?? "individual_league",
+    rankingCode: textValue(formData.get("rankingCode")) ?? "none",
     bestOfSets: textValue(formData.get("bestOfSets")) ?? "5",
     registrationDeadline: textValue(formData.get("registrationDeadline")),
     startsAt: textValue(formData.get("startsAt")),
@@ -2101,6 +2139,8 @@ export async function saveLeagueAction(formData: FormData) {
 
   const season = await getDefaultSeason();
   const category = await getDefaultCategory();
+  const rankingScope = rankingScopeForCode(parsed.rankingCode);
+  const rankingId = await rankingIdForCode(parsed.rankingCode);
   const competition = parsed.competitionId
     ? await prisma.competition.update({
         where: { id: parsed.competitionId },
@@ -2108,6 +2148,9 @@ export async function saveLeagueAction(formData: FormData) {
           name: parsed.name,
           description: parsed.description,
           type: parsed.type,
+          rankingScope,
+          rankingCode: parsed.rankingCode,
+          rankingId,
           bestOfSets: parsed.bestOfSets,
           hostClubId: parsed.hostClubId || null,
           registrationDeadline: new Date(parsed.registrationDeadline),
@@ -2122,6 +2165,9 @@ export async function saveLeagueAction(formData: FormData) {
           name: parsed.name,
           description: parsed.description,
           type: parsed.type,
+          rankingScope,
+          rankingCode: parsed.rankingCode,
+          rankingId,
           bestOfSets: parsed.bestOfSets,
           hostClubId: parsed.hostClubId || null,
           status: "draft",
@@ -2714,6 +2760,7 @@ export async function suggestTournamentSeedsAction(formData: FormData) {
   await assertCanEditTournament(competitionCategory.competitionId, currentUser);
 
   const players = competitionCategory.participants.flatMap((participant) => participant.player ? [participant.player] : []);
+  const maxSeeds = maxTournamentSeedCount(competitionCategory.competition.rankingCode, players.length);
   const rankingRows = competitionCategory.competition.rankingScope === "none"
     ? []
     : await getTournamentRankingRows(competitionCategory.competition.rankingCode, players.map((player) => player.id));
@@ -2728,7 +2775,7 @@ export async function suggestTournamentSeedsAction(formData: FormData) {
       left.player.lastName.localeCompare(right.player.lastName) ||
       left.player.firstName.localeCompare(right.player.firstName)
     )
-    .slice(0, Math.min(8, players.length))
+    .slice(0, Math.min(maxSeeds, players.length))
     .map(({ player }) => player.id);
 
   await saveTournamentSeeds(parsed.competitionCategoryId, seedPlayerIds);

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { MatchResultForm } from "@/app/match-result-form";
 import { getCurrentUser } from "@/src/lib/auth";
+import { expectedTeamRubberCount } from "@/src/lib/competition-rules";
 import { isFeatureEnabled } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
@@ -386,7 +387,20 @@ export async function LeagueCategoryCalendar({
     );
   }
 
-  const teamTies = await getTeamTies(competitionId, competitionCategoryId);
+  const [teamTies, competitionCategory] = await Promise.all([
+    getTeamTies(competitionId, competitionCategoryId),
+    prisma.competitionCategory.findUniqueOrThrow({
+      where: { id: competitionCategoryId },
+      include: {
+        category: true,
+        competition: { select: { rankingCode: true } }
+      }
+    })
+  ]);
+  const expectedRubbers = expectedTeamRubberCount(
+    competitionCategory.competition.rankingCode,
+    competitionCategory.category
+  );
   const matchesByTie = new Map<string, MatchWithSets[]>();
   for (const match of matches) {
     if (!match.teamTieId) continue;
@@ -411,7 +425,7 @@ export async function LeagueCategoryCalendar({
                 const tieMatches = matchesByTie.get(tie.id) ?? [];
                 const homeRubbers = tieMatches.filter((match) => match.winnerPlayerId === match.homePlayerId).length;
                 const awayRubbers = tieMatches.filter((match) => match.winnerPlayerId === match.awayPlayerId).length;
-                const completed = tieMatches.length === 4 && tieMatches.every((match) => match.status === "played");
+                const completed = tieMatches.length === expectedRubbers && tieMatches.every((match) => match.status === "played");
 
                 return (
                   <div className="compact-match-row team-tie-row" key={tie.id}>

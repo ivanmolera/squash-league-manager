@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/src/lib/auth";
 import { requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
+import { RankingCodePicker } from "@/src/components/ranking-code-picker";
 import { LeagueParticipantFields } from "./league-participant-fields";
 
 export const dynamic = "force-dynamic";
@@ -136,6 +137,7 @@ function LeagueForm({
       <input type="hidden" name="type" value={type} />
       <label>{labels.name}<input name="name" required /></label>
       <label>{labels.description}<textarea name="description" rows={3} /></label>
+      <RankingCodePicker defaultCode="none" label={labels.scoreable} />
       <label>{labels.matchFormat}
         <select name="bestOfSets" defaultValue="5">
           <option value="5">{labels.bestOf5}</option>
