@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default async function EditClubPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [club, currentUser, dictionary] = await Promise.all([
+  const [club, federations, currentUser, dictionary] = await Promise.all([
     prisma.club.findUnique({
       where: { id },
       include: {
@@ -23,6 +23,7 @@ export default async function EditClubPage({ params }: { params: Promise<{ id: s
         }
       }
     }),
+    prisma.federation.findMany({ orderBy: { name: "asc" } }),
     getCurrentUser(),
     getDictionary()
   ]);
@@ -62,6 +63,16 @@ export default async function EditClubPage({ params }: { params: Promise<{ id: s
               <option value="">{t.noManager}</option>
               {managers.map((manager) => (
                 manager ? <option key={manager.id} value={manager.id}>{formatUserManagerName(manager)}</option> : null
+              ))}
+            </select>
+          </label>
+          <label>{t.federation}
+            <select name="federationId" defaultValue={club.federationId ?? ""} disabled={!isAdmin}>
+              <option value="">{t.noFederation}</option>
+              {federations.map((federation) => (
+                <option key={federation.id} value={federation.id}>
+                  {federation.name} ({federation.code})
+                </option>
               ))}
             </select>
           </label>

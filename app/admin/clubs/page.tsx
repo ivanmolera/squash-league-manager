@@ -39,9 +39,10 @@ export default async function ClubsPage({
   searchParams?: Promise<{ clubError?: string }>;
 }) {
   const query = await searchParams;
-  const [clubs, managers, currentUser, dictionary, features] = await Promise.all([
+  const [clubs, managers, federations, currentUser, dictionary, features] = await Promise.all([
     prisma.club.findMany({ include: { manager: true }, orderBy: [{ province: "asc" }, { name: "asc" }] }),
     prisma.user.findMany({ include: { player: true }, orderBy: { email: "asc" } }),
+    prisma.federation.findMany({ orderBy: { name: "asc" } }),
     getCurrentUser(),
     getDictionary(),
     getFeatureSettings()
@@ -114,7 +115,7 @@ export default async function ClubsPage({
         <section className="work-grid">
           <form className="admin-form" action={saveClubAction}>
             <h2>{t.newClub}</h2>
-            <ClubFields managers={managers} isAdmin={isAdmin} labels={t} />
+            <ClubFields managers={managers} federations={federations} isAdmin={isAdmin} labels={t} />
             <button type="submit">{t.createClub}</button>
           </form>
         </section>
@@ -126,11 +127,13 @@ export default async function ClubsPage({
 function ClubFields({
   club,
   managers,
+  federations,
   isAdmin,
   labels
 }: {
-  club?: { name?: string; city?: string | null; province?: string | null; address?: string | null; postalCode?: string | null; availableCourts?: number; phone?: string | null; managesCourtBookings?: boolean; websiteUrl?: string | null; logoUrl?: string | null; managerUserId?: string | null; showContactPublic?: boolean; closedDays?: Array<{ closedOn: Date }> };
+  club?: { name?: string; city?: string | null; province?: string | null; address?: string | null; postalCode?: string | null; availableCourts?: number; phone?: string | null; managesCourtBookings?: boolean; websiteUrl?: string | null; logoUrl?: string | null; managerUserId?: string | null; federationId?: string | null; showContactPublic?: boolean; closedDays?: Array<{ closedOn: Date }> };
   managers: Array<{ id: string; email: string; displayName: string | null; player?: { firstName: string; lastName: string } | null }>;
+  federations: Array<{ id: string; name: string; code: string }>;
   isAdmin: boolean;
   labels: Record<string, string>;
 }) {
@@ -165,6 +168,16 @@ function ClubFields({
           {managers.map((manager) => (
             <option key={manager.id} value={manager.id}>
               {formatUserManagerName(manager)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>{labels.federation}
+        <select name="federationId" defaultValue={club?.federationId ?? ""} disabled={!isAdmin}>
+          <option value="">{labels.noFederation}</option>
+          {federations.map((federation) => (
+            <option key={federation.id} value={federation.id}>
+              {federation.name} ({federation.code})
             </option>
           ))}
         </select>

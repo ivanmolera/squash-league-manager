@@ -19,6 +19,7 @@ export async function Navigation() {
       {features.leagues ? <Link href="/admin/leagues">{t.leagues}</Link> : null}
       {features.tournaments ? <Link href="/manager/tournaments">{t.tournaments}</Link> : null}
       {features.rankings_statistics ? <Link href="/rankings">{t.rankings}</Link> : null}
+      {isAdmin ? <Link href="/admin/federations">{t.federations}</Link> : null}
       {isAdmin ? <Link href="/admin/settings">{t.settings}</Link> : null}
       <div className="nav-actions">
         <span className="app-version" title={t.version}>{t.versionShort} {packageInfo.version}</span>

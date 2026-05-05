@@ -99,7 +99,11 @@ export default async function PlayersPage() {
               <div className="player-letter-list">
                 {group.players.map((player) => {
                   const clubName = player.memberships[0]?.clubNameAtThatTime ?? t.independent;
-                  const playerUserRole = player.user?.roles.some((role) => role.role === "manager") ? "manager" : "player";
+                  const playerUserRole = player.user?.roles.some((role) => role.role === "manager_fed")
+                    ? "manager_fed"
+                    : player.user?.roles.some((role) => role.role === "manager")
+                    ? "manager"
+                    : "player";
                   const isSuspended = Boolean(player.user?.suspendedAt);
 
                   return isAdmin || player.id === ownPlayerId ? (
@@ -109,7 +113,7 @@ export default async function PlayersPage() {
                         <div className="player-list-text">
                           <strong><Link href={`/players/${player.id}`}>{player.lastName}, {player.firstName}</Link></strong>
                           <span>
-                            {clubName}{player.user ? ` · ${playerUserRole === "manager" ? t.manager : t.player}` : ""}
+                            {clubName}{player.user ? ` · ${playerUserRole === "manager_fed" ? t.federationManager : playerUserRole === "manager" ? t.manager : t.player}` : ""}
                             {isSuspended ? ` · ${t.suspendedAccount}` : ""}
                           </span>
                         </div>
@@ -124,6 +128,7 @@ export default async function PlayersPage() {
                                 <select name="role" defaultValue={playerUserRole} disabled={isSuspended}>
                                   <option value="player">{t.player}</option>
                                   <option value="manager">{t.manager}</option>
+                                  <option value="manager_fed">{t.federationManager}</option>
                                 </select>
                               </label>
                               <button type="submit" disabled={isSuspended}>{t.save}</button>

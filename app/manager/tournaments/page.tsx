@@ -41,9 +41,10 @@ export default async function TournamentsPage({
   await requireFeature("tournaments");
   const query = await searchParams;
   const tab = selectedTab(query?.tab);
-  const [categories, clubs, seasons, currentUser, dictionary] = await Promise.all([
+  const [categories, clubs, federations, seasons, currentUser, dictionary] = await Promise.all([
     prisma.category.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
-    prisma.club.findMany({ orderBy: [{ province: "asc" }, { name: "asc" }] }),
+    prisma.club.findMany({ include: { federation: true }, orderBy: [{ province: "asc" }, { name: "asc" }] }),
+    prisma.federation.findMany({ include: { ranking: true }, orderBy: [{ name: "asc" }] }),
     prisma.season.findMany({ orderBy: [{ startsAt: "desc" }] }),
     getCurrentUser(),
     getDictionary()
@@ -61,6 +62,7 @@ export default async function TournamentsPage({
     },
     include: {
       hostClub: true,
+      organizerFederation: true,
       participants: true,
       categories: { include: { category: true } }
     },
@@ -68,8 +70,13 @@ export default async function TournamentsPage({
   }) : [];
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
   const isManager = Boolean(currentUser?.roles.some((role) => role.role === "manager"));
-  const editableClubs = isAdmin ? clubs : clubs.filter((club) => club.managerUserId === currentUser?.id);
-  const canEdit = isAdmin || isManager;
+  const isFederationManager = Boolean(currentUser?.roles.some((role) => role.role === "manager_fed"));
+  const editableFederations = isAdmin ? federations : federations.filter((federation) => federation.managerUserId === currentUser?.id);
+  const editableFederationIds = new Set(editableFederations.map((federation) => federation.id));
+  const editableClubs = isAdmin
+    ? clubs
+    : clubs.filter((club) => club.managerUserId === currentUser?.id || (club.federationId && editableFederationIds.has(club.federationId)));
+  const canEdit = isAdmin || isManager || isFederationManager;
   const tabHref = (nextTab: TournamentTab) => `/manager/tournaments?tab=${nextTab}${selectedSeason ? `&seasonId=${selectedSeason.id}` : ""}`;
 
   return (
@@ -89,6 +96,18 @@ export default async function TournamentsPage({
             <input type="hidden" name="posterUrl" value="" />
             <label>{t.poster}<input name="poster" type="file" accept="image/*" /></label>
             <label>{t.referee}<input name="refereeName" /></label>
+            {editableFederations.length ? (
+              <label>{t.organizerFederation}
+                <select name="organizerFederationId">
+                  {isAdmin ? <option value="">{t.noFederation}</option> : null}
+                  {editableFederations.map((federation) => (
+                    <option key={federation.id} value={federation.id}>
+                      {federation.name}{federation.ranking ? ` · ${federation.ranking.code}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             <RankingCodePicker defaultCode="none" label={t.scoreable} />
             <label>{t.matchFormat}
               <select name="bestOfSets" defaultValue="5">
@@ -140,7 +159,9 @@ export default async function TournamentsPage({
               <span>{t.scoreable}</span>
             </div>
             {tournaments.map((tournament) => {
-              const canEditTournament = isAdmin || editableClubs.some((club) => club.id === tournament.hostClubId);
+              const canEditTournament = isAdmin ||
+                editableClubs.some((club) => club.id === tournament.hostClubId) ||
+                Boolean(tournament.organizerFederationId && editableFederationIds.has(tournament.organizerFederationId));
               const dates = tournamentDateLabels(tournament, locale, t.noDate);
               return (
                 <article className="tournament-table-row" key={tournament.id}>
@@ -151,6 +172,7 @@ export default async function TournamentsPage({
                   </div>
                   <div>
                     <strong><Link href={`/tournaments/${tournament.id}`}>{tournament.name}</Link></strong>
+                    {tournament.organizerFederation ? <span className="muted">{t.organizerFederation}: {tournament.organizerFederation.name}</span> : null}
                     {canEditTournament ? <Link className="secondary-link inline-link" href={`/tournaments/${tournament.id}/edit`}>{t.edit}</Link> : null}
                   </div>
                   <div className="tournament-category-cell">

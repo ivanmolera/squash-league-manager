@@ -58,7 +58,12 @@ const playerPasswordSchema = z.object({
 
 const userOperationalRoleSchema = z.object({
   userId: z.string().uuid(),
-  role: z.enum(["player", "manager"])
+  role: z.enum(["player", "manager", "manager_fed"])
+});
+
+const federationManagerSchema = z.object({
+  federationId: z.string().uuid(),
+  managerUserId: z.string().uuid().optional().or(z.literal(""))
 });
 
 const userSuspensionSchema = z.object({
@@ -100,7 +105,8 @@ const clubSchema = z.object({
   closedDays: z.string().optional(),
   websiteUrl: z.string().url().optional().or(z.literal("")),
   showContactPublic: z.coerce.boolean().default(false),
-  managerUserId: z.string().uuid().optional().or(z.literal(""))
+  managerUserId: z.string().uuid().optional().or(z.literal("")),
+  federationId: z.string().uuid().optional().or(z.literal(""))
 });
 
 const competitionSchema = z.object({
@@ -124,6 +130,7 @@ const tournamentSchema = z.object({
   description: z.string().optional(),
   posterUrl: z.string().optional(),
   hostClubId: z.string().uuid(),
+  organizerFederationId: z.string().uuid().optional().or(z.literal("")),
   refereeName: z.string().optional(),
   rankingCode: z.enum(rankingCodeValues).default("none"),
   bestOfSets: z.coerce.number().int().refine((value) => value === 3 || value === 5),
@@ -180,11 +187,17 @@ function textValue(value: unknown) {
   return value?.toString().trim() || undefined;
 }
 
+function federationAllowsRanking(federationCode: string | null | undefined, federationRankingCode: string | null | undefined, rankingCode: string) {
+  if (rankingCode === "none") return true;
+  if (federationCode === "RFES" && (rankingCode === "RFES" || rankingCode === "PSA")) return true;
+  return federationRankingCode === rankingCode;
+}
+
 function toArray(formData: FormData, key: string) {
   return formData.getAll(key).map(String).filter(Boolean);
 }
 
-function hasRole(user: Awaited<ReturnType<typeof getCurrentUser>>, role: "admin" | "manager" | "player") {
+function hasRole(user: Awaited<ReturnType<typeof getCurrentUser>>, role: "admin" | "manager_fed" | "manager" | "player") {
   return Boolean(user?.roles.some((assignment) => assignment.role === role));
 }
 
@@ -1266,16 +1279,18 @@ export async function updateUserOperationalRoleAction(formData: FormData) {
       create: { userId: user.id, role: "player" }
     });
 
-    if (parsed.role === "manager") {
-      await tx.userRoleAssignment.upsert({
-        where: { userId_role: { userId: user.id, role: "manager" } },
-        update: {},
-        create: { userId: user.id, role: "manager" }
-      });
-    } else {
-      await tx.userRoleAssignment.deleteMany({
-        where: { userId: user.id, role: "manager" }
-      });
+    for (const role of ["manager", "manager_fed"] as const) {
+      if (parsed.role === role) {
+        await tx.userRoleAssignment.upsert({
+          where: { userId_role: { userId: user.id, role } },
+          update: {},
+          create: { userId: user.id, role }
+        });
+      } else {
+        await tx.userRoleAssignment.deleteMany({
+          where: { userId: user.id, role }
+        });
+      }
     }
   });
 
@@ -1284,6 +1299,34 @@ export async function updateUserOperationalRoleAction(formData: FormData) {
     revalidatePath(`/players/${user.player.id}`);
     revalidatePath(`/players/${user.player.id}/edit`);
   }
+}
+
+export async function saveFederationManagerAction(formData: FormData) {
+  const currentUser = await requireUser();
+  if (!hasRole(currentUser, "admin")) {
+    throw new Error("Solo un admin puede modificar federaciones.");
+  }
+
+  const parsed = federationManagerSchema.parse({
+    federationId: textValue(formData.get("federationId")),
+    managerUserId: textValue(formData.get("managerUserId")) ?? ""
+  });
+
+  await prisma.federation.update({
+    where: { id: parsed.federationId },
+    data: { managerUserId: parsed.managerUserId || null }
+  });
+
+  if (parsed.managerUserId) {
+    await prisma.userRoleAssignment.upsert({
+      where: { userId_role: { userId: parsed.managerUserId, role: "manager_fed" } },
+      update: {},
+      create: { userId: parsed.managerUserId, role: "manager_fed" }
+    });
+  }
+
+  revalidatePath("/admin/federations");
+  revalidatePath("/manager/tournaments");
 }
 
 export async function updateUserSuspensionAction(formData: FormData) {
@@ -1861,7 +1904,8 @@ export async function saveClubAction(formData: FormData) {
     closedDays: formData.get("closedDays")?.toString(),
     websiteUrl: textValue(formData.get("websiteUrl")) ?? "",
     showContactPublic: formData.get("showContactPublic") === "on",
-    managerUserId: textValue(formData.get("managerUserId")) ?? ""
+    managerUserId: textValue(formData.get("managerUserId")) ?? "",
+    federationId: textValue(formData.get("federationId")) ?? ""
   });
   if (!parsedResult.success) {
     redirect("/admin/clubs?clubError=invalid");
@@ -1927,7 +1971,8 @@ export async function saveClubAction(formData: FormData) {
           websiteUrl: parsed.websiteUrl || null,
           logoUrl,
           showContactPublic: parsed.showContactPublic,
-          managerUserId: isAdmin ? parsed.managerUserId || null : undefined
+          managerUserId: isAdmin ? parsed.managerUserId || null : undefined,
+          federationId: isAdmin ? parsed.federationId || null : undefined
         }
       })
     : await prisma.club.create({
@@ -1944,7 +1989,8 @@ export async function saveClubAction(formData: FormData) {
           websiteUrl: parsed.websiteUrl || null,
           logoUrl: logoUrl ?? null,
           showContactPublic: parsed.showContactPublic,
-          managerUserId: parsed.managerUserId || null
+          managerUserId: parsed.managerUserId || null,
+          federationId: parsed.federationId || null
         }
       });
 
@@ -2394,6 +2440,7 @@ export async function saveTournamentAction(formData: FormData) {
     description: textValue(formData.get("description")),
     posterUrl: uploadedPosterUrl ?? textValue(formData.get("posterUrl")),
     hostClubId: textValue(formData.get("hostClubId")),
+    organizerFederationId: textValue(formData.get("organizerFederationId")) ?? "",
     refereeName: textValue(formData.get("refereeName")),
     rankingCode: textValue(formData.get("rankingCode")) ?? "none",
     bestOfSets: textValue(formData.get("bestOfSets")) ?? "5",
@@ -2406,13 +2453,37 @@ export async function saveTournamentAction(formData: FormData) {
     seedEntries: toArray(formData, "seedEntries")
   });
 
+  let organizerFederationId = parsed.organizerFederationId || null;
+  if (!organizerFederationId && parsed.rankingCode !== "none") {
+    const matchingFederation = await prisma.federation.findFirst({
+      where: parsed.rankingCode === "PSA" ? { code: "RFES" } : { ranking: { code: parsed.rankingCode } },
+      select: { id: true }
+    });
+    organizerFederationId = matchingFederation?.id ?? null;
+  }
+
   if (!isAdmin) {
     const managedClub = await prisma.club.findUniqueOrThrow({
-      where: { id: parsed.hostClubId }
+      where: { id: parsed.hostClubId },
+      include: { federation: true }
     });
+    const managedFederation = organizerFederationId
+      ? await prisma.federation.findFirst({
+          where: { id: organizerFederationId, managerUserId: currentUser.id },
+          select: { id: true, code: true, ranking: { select: { code: true } } }
+        })
+      : null;
 
-    if (managedClub.managerUserId !== currentUser.id) {
-      throw new Error("Solo puedes crear o modificar torneos de tu club.");
+    if (managedClub.managerUserId !== currentUser.id && !managedFederation) {
+      throw new Error("Solo puedes crear o modificar torneos de tu club o federación.");
+    }
+
+    if (managedFederation && managedClub.federationId !== managedFederation.id) {
+      throw new Error("El club sede debe pertenecer a tu federación.");
+    }
+
+    if (managedFederation && !federationAllowsRanking(managedFederation.code, managedFederation.ranking?.code, parsed.rankingCode)) {
+      throw new Error("El ránquing del torneo debe coincidir con el ránquing de la federación.");
     }
 
     if (parsed.competitionId) {
@@ -2420,8 +2491,12 @@ export async function saveTournamentAction(formData: FormData) {
         where: { id: parsed.competitionId }
       });
 
-      if (existing.hostClubId !== parsed.hostClubId) {
-        throw new Error("No puedes mover un torneo a otro club.");
+      if (managedClub.managerUserId === currentUser.id && existing.hostClubId !== parsed.hostClubId) {
+        throw new Error("No puedes mover un torneo de club a otro club.");
+      }
+
+      if (managedFederation && existing.organizerFederationId !== managedFederation.id) {
+        throw new Error("No puedes mover un torneo a otra federación.");
       }
     }
   }
@@ -2439,6 +2514,7 @@ export async function saveTournamentAction(formData: FormData) {
           description: parsed.description,
           posterUrl: parsed.posterUrl || null,
           hostClubId: parsed.hostClubId,
+          organizerFederationId,
           refereeName: parsed.refereeName,
           rankingScope,
           rankingCode: parsed.rankingCode,
@@ -2458,6 +2534,7 @@ export async function saveTournamentAction(formData: FormData) {
           description: parsed.description,
           posterUrl: parsed.posterUrl || null,
           hostClubId: parsed.hostClubId,
+          organizerFederationId,
           refereeName: parsed.refereeName,
           rankingScope,
           rankingCode: parsed.rankingCode,

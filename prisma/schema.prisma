@@ -10,6 +10,7 @@ datasource db {
 
 enum UserRole {
   admin
+  manager_fed
   manager
   player
 
@@ -148,6 +149,7 @@ model User {
   player      Player?
   roles       UserRoleAssignment[]
   managedClub Club?
+  managedFederation Federation?
   credential  AuthCredential?
   sessions    AuthSession[]
   emailVerificationTokens EmailVerificationToken[]
@@ -313,9 +315,11 @@ model Club {
   logoUrl       String?                @map("logo_url")
   showContactPublic Boolean            @default(true) @map("show_contact_public")
   managerUserId String?                @unique @map("manager_user_id") @db.Uuid
+  federationId  String?                @map("federation_id") @db.Uuid
   createdAt     DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime               @default(now()) @map("updated_at") @db.Timestamptz(6)
   manager       User?                  @relation(fields: [managerUserId], references: [id], onDelete: SetNull)
+  federation    Federation?            @relation(fields: [federationId], references: [id], onDelete: SetNull)
   teams         Team[]
   memberships   PlayerClubMembership[]
   joinRequests  ClubJoinRequest[]
@@ -352,8 +356,35 @@ model Ranking {
   playerCategories PlayerRankingCategory[]
   competitions Competition[]
   teams       Team[]
+  federations Federation[]
 
   @@map("rankings")
+}
+
+model Federation {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code          String        @unique @db.VarChar(12)
+  name          String
+  contactName   String?       @map("contact_name")
+  address       String?
+  city          String?
+  province      String?
+  postalCode    String?       @map("postal_code") @db.VarChar(16)
+  phone         String?
+  mobile        String?
+  email         String?
+  websiteUrl    String?       @map("website_url")
+  logoUrl       String?       @map("logo_url")
+  rankingId     String?       @map("ranking_id") @db.Uuid
+  managerUserId String?       @unique @map("manager_user_id") @db.Uuid
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime      @default(now()) @map("updated_at") @db.Timestamptz(6)
+  ranking       Ranking?      @relation(fields: [rankingId], references: [id], onDelete: SetNull)
+  manager       User?         @relation(fields: [managerUserId], references: [id], onDelete: SetNull)
+  clubs         Club[]
+  competitions  Competition[]
+
+  @@map("federations")
 }
 
 model CourtReservation {
@@ -486,10 +517,12 @@ model Competition {
   matchFrequency String               @default("biweekly") @map("match_frequency") @db.VarChar(16)
   preferredMatchWeekday Int?          @map("preferred_match_weekday")
   hostClubId  String?                @map("host_club_id") @db.Uuid
+  organizerFederationId String?       @map("organizer_federation_id") @db.Uuid
   createdAt   DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime               @default(now()) @map("updated_at") @db.Timestamptz(6)
   season      Season                 @relation(fields: [seasonId], references: [id], onDelete: Restrict)
   hostClub    Club?                  @relation(fields: [hostClubId], references: [id], onDelete: SetNull)
+  organizerFederation Federation?     @relation(fields: [organizerFederationId], references: [id], onDelete: SetNull)
   ranking     Ranking?               @relation(fields: [rankingId], references: [id], onDelete: SetNull)
   categories  CompetitionCategory[]
   participants CompetitionParticipant[]

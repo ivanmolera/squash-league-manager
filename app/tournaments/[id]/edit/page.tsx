@@ -51,7 +51,7 @@ function playerMeetsCategoryRestrictions(
 export default async function EditTournamentPage({ params }: { params: Promise<{ id: string }> }) {
   await requireFeature("tournaments");
   const { id } = await params;
-  const [tournament, players, clubs, categories, currentUser, dictionary, features] = await Promise.all([
+  const [tournament, players, clubs, federations, categories, currentUser, dictionary, features] = await Promise.all([
     prisma.competition.findUnique({
       where: { id },
       include: {
@@ -71,7 +71,8 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
           }
         },
         categories: { include: { category: true, seeds: true } },
-        hostClub: true
+        hostClub: true,
+        organizerFederation: true
       }
     }),
     prisma.player.findMany({
@@ -86,7 +87,8 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
       },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
     }),
-    prisma.club.findMany({ orderBy: [{ province: "asc" }, { name: "asc" }] }),
+    prisma.club.findMany({ include: { federation: true }, orderBy: [{ province: "asc" }, { name: "asc" }] }),
+    prisma.federation.findMany({ include: { ranking: true }, orderBy: [{ name: "asc" }] }),
     prisma.category.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     getCurrentUser(),
     getDictionary(),
@@ -98,10 +100,17 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
 
   if (!tournament || tournament.type !== "tournament") notFound();
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
-  const canEdit = isAdmin || tournament.hostClub?.managerUserId === currentUser?.id;
+  const isFederationManager = Boolean(currentUser?.roles.some((role) => role.role === "manager_fed"));
+  const editableFederations = isAdmin ? federations : federations.filter((federation) => federation.managerUserId === currentUser?.id);
+  const editableFederationIds = new Set(editableFederations.map((federation) => federation.id));
+  const canEdit = isAdmin ||
+    tournament.hostClub?.managerUserId === currentUser?.id ||
+    Boolean(isFederationManager && tournament.organizerFederationId && editableFederationIds.has(tournament.organizerFederationId));
   if (!canEdit) notFound();
 
-  const editableClubs = isAdmin ? clubs : clubs.filter((club) => club.managerUserId === currentUser?.id);
+  const editableClubs = isAdmin
+    ? clubs
+    : clubs.filter((club) => club.managerUserId === currentUser?.id || (club.federationId && editableFederationIds.has(club.federationId)));
   const selectedCategoryIds = new Set(tournament.categories.map((category) => category.categoryId));
   const selectedSeeds = new Set(
     tournament.categories.flatMap((category) => category.seeds.map((seed) => `${category.id}:${seed.playerId}`))
@@ -129,6 +138,18 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
         {tournament.posterUrl ? <img className="tournament-poster-preview" src={tournament.posterUrl} alt={tournament.name} /> : null}
         <label>{t.poster}<input name="poster" type="file" accept="image/*" /></label>
         <label>{t.referee}<input name="refereeName" defaultValue={tournament.refereeName ?? ""} /></label>
+        {editableFederations.length ? (
+          <label>{t.organizerFederation}
+            <select name="organizerFederationId" defaultValue={tournament.organizerFederationId ?? ""}>
+              {isAdmin ? <option value="">{t.noFederation}</option> : null}
+              {editableFederations.map((federation) => (
+                <option key={federation.id} value={federation.id}>
+                  {federation.name}{federation.ranking ? ` · ${federation.ranking.code}` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <RankingCodePicker defaultCode={tournament.rankingCode ?? rankingCodeForScope(tournament.rankingScope)} label={t.scoreable} />
         <label>{t.matchFormat}
           <select name="bestOfSets" defaultValue={tournament.bestOfSets}>
