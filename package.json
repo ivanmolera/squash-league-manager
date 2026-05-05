@@ -1,6 +1,6 @@
 {
   "name": "squash-league-manager",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "description": "Web app for managing squash leagues, teams, tournaments, rankings and historical results.",
   "scripts": {
