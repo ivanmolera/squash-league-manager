@@ -16,6 +16,7 @@ import { featureKeys, isFeatureEnabled } from "@/src/lib/features";
 import { clubGeocodingQuery, geocodeClubAddress } from "@/src/lib/geocoding";
 import { getDictionary } from "@/src/lib/i18n";
 import { appBaseUrl, sendTransactionalEmail } from "@/src/lib/email";
+import { assertPlayerEligibleForCompetitionCategory } from "@/src/lib/player-eligibility";
 import { prisma } from "@/src/lib/prisma";
 import { rankingCodeValues, rankingScopeForCode } from "@/src/lib/ranking-codes";
 import { generateRoundRobin, nextPowerOfTwo, shuffle } from "@/src/lib/schedule";
@@ -858,45 +859,6 @@ async function saveTournamentSeeds(competitionCategoryId: string, playerIds: str
 
   revalidatePath(`/tournaments/${competitionCategory.competitionId}`);
   revalidatePath(`/tournaments/${competitionCategory.competitionId}/edit`);
-}
-
-function playerAgeAt(referenceDate: Date, birthDate: Date | null) {
-  if (!birthDate) return null;
-
-  let age = referenceDate.getFullYear() - birthDate.getFullYear();
-  const birthdayThisYear = new Date(referenceDate);
-  birthdayThisYear.setMonth(birthDate.getMonth(), birthDate.getDate());
-  if (referenceDate < birthdayThisYear) age -= 1;
-  return age;
-}
-
-async function assertPlayerEligibleForCompetitionCategory(competitionCategoryId: string, playerId: string) {
-  const competitionCategory = await prisma.competitionCategory.findUniqueOrThrow({
-    where: { id: competitionCategoryId },
-    include: { competition: true, category: true }
-  });
-  const player = await prisma.player.findUniqueOrThrow({
-    where: { id: playerId },
-    select: { gender: true, birthDate: true, mergedIntoPlayerId: true }
-  });
-  if (player.mergedIntoPlayerId) {
-    throw new Error("Esta ficha de jugador está fusionada con otra ficha principal.");
-  }
-  const referenceDate = competitionCategory.competition.startsAt ?? new Date();
-  const age = playerAgeAt(referenceDate, player.birthDate);
-  const genderMatches = competitionCategory.category.genderScope === "not_specified" || player.gender === competitionCategory.category.genderScope;
-
-  if (!genderMatches) {
-    throw new Error("El jugador no cumple la restricción de sexo de esta categoría.");
-  }
-
-  if (competitionCategory.category.minAge !== null && (age === null || age < competitionCategory.category.minAge)) {
-    throw new Error(`El jugador debe tener al menos ${competitionCategory.category.minAge} años para inscribirse en esta categoría.`);
-  }
-
-  if (competitionCategory.category.maxAge !== null && (age === null || age > competitionCategory.category.maxAge)) {
-    throw new Error(`El jugador debe tener como máximo ${competitionCategory.category.maxAge} años para inscribirse en esta categoría.`);
-  }
 }
 
 async function canManageClub(userId: string, clubId?: string | null) {
@@ -2108,6 +2070,15 @@ async function upsertCompetitionCategoryByDisplayName({
   });
 }
 
+async function rankingIdForCode(code: string) {
+  if (!code || code === "none") return null;
+  const ranking = await prisma.ranking.findUnique({
+    where: { code },
+    select: { id: true }
+  });
+  return ranking?.id ?? null;
+}
+
 export async function saveLeagueAction(formData: FormData) {
   if (!(await isFeatureEnabled("leagues"))) {
     throw new Error("La gestión de ligas no está activa.");
@@ -2214,6 +2185,8 @@ export async function saveLeagueAction(formData: FormData) {
       return;
     }
 
+    await Promise.all(players.map((player) => assertPlayerEligibleForCompetitionCategory(competitionCategory.id, player.id)));
+
     await prisma.competitionParticipant.createMany({
       data: players.map((player) => ({
         competitionId: competition.id,
@@ -2297,11 +2270,12 @@ export async function saveLeagueAction(formData: FormData) {
               name: `${club.name} Open`
             }
           },
-          update: { clubNameAtCreation: club.name },
+          update: { clubNameAtCreation: club.name, rankingId: competition.rankingId },
           create: {
             clubId: club.id,
             seasonId: season.id,
             categoryId: category.id,
+            rankingId: competition.rankingId,
             name: `${club.name} Open`,
             clubNameAtCreation: club.name
           }
@@ -2410,6 +2384,7 @@ export async function saveTournamentAction(formData: FormData) {
   const defaultCategory = await getDefaultCategory();
   const categoryIds = parsed.categoryIds.length ? parsed.categoryIds : [defaultCategory.id];
   const rankingScope = rankingScopeForCode(parsed.rankingCode);
+  const rankingId = await rankingIdForCode(parsed.rankingCode);
   const competition = parsed.competitionId
     ? await prisma.competition.update({
         where: { id: parsed.competitionId },
@@ -2421,6 +2396,7 @@ export async function saveTournamentAction(formData: FormData) {
           refereeName: parsed.refereeName,
           rankingScope,
           rankingCode: parsed.rankingCode,
+          rankingId,
           bestOfSets: parsed.bestOfSets,
           registrationDeadline: new Date(parsed.registrationDeadline),
           startsAt: new Date(parsed.startsAt),
@@ -2439,6 +2415,7 @@ export async function saveTournamentAction(formData: FormData) {
           refereeName: parsed.refereeName,
           rankingScope,
           rankingCode: parsed.rankingCode,
+          rankingId,
           bestOfSets: parsed.bestOfSets,
           registrationDeadline: new Date(parsed.registrationDeadline),
           startsAt: new Date(parsed.startsAt),

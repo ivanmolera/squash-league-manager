@@ -253,6 +253,7 @@ model Player {
   competitionParticipants CompetitionParticipant[]
   courtReservations CourtReservation[] @relation("CourtReservationPlayer")
   partnerCourtReservations CourtReservation[] @relation("CourtReservationPartner")
+  rankingCategories PlayerRankingCategory[]
 
   @@map("players")
 }
@@ -337,6 +338,24 @@ model AppFeatureSetting {
   @@map("app_feature_settings")
 }
 
+model Ranking {
+  id          String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String                  @unique @db.VarChar(8)
+  name        String
+  scope       RankingScope            @default(none)
+  logoUrl     String?                 @map("logo_url")
+  active      Boolean                 @default(true)
+  sortOrder   Int                     @default(0) @map("sort_order")
+  createdAt   DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime                @default(now()) @map("updated_at") @db.Timestamptz(6)
+  categories  RankingCategory[]
+  playerCategories PlayerRankingCategory[]
+  competitions Competition[]
+  teams       Team[]
+
+  @@map("rankings")
+}
+
 model CourtReservation {
   id                String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   clubId            String                 @map("club_id") @db.Uuid
@@ -389,6 +408,7 @@ model Season {
   competitions Competition[]
   leagueMatchdays LeagueMatchday[]
   joinRequests ClubJoinRequest[]
+  playerRankingCategories PlayerRankingCategory[]
 
   @@map("seasons")
 }
@@ -402,9 +422,49 @@ model Category {
   sortOrder   Int                   @default(0) @map("sort_order")
   createdAt   DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   competitions CompetitionCategory[]
+  rankings    RankingCategory[]
+  playerRankingCategories PlayerRankingCategory[]
 
   @@unique([name, genderScope, minAge, maxAge])
   @@map("categories")
+}
+
+model RankingCategory {
+  rankingId       String   @map("ranking_id") @db.Uuid
+  categoryId      String   @map("category_id") @db.Uuid
+  isLevelCategory Boolean  @default(false) @map("is_level_category")
+  levelOrder      Int?     @map("level_order")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  ranking         Ranking  @relation(fields: [rankingId], references: [id], onDelete: Cascade)
+  category        Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([rankingId, categoryId])
+  @@map("ranking_categories")
+}
+
+model PlayerRankingCategory {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  playerId        String    @map("player_id") @db.Uuid
+  rankingId       String    @map("ranking_id") @db.Uuid
+  seasonId        String    @map("season_id") @db.Uuid
+  categoryId      String    @map("category_id") @db.Uuid
+  isLevelCategory Boolean   @default(false) @map("is_level_category")
+  levelOrder      Int?      @map("level_order")
+  validFrom       DateTime  @default(now()) @map("valid_from") @db.Date
+  validTo         DateTime? @map("valid_to") @db.Date
+  source          String    @default("manual") @db.VarChar(32)
+  notes           String?
+  createdByUserId String?   @map("created_by_user_id") @db.Uuid
+  updatedByUserId String?   @map("updated_by_user_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  player          Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  ranking         Ranking   @relation(fields: [rankingId], references: [id], onDelete: Cascade)
+  season          Season    @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  category        Category  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@unique([playerId, rankingId, seasonId, categoryId, validFrom])
+  @@map("player_ranking_categories")
 }
 
 model Competition {
@@ -419,6 +479,7 @@ model Competition {
   refereeName String?                @map("referee_name")
   rankingScope RankingScope          @default(none) @map("ranking_scope")
   rankingCode  String                @default("none") @map("ranking_code") @db.VarChar(8)
+  rankingId    String?               @map("ranking_id") @db.Uuid
   registrationDeadline DateTime?        @map("registration_deadline") @db.Timestamptz(6)
   startsAt    DateTime?              @map("starts_at") @db.Timestamptz(6)
   endsAt      DateTime?              @map("ends_at") @db.Timestamptz(6)
@@ -429,6 +490,7 @@ model Competition {
   updatedAt   DateTime               @default(now()) @map("updated_at") @db.Timestamptz(6)
   season      Season                 @relation(fields: [seasonId], references: [id], onDelete: Restrict)
   hostClub    Club?                  @relation(fields: [hostClubId], references: [id], onDelete: SetNull)
+  ranking     Ranking?               @relation(fields: [rankingId], references: [id], onDelete: SetNull)
   categories  CompetitionCategory[]
   participants CompetitionParticipant[]
   matches      Match[]
@@ -519,12 +581,14 @@ model Team {
   clubId     String       @map("club_id") @db.Uuid
   seasonId   String       @map("season_id") @db.Uuid
   categoryId String       @map("category_id") @db.Uuid
+  rankingId  String?      @map("ranking_id") @db.Uuid
   name       String
   clubNameAtCreation String @map("club_name_at_creation")
   showRosterPublic Boolean @default(true) @map("show_roster_public")
   createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt  DateTime     @default(now()) @map("updated_at") @db.Timestamptz(6)
   club       Club         @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  ranking    Ranking?     @relation(fields: [rankingId], references: [id], onDelete: SetNull)
   rosters    TeamRoster[]
 
   @@unique([clubId, seasonId, categoryId, name])
