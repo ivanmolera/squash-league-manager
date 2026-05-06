@@ -46,6 +46,15 @@ const playerSchema = z.object({
   receivesMatchCommunications: z.coerce.boolean().default(false)
 });
 
+const skillQuestionnaireSchema = z.object({
+  playerId: z.string().uuid(),
+  weeklyFrequency: z.enum(["rarely", "one", "two_three", "four_plus"]),
+  squashExperience: z.enum(["none", "less_one", "one_three", "three_plus"]),
+  competitionExperience: z.enum(["none", "social", "club", "federated"]),
+  technicalConfidence: z.enum(["basic", "drive_backhand", "boast_drop", "advanced"]),
+  tacticalKnowledge: z.enum(["none", "rules", "patterns", "philadelphia"])
+});
+
 const playerPasswordSchema = z.object({
   playerId: z.string().uuid(),
   currentPassword: z.string().optional(),
@@ -273,6 +282,27 @@ function nextSkillLevel(playerLevel: number, opponentLevel: number, reliability:
   const expected = expectedScore(playerLevel, opponentLevel);
   const delta = skillKFactor(reliability) * (actualScore - expected);
   return clampSkillLevel(playerLevel + delta);
+}
+
+function initialSkillLevelFromQuestionnaire(value: z.infer<typeof skillQuestionnaireSchema>) {
+  const weeklyFrequency = { rarely: 0, one: 0.45, two_three: 0.85, four_plus: 1.15 }[value.weeklyFrequency];
+  const squashExperience = { none: 0, less_one: 0.45, one_three: 0.95, three_plus: 1.35 }[value.squashExperience];
+  const competitionExperience = { none: 0, social: 0.35, club: 0.8, federated: 1.2 }[value.competitionExperience];
+  const technicalConfidence = { basic: 0, drive_backhand: 0.45, boast_drop: 0.9, advanced: 1.25 }[value.technicalConfidence];
+  const tacticalKnowledge = { none: 0, rules: 0.25, patterns: 0.65, philadelphia: 1 }[value.tacticalKnowledge];
+  return clampSkillLevel(0.4 + weeklyFrequency + squashExperience + competitionExperience + technicalConfidence + tacticalKnowledge);
+}
+
+function assertCompetitiveSkillIsDefined(players: Array<{ skillLevelConfirmed: boolean }>) {
+  if (players.some((player) => !player.skillLevelConfirmed)) {
+    throw new Error("Para jugar partidos competitivos ambos jugadores deben completar primero el cuestionario de nivel.");
+  }
+}
+
+function assertCompetitiveLevelsAreBalanced(leftLevel: number, rightLevel: number) {
+  if (Math.abs(leftLevel - rightLevel) > 2) {
+    throw new Error("La diferencia de nivel entre jugadores es demasiado grande para un partido competitivo.");
+  }
 }
 
 async function getCourtBookingPlayer(userId: string) {
@@ -1447,6 +1477,41 @@ export async function updateUserOperationalRoleAction(formData: FormData) {
     revalidatePath(`/players/${user.player.id}`);
     revalidatePath(`/players/${user.player.id}/edit`);
   }
+}
+
+export async function savePlayerSkillQuestionnaireAction(formData: FormData) {
+  const currentUser = await requireUser();
+  const isAdmin = hasRole(currentUser, "admin");
+  const parsed = skillQuestionnaireSchema.parse({
+    playerId: textValue(formData.get("playerId")),
+    weeklyFrequency: textValue(formData.get("weeklyFrequency")),
+    squashExperience: textValue(formData.get("squashExperience")),
+    competitionExperience: textValue(formData.get("competitionExperience")),
+    technicalConfidence: textValue(formData.get("technicalConfidence")),
+    tacticalKnowledge: textValue(formData.get("tacticalKnowledge"))
+  });
+  const player = await prisma.player.findUniqueOrThrow({
+    where: { id: parsed.playerId },
+    select: { id: true, userId: true }
+  });
+
+  if (!isAdmin && player.userId !== currentUser.id) {
+    throw new Error("Solo puedes definir el nivel de tu propia ficha.");
+  }
+
+  await prisma.player.update({
+    where: { id: player.id },
+    data: {
+      skillLevel: initialSkillLevelFromQuestionnaire(parsed),
+      skillLevelConfirmed: true,
+      skillReliability: 0,
+      skillQuestionnaire: parsed
+    }
+  });
+
+  revalidatePath(`/players/${player.id}`);
+  revalidatePath(`/players/${player.id}/edit`);
+  redirect(`/players/${player.id}/edit?saved=1`);
 }
 
 export async function saveFederationManagerAction(formData: FormData) {
@@ -3205,6 +3270,9 @@ export async function proposeMatchAction(formData: FormData) {
   if (!player) {
     throw new Error("Necesitas tener una ficha de jugador para proponer partidos.");
   }
+  if (parsed.type === "competitive") {
+    assertCompetitiveSkillIsDefined([player]);
+  }
 
   await prisma.$transaction(async (tx) => {
     const reservation = await tx.courtReservation.create({
@@ -3268,6 +3336,15 @@ export async function acceptMatchProposalAction(formData: FormData) {
 
   if (!canPlayerUseClubCourts({ publicCourtAccess: proposal.club.publicCourtAccess, player, clubId: proposal.clubId })) {
     throw new Error("Solo los jugadores abonados a este club pueden aceptar esta propuesta.");
+  }
+
+  if (proposal.type === "competitive") {
+    const proposer = await prisma.player.findUniqueOrThrow({
+      where: { id: proposal.proposerPlayerId },
+      select: { skillLevel: true, skillLevelConfirmed: true }
+    });
+    assertCompetitiveSkillIsDefined([proposer, player]);
+    assertCompetitiveLevelsAreBalanced(Number(proposer.skillLevel), Number(player.skillLevel));
   }
 
   await prisma.matchProposal.update({
@@ -3371,6 +3448,10 @@ export async function completeMatchProposalAction(formData: FormData) {
   const proposerBefore = Number(proposal.proposerPlayer.skillLevel);
   const acceptorBefore = Number(proposal.acceptorPlayer.skillLevel);
   const proposerWins = parsed.winnerPlayerId === proposal.proposerPlayerId;
+  if (proposal.type === "competitive") {
+    assertCompetitiveSkillIsDefined([proposal.proposerPlayer, proposal.acceptorPlayer]);
+    assertCompetitiveLevelsAreBalanced(proposerBefore, acceptorBefore);
+  }
   const proposerAfter = proposal.type === "competitive"
     ? nextSkillLevel(proposerBefore, acceptorBefore, proposal.proposerPlayer.skillReliability, proposerWins ? 1 : 0)
     : proposerBefore;

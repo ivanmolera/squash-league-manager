@@ -259,7 +259,9 @@ model Player {
   showPhysicalPublic    Boolean                   @default(true) @map("show_physical_public")
   receivesMatchCommunications Boolean             @default(false) @map("receives_match_communications")
   skillLevel            Decimal                   @default(2.50) @map("skill_level") @db.Decimal(3, 2)
+  skillLevelConfirmed   Boolean                   @default(false) @map("skill_level_confirmed")
   skillReliability      Int                       @default(0) @map("skill_reliability")
+  skillQuestionnaire    Json?                     @map("skill_questionnaire")
   mergedIntoPlayerId String?                      @map("merged_into_player_id") @db.Uuid
   mergedAt             DateTime?                  @map("merged_at") @db.Timestamptz(6)
   createdAt             DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)

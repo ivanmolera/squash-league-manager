@@ -295,6 +295,7 @@ export default async function ClubDetailPage({
             <h2>{t.courtBookings}</h2>
             {!currentUser ? <p className="warning-box">{t.signInToBookCourt}</p> : null}
             {currentUser && !canUseClubCourts ? <p className="warning-box">{t.membersOnlyBookingWarning}</p> : null}
+            {currentPlayer && !currentPlayer.skillLevelConfirmed ? <p className="warning-box">{t.skillQuestionnaireCompetitiveWarning}</p> : null}
             {activeFutureReservation ? <p className="warning-box">{t.activeCourtReservationWarning}</p> : null}
             <div className="court-booking-toolbar">
               {previousBookingDate ? (
@@ -328,7 +329,9 @@ export default async function ClubDetailPage({
                         const isClosed = closedDayKeys.has(selectedBookingDateKey);
                         const canBook = currentUser && canUseClubCourts && !reservation && !isPast && !isClosed && !activeFutureReservation;
                         const proposal = reservation?.matchProposal;
-                        const canAcceptProposal = proposal?.status === "open" && currentPlayer && canUseClubCourts && proposal.proposerPlayerId !== currentPlayer.id;
+                        const canAcceptProposal = proposal?.status === "open" && currentPlayer && canUseClubCourts && proposal.proposerPlayerId !== currentPlayer.id &&
+                          (proposal.type !== "competitive" || (currentPlayer.skillLevelConfirmed && proposal.proposerPlayer.skillLevelConfirmed && Math.abs(Number(currentPlayer.skillLevel) - Number(proposal.proposerPlayer.skillLevel)) <= 2));
+                        const canProposeCompetitive = currentPlayer?.skillLevelConfirmed;
 
                         return (
                           <td className={reservation ? "reserved-slot" : isClosed || isPast ? "unavailable-slot" : "available-slot"} key={`${selectedBookingDateKey}-${courtIndex}-${slot.hour}-${slot.minute}`}>
@@ -379,7 +382,7 @@ export default async function ClubDetailPage({
                                     <input type="hidden" name="startsAt" value={startsAt.toISOString()} />
                                     <select name="type" defaultValue="friendly" aria-label={t.matchType}>
                                       <option value="friendly">{t.friendlyMatch}</option>
-                                      <option value="competitive">{t.competitiveMatch}</option>
+                                      {canProposeCompetitive ? <option value="competitive">{t.competitiveMatch}</option> : null}
                                     </select>
                                     <button type="submit">{t.proposeMatch}</button>
                                   </form>
@@ -399,7 +402,8 @@ export default async function ClubDetailPage({
             <section className="match-proposal-list">
               <h3>{t.matchProposals}</h3>
               {matchProposals.length ? matchProposals.map((proposal) => {
-                const canAcceptProposal = proposal.status === "open" && currentPlayer && canUseClubCourts && proposal.proposerPlayerId !== currentPlayer.id;
+                const canAcceptProposal = proposal.status === "open" && currentPlayer && canUseClubCourts && proposal.proposerPlayerId !== currentPlayer.id &&
+                  (proposal.type !== "competitive" || (currentPlayer.skillLevelConfirmed && Math.abs(Number(currentPlayer.skillLevel) - Number(proposal.proposerPlayer.skillLevel)) <= 2));
                 const canManageProposal = canEdit || proposal.proposerUserId === currentUser?.id || proposal.acceptorUserId === currentUser?.id;
                 return (
                   <article className="row-card match-proposal-row" key={proposal.id}>

@@ -492,7 +492,7 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ i
           <div className="stat-metric-grid">
             <div><span>{t.seasonsPlayed}</span><strong>{statistics.seasonsPlayed}</strong></div>
             <div><span>{t.bestRanking}</span><strong>{bestRanking}</strong></div>
-            <div><span>{t.skillLevel}</span><strong>{Number(player.skillLevel).toFixed(2)}</strong></div>
+            <div><span>{t.skillLevel}</span><strong>{player.skillLevelConfirmed ? Number(player.skillLevel).toFixed(2) : t.skillLevelUndefined}</strong></div>
             <div><span>{t.tournamentsPlayed}</span><strong>{statistics.tournamentsPlayed}</strong></div>
             <div><span>{t.totalMatchesPlayed}</span><strong>{statistics.totalMatchesPlayed}</strong></div>
             <div><span>{t.won}</span><strong>{statistics.won}</strong></div>
