@@ -131,7 +131,7 @@ function ClubFields({
   isAdmin,
   labels
 }: {
-  club?: { name?: string; city?: string | null; province?: string | null; address?: string | null; postalCode?: string | null; availableCourts?: number; phone?: string | null; managesCourtBookings?: boolean; websiteUrl?: string | null; logoUrl?: string | null; managerUserId?: string | null; federationId?: string | null; showContactPublic?: boolean; closedDays?: Array<{ closedOn: Date }> };
+  club?: { name?: string; city?: string | null; province?: string | null; address?: string | null; postalCode?: string | null; availableCourts?: number; phone?: string | null; managesCourtBookings?: boolean; publicCourtAccess?: boolean; websiteUrl?: string | null; logoUrl?: string | null; managerUserId?: string | null; federationId?: string | null; showContactPublic?: boolean; closedDays?: Array<{ closedOn: Date }> };
   managers: Array<{ id: string; email: string; displayName: string | null; player?: { firstName: string; lastName: string } | null }>;
   federations: Array<{ id: string; name: string; code: string }>;
   isAdmin: boolean;
@@ -153,6 +153,10 @@ function ClubFields({
       <label className="check-line">
         <input name="managesCourtBookings" type="checkbox" defaultChecked={club?.managesCourtBookings ?? false} />
         {labels.manageCourtBookingsWithApp}
+      </label>
+      <label className="check-line">
+        <input name="publicCourtAccess" type="checkbox" defaultChecked={club?.publicCourtAccess ?? true} />
+        {labels.publicCourtAccess}
       </label>
       <div className="form-row">
         <label>{labels.clubPhone}<input name="phone" type="tel" defaultValue={club?.phone ?? ""} /></label>

@@ -1,6 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { cancelCourtReservationAction, reserveCourtAction, reviewClubJoinRequestAction } from "@/app/admin/actions";
+import {
+  acceptMatchProposalAction,
+  cancelCourtReservationAction,
+  cancelMatchProposalAction,
+  completeMatchProposalAction,
+  proposeMatchAction,
+  reserveCourtAction,
+  reviewClubJoinRequestAction
+} from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { ClubCrest } from "@/src/components/club-crest";
 import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
@@ -93,6 +101,10 @@ function isSlotOverlapping(reservation: { startsAt: Date; endsAt: Date }, starts
   return reservation.startsAt < endsAt && reservation.endsAt > startsAt;
 }
 
+function playerName(player: { firstName: string; lastName: string }) {
+  return `${player.firstName} ${player.lastName}`;
+}
+
 function groupMembershipsBySeason(memberships: ClubMembership[]) {
   return memberships.reduce<Array<{ seasonId: string; seasonName: string; startsAt: Date | null; memberships: ClubMembership[] }>>((groups, membership) => {
     const group = groups.find((item) => item.seasonId === membership.seasonId);
@@ -152,6 +164,18 @@ export default async function ClubDetailPage({
   const mapUrl = features.club_maps && canSeeContact ? clubMapUrl(club) : null;
   const community = autonomousCommunityForLocation(club);
   const showBookings = features.court_bookings && club.managesCourtBookings && club.availableCourts > 0;
+  const currentPlayer = currentUser
+    ? await prisma.player.findUnique({
+        where: { userId: currentUser.id },
+        include: {
+          memberships: {
+            where: { toDate: null },
+            select: { clubId: true }
+          }
+        }
+      })
+    : null;
+  const canUseClubCourts = club.publicCourtAccess || Boolean(currentPlayer?.memberships.some((membership) => membership.clubId === club.id));
   const bookingStart = weekStart();
   const bookingEnd = addDays(bookingStart, 14);
   const requestedBookingDate = dateFromKey(query?.bookingDate);
@@ -170,7 +194,14 @@ export default async function ClubDetailPage({
           include: {
             user: true,
             player: true,
-            partnerPlayer: true
+            partnerPlayer: true,
+            matchProposal: {
+              include: {
+                proposerPlayer: true,
+                acceptorPlayer: true,
+                winnerPlayer: true
+              }
+            }
           },
           orderBy: [{ startsAt: "asc" }, { courtNumber: "asc" }]
         })
@@ -182,6 +213,24 @@ export default async function ClubDetailPage({
   const selectedDayReservations = reservations.filter((reservation) =>
     reservation.startsAt >= selectedBookingDate && reservation.startsAt < selectedBookingDateEnd
   );
+  const matchProposals = showBookings
+    ? await prisma.matchProposal.findMany({
+        where: {
+          clubId: club.id,
+          status: { in: ["open", "accepted"] },
+          courtReservation: {
+            status: "active",
+            startsAt: { gte: new Date(), lt: bookingEnd }
+          }
+        },
+        include: {
+          courtReservation: true,
+          proposerPlayer: true,
+          acceptorPlayer: true
+        },
+        orderBy: [{ courtReservation: { startsAt: "asc" } }]
+      })
+    : [];
   const slots = Array.from({ length: 13 }, (_, index) => ({
     hour: 8 + index,
     minute: 0
@@ -228,6 +277,7 @@ export default async function ClubDetailPage({
               <p><strong>{t.clubPhone}:</strong> {canSeeContact ? club.phone ?? t.notProvided : t.privateValue}</p>
               <p><strong>{t.assignedManager}:</strong> {club.manager?.displayName ?? club.manager?.email ?? t.noManager}</p>
               <p><strong>{t.availableCourts}:</strong> {club.availableCourts}</p>
+              <p><strong>{t.courtAccess}:</strong> {club.publicCourtAccess ? t.publicCourtAccess : t.membersOnlyCourtAccess}</p>
             </div>
             {mapUrl ? (
               <iframe
@@ -244,6 +294,7 @@ export default async function ClubDetailPage({
           <article className="list-panel full-width" id="reservas">
             <h2>{t.courtBookings}</h2>
             {!currentUser ? <p className="warning-box">{t.signInToBookCourt}</p> : null}
+            {currentUser && !canUseClubCourts ? <p className="warning-box">{t.membersOnlyBookingWarning}</p> : null}
             {activeFutureReservation ? <p className="warning-box">{t.activeCourtReservationWarning}</p> : null}
             <div className="court-booking-toolbar">
               {previousBookingDate ? (
@@ -275,16 +326,36 @@ export default async function ClubDetailPage({
                         const reservation = selectedDayReservations.find((item) => item.courtNumber === courtIndex + 1 && isSlotOverlapping(item, startsAt));
                         const isPast = startsAt < new Date();
                         const isClosed = closedDayKeys.has(selectedBookingDateKey);
-                        const canBook = currentUser && !reservation && !isPast && !isClosed && !activeFutureReservation;
+                        const canBook = currentUser && canUseClubCourts && !reservation && !isPast && !isClosed && !activeFutureReservation;
+                        const proposal = reservation?.matchProposal;
+                        const canAcceptProposal = proposal?.status === "open" && currentPlayer && canUseClubCourts && proposal.proposerPlayerId !== currentPlayer.id;
 
                         return (
                           <td className={reservation ? "reserved-slot" : isClosed || isPast ? "unavailable-slot" : "available-slot"} key={`${selectedBookingDateKey}-${courtIndex}-${slot.hour}-${slot.minute}`}>
                             {reservation ? (
                               <div className="slot-reservation">
-                                <strong>{t.reserved.toUpperCase()}</strong>
+                                <strong>{proposal ? t.matchProposalReserved : t.reserved.toUpperCase()}</strong>
+                                {proposal ? (
+                                  <>
+                                    <span>{proposal.type === "competitive" ? t.competitiveMatch : t.friendlyMatch}</span>
+                                    <span>{playerName(proposal.proposerPlayer)}</span>
+                                    {proposal.acceptorPlayer ? <span>{playerName(proposal.acceptorPlayer)}</span> : null}
+                                    {canAcceptProposal ? (
+                                      <form action={acceptMatchProposalAction}>
+                                        <input type="hidden" name="proposalId" value={proposal.id} />
+                                        <input type="hidden" name="clubId" value={club.id} />
+                                        <button type="submit">{t.acceptMatchProposal}</button>
+                                      </form>
+                                    ) : null}
+                                  </>
+                                ) : null}
                                 {(reservation.userId === currentUser?.id || canEdit) ? (
-                                  <form action={cancelCourtReservationAction}>
-                                    <input type="hidden" name="reservationId" value={reservation.id} />
+                                  <form action={proposal ? cancelMatchProposalAction : cancelCourtReservationAction}>
+                                    {proposal ? (
+                                      <input type="hidden" name="proposalId" value={proposal.id} />
+                                    ) : (
+                                      <input type="hidden" name="reservationId" value={reservation.id} />
+                                    )}
                                     <input type="hidden" name="clubId" value={club.id} />
                                     <button type="submit">{t.releaseCourt}</button>
                                   </form>
@@ -301,6 +372,18 @@ export default async function ClubDetailPage({
                                   <input type="hidden" name="startsAt" value={startsAt.toISOString()} />
                                   <button type="submit">{t.bookCourt}</button>
                                 </form>
+                                {currentPlayer ? (
+                                  <form className="slot-booking-form" action={proposeMatchAction}>
+                                    <input type="hidden" name="clubId" value={club.id} />
+                                    <input type="hidden" name="courtNumber" value={courtIndex + 1} />
+                                    <input type="hidden" name="startsAt" value={startsAt.toISOString()} />
+                                    <select name="type" defaultValue="friendly" aria-label={t.matchType}>
+                                      <option value="friendly">{t.friendlyMatch}</option>
+                                      <option value="competitive">{t.competitiveMatch}</option>
+                                    </select>
+                                    <button type="submit">{t.proposeMatch}</button>
+                                  </form>
+                                ) : null}
                               </details>
                             ) : (
                               <span>{formatTime(startsAt)}</span>
@@ -313,6 +396,51 @@ export default async function ClubDetailPage({
                 </tbody>
               </table>
             </div>
+            <section className="match-proposal-list">
+              <h3>{t.matchProposals}</h3>
+              {matchProposals.length ? matchProposals.map((proposal) => {
+                const canAcceptProposal = proposal.status === "open" && currentPlayer && canUseClubCourts && proposal.proposerPlayerId !== currentPlayer.id;
+                const canManageProposal = canEdit || proposal.proposerUserId === currentUser?.id || proposal.acceptorUserId === currentUser?.id;
+                return (
+                  <article className="row-card match-proposal-row" key={proposal.id}>
+                    <div>
+                      <strong>{formatDay(proposal.courtReservation.startsAt, locale)} · {formatTime(proposal.courtReservation.startsAt)}</strong>
+                      <span>{t.court} {proposal.courtReservation.courtNumber} · {proposal.type === "competitive" ? t.competitiveMatch : t.friendlyMatch}</span>
+                      <span>{t.proposer}: {playerName(proposal.proposerPlayer)}</span>
+                      <span>{proposal.acceptorPlayer ? `${t.acceptedBy}: ${playerName(proposal.acceptorPlayer)}` : t.openMatchProposal}</span>
+                    </div>
+                    {canAcceptProposal ? (
+                      <form action={acceptMatchProposalAction}>
+                        <input type="hidden" name="proposalId" value={proposal.id} />
+                        <input type="hidden" name="clubId" value={club.id} />
+                        <button type="submit">{t.acceptMatchProposal}</button>
+                      </form>
+                    ) : null}
+                    {proposal.status === "accepted" && canManageProposal ? (
+                      <form className="inline-form" action={completeMatchProposalAction}>
+                        <input type="hidden" name="proposalId" value={proposal.id} />
+                        <input type="hidden" name="clubId" value={club.id} />
+                        <select name="winnerPlayerId" aria-label={t.winner}>
+                          <option value={proposal.proposerPlayerId}>{playerName(proposal.proposerPlayer)}</option>
+                          {proposal.acceptorPlayerId && proposal.acceptorPlayer ? (
+                            <option value={proposal.acceptorPlayerId}>{playerName(proposal.acceptorPlayer)}</option>
+                          ) : null}
+                        </select>
+                        <input name="scoreSummary" placeholder={t.result} />
+                        <button type="submit">{t.completeMatch}</button>
+                      </form>
+                    ) : null}
+                    {canManageProposal ? (
+                      <form action={cancelMatchProposalAction}>
+                        <input type="hidden" name="proposalId" value={proposal.id} />
+                        <input type="hidden" name="clubId" value={club.id} />
+                        <button type="submit">{t.cancelMatchProposal}</button>
+                      </form>
+                    ) : null}
+                  </article>
+                );
+              }) : <p className="muted">{t.noMatchProposals}</p>}
+            </section>
           </article>
         ) : null}
         {features.court_bookings && canEdit && !showBookings ? (

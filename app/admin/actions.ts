@@ -102,6 +102,7 @@ const clubSchema = z.object({
   availableCourts: z.coerce.number().int().min(0).max(99).default(0),
   phone: z.string().optional(),
   managesCourtBookings: z.coerce.boolean().default(false),
+  publicCourtAccess: z.coerce.boolean().default(true),
   closedDays: z.string().optional(),
   websiteUrl: z.string().url().optional().or(z.literal("")),
   showContactPublic: z.coerce.boolean().default(false),
@@ -178,6 +179,20 @@ const courtReservationSchema = z.object({
   startsAt: z.string().datetime()
 });
 
+const matchProposalSchema = courtReservationSchema.extend({
+  type: z.enum(["friendly", "competitive"]).default("friendly")
+});
+
+const matchProposalIdSchema = z.object({
+  proposalId: z.string().uuid(),
+  clubId: z.string().uuid()
+});
+
+const completeMatchProposalSchema = matchProposalIdSchema.extend({
+  winnerPlayerId: z.string().uuid(),
+  scoreSummary: z.string().max(120).optional()
+});
+
 const cancelCourtReservationSchema = z.object({
   reservationId: z.string().uuid(),
   clubId: z.string().uuid()
@@ -240,6 +255,139 @@ function isBookableCourtSlot(startsAt: Date) {
     minute === 0 &&
     hour >= 8 &&
     hour <= 20;
+}
+
+function clampSkillLevel(value: number) {
+  return Math.max(0, Math.min(7, Math.round(value * 100) / 100));
+}
+
+function expectedScore(playerLevel: number, opponentLevel: number) {
+  return 1 / (1 + 10 ** ((opponentLevel - playerLevel) / 2));
+}
+
+function skillKFactor(reliability: number) {
+  return Math.max(0.05, 0.45 / Math.sqrt(Math.max(1, reliability + 1)));
+}
+
+function nextSkillLevel(playerLevel: number, opponentLevel: number, reliability: number, actualScore: 0 | 1) {
+  const expected = expectedScore(playerLevel, opponentLevel);
+  const delta = skillKFactor(reliability) * (actualScore - expected);
+  return clampSkillLevel(playerLevel + delta);
+}
+
+async function getCourtBookingPlayer(userId: string) {
+  const season = await getDefaultSeason();
+  const player = await prisma.player.findUnique({
+    where: { userId },
+    include: {
+      memberships: {
+        where: {
+          seasonId: season.id,
+          toDate: null
+        },
+        select: { clubId: true }
+      }
+    }
+  });
+  return { player, season };
+}
+
+function canPlayerUseClubCourts({
+  publicCourtAccess,
+  player,
+  clubId
+}: {
+  publicCourtAccess: boolean;
+  player: { memberships: Array<{ clubId: string }> } | null;
+  clubId: string;
+}) {
+  return publicCourtAccess || Boolean(player?.memberships.some((membership) => membership.clubId === clubId));
+}
+
+async function assertCourtBookingAllowed({
+  currentUserId,
+  club,
+  startsAt
+}: {
+  currentUserId: string;
+  club: { id: string; publicCourtAccess: boolean };
+  startsAt: Date;
+}) {
+  const { player } = await getCourtBookingPlayer(currentUserId);
+  if (!canPlayerUseClubCourts({ publicCourtAccess: club.publicCourtAccess, player, clubId: club.id })) {
+    throw new Error("Solo los jugadores abonados a este club pueden reservar sus pistas.");
+  }
+
+  const activeFutureReservation = await prisma.courtReservation.findFirst({
+    where: {
+      userId: currentUserId,
+      status: "active",
+      startsAt: { gte: new Date() }
+    },
+    select: { id: true }
+  });
+
+  if (activeFutureReservation) {
+    throw new Error("Ya tienes una reserva vigente.");
+  }
+
+  const sameDayStart = courtLocalDateTimeToUtc(courtDateKey(startsAt));
+  const sameDayEnd = courtLocalDateTimeToUtc(addDaysToCourtDateKey(courtDateKey(startsAt), 1));
+  const sameDayReservation = await prisma.courtReservation.findFirst({
+    where: {
+      userId: currentUserId,
+      status: "active",
+      startsAt: { gte: sameDayStart, lt: sameDayEnd }
+    },
+    select: { id: true }
+  });
+
+  if (sameDayReservation) {
+    throw new Error("Solo puedes reservar una hora de pista al día.");
+  }
+
+  return player;
+}
+
+async function assertCourtSlotAvailable({
+  clubId,
+  startsAt,
+  courtNumber
+}: {
+  clubId: string;
+  startsAt: Date;
+  courtNumber: number;
+}) {
+  const slotDay = new Date(`${courtDateKey(startsAt)}T00:00:00.000Z`);
+  const closedDay = await prisma.courtClosedDay.findUnique({
+    where: {
+      clubId_closedOn: {
+        clubId,
+        closedOn: slotDay
+      }
+    },
+    select: { id: true }
+  });
+
+  if (closedDay) {
+    throw new Error("El club está cerrado en la fecha seleccionada.");
+  }
+
+  const endsAt = new Date(startsAt.getTime() + 60 * 60 * 1000);
+  const overlapping = await prisma.courtReservation.findFirst({
+    where: {
+      clubId,
+      courtNumber,
+      status: "active",
+      startsAt: { lt: endsAt },
+      endsAt: { gt: startsAt }
+    },
+    select: { id: true }
+  });
+
+  if (overlapping) {
+    throw new Error("La pista ya está reservada en esta franja.");
+  }
 }
 
 function parseClosedDays(value?: string) {
@@ -1901,6 +2049,7 @@ export async function saveClubAction(formData: FormData) {
     availableCourts: textValue(formData.get("availableCourts")) ?? "0",
     phone: textValue(formData.get("phone")),
     managesCourtBookings: formData.get("managesCourtBookings") === "on",
+    publicCourtAccess: formData.get("publicCourtAccess") === "on",
     closedDays: formData.get("closedDays")?.toString(),
     websiteUrl: textValue(formData.get("websiteUrl")) ?? "",
     showContactPublic: formData.get("showContactPublic") === "on",
@@ -1968,6 +2117,7 @@ export async function saveClubAction(formData: FormData) {
           availableCourts: parsed.availableCourts,
           phone: parsed.phone,
           managesCourtBookings: parsed.managesCourtBookings,
+          publicCourtAccess: parsed.publicCourtAccess,
           websiteUrl: parsed.websiteUrl || null,
           logoUrl,
           showContactPublic: parsed.showContactPublic,
@@ -1986,6 +2136,7 @@ export async function saveClubAction(formData: FormData) {
           availableCourts: parsed.availableCourts,
           phone: parsed.phone,
           managesCourtBookings: parsed.managesCourtBookings,
+          publicCourtAccess: parsed.publicCourtAccess,
           websiteUrl: parsed.websiteUrl || null,
           logoUrl: logoUrl ?? null,
           showContactPublic: parsed.showContactPublic,
@@ -2993,59 +3144,15 @@ export async function reserveCourtAction(formData: FormData) {
 
   const club = await prisma.club.findUniqueOrThrow({
     where: { id: parsed.clubId },
-    select: { id: true, availableCourts: true, managesCourtBookings: true }
+    select: { id: true, availableCourts: true, managesCourtBookings: true, publicCourtAccess: true }
   });
 
   if (!club.managesCourtBookings || club.availableCourts < parsed.courtNumber) {
     throw new Error("Este club no permite reservar esta pista desde la app.");
   }
 
-  const slotDay = new Date(`${courtDateKey(startsAt)}T00:00:00.000Z`);
-  const closedDay = await prisma.courtClosedDay.findUnique({
-    where: {
-      clubId_closedOn: {
-        clubId: club.id,
-        closedOn: slotDay
-      }
-    },
-    select: { id: true }
-  });
-
-  if (closedDay) {
-    throw new Error("El club está cerrado en la fecha seleccionada.");
-  }
-
-  const player = await prisma.player.findUnique({
-    where: { userId: currentUser.id },
-    select: { id: true }
-  });
-  const activeFutureReservation = await prisma.courtReservation.findFirst({
-    where: {
-      userId: currentUser.id,
-      status: "active",
-      startsAt: { gte: new Date() }
-    },
-    select: { id: true }
-  });
-
-  if (activeFutureReservation) {
-    throw new Error("Ya tienes una reserva vigente.");
-  }
-
-  const sameDayStart = courtLocalDateTimeToUtc(courtDateKey(startsAt));
-  const sameDayEnd = courtLocalDateTimeToUtc(addDaysToCourtDateKey(courtDateKey(startsAt), 1));
-  const sameDayReservation = await prisma.courtReservation.findFirst({
-    where: {
-      userId: currentUser.id,
-      status: "active",
-      startsAt: { gte: sameDayStart, lt: sameDayEnd }
-    },
-    select: { id: true }
-  });
-
-  if (sameDayReservation) {
-    throw new Error("Solo puedes reservar una hora de pista al día.");
-  }
+  await assertCourtSlotAvailable({ clubId: club.id, startsAt, courtNumber: parsed.courtNumber });
+  const player = await assertCourtBookingAllowed({ currentUserId: currentUser.id, club, startsAt });
 
   await prisma.courtReservation.create({
     data: {
@@ -3064,6 +3171,249 @@ export async function reserveCourtAction(formData: FormData) {
   revalidatePath(`/clubs/${club.id}`);
 }
 
+export async function proposeMatchAction(formData: FormData) {
+  const currentUser = await requireUser();
+  if (!(await isFeatureEnabled("court_bookings"))) {
+    throw new Error("La gestión de reservas no está activa.");
+  }
+
+  const parsed = matchProposalSchema.parse({
+    clubId: textValue(formData.get("clubId")),
+    courtNumber: textValue(formData.get("courtNumber")),
+    startsAt: textValue(formData.get("startsAt")),
+    type: textValue(formData.get("type")) ?? "friendly"
+  });
+  const startsAt = new Date(parsed.startsAt);
+  const endsAt = new Date(startsAt.getTime() + 60 * 60 * 1000);
+
+  if (!isBookableCourtSlot(startsAt)) {
+    throw new Error("La franja seleccionada no se puede reservar.");
+  }
+
+  const club = await prisma.club.findUniqueOrThrow({
+    where: { id: parsed.clubId },
+    select: { id: true, availableCourts: true, managesCourtBookings: true, publicCourtAccess: true }
+  });
+
+  if (!club.managesCourtBookings || club.availableCourts < parsed.courtNumber) {
+    throw new Error("Este club no permite reservar esta pista desde la app.");
+  }
+
+  await assertCourtSlotAvailable({ clubId: club.id, startsAt, courtNumber: parsed.courtNumber });
+  const player = await assertCourtBookingAllowed({ currentUserId: currentUser.id, club, startsAt });
+
+  if (!player) {
+    throw new Error("Necesitas tener una ficha de jugador para proponer partidos.");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const reservation = await tx.courtReservation.create({
+      data: {
+        clubId: club.id,
+        courtNumber: parsed.courtNumber,
+        userId: currentUser.id,
+        playerId: player.id,
+        partnerPlayerId: null,
+        startsAt,
+        endsAt,
+        createdByUserId: currentUser.id,
+        updatedByUserId: currentUser.id
+      }
+    });
+
+    await tx.matchProposal.create({
+      data: {
+        clubId: club.id,
+        courtReservationId: reservation.id,
+        proposerUserId: currentUser.id,
+        proposerPlayerId: player.id,
+        type: parsed.type
+      }
+    });
+  });
+
+  revalidatePath(`/clubs/${club.id}`);
+}
+
+export async function acceptMatchProposalAction(formData: FormData) {
+  const currentUser = await requireUser();
+  if (!(await isFeatureEnabled("court_bookings"))) {
+    throw new Error("La gestión de reservas no está activa.");
+  }
+
+  const parsed = matchProposalIdSchema.parse({
+    proposalId: textValue(formData.get("proposalId")),
+    clubId: textValue(formData.get("clubId"))
+  });
+  const proposal = await prisma.matchProposal.findUniqueOrThrow({
+    where: { id: parsed.proposalId },
+    include: {
+      club: { select: { id: true, publicCourtAccess: true } },
+      courtReservation: true
+    }
+  });
+
+  if (proposal.status !== "open" || proposal.courtReservation.status !== "active") {
+    throw new Error("La propuesta ya no está disponible.");
+  }
+
+  const { player } = await getCourtBookingPlayer(currentUser.id);
+  if (!player) {
+    throw new Error("Necesitas tener una ficha de jugador para aceptar partidos.");
+  }
+
+  if (player.id === proposal.proposerPlayerId) {
+    throw new Error("No puedes aceptar tu propia propuesta.");
+  }
+
+  if (!canPlayerUseClubCourts({ publicCourtAccess: proposal.club.publicCourtAccess, player, clubId: proposal.clubId })) {
+    throw new Error("Solo los jugadores abonados a este club pueden aceptar esta propuesta.");
+  }
+
+  await prisma.matchProposal.update({
+    where: { id: proposal.id },
+    data: {
+      status: "accepted",
+      acceptorUserId: currentUser.id,
+      acceptorPlayerId: player.id,
+      acceptedAt: new Date()
+    }
+  });
+
+  revalidatePath(`/clubs/${parsed.clubId}`);
+}
+
+export async function cancelMatchProposalAction(formData: FormData) {
+  const currentUser = await requireUser();
+  if (!(await isFeatureEnabled("court_bookings"))) {
+    throw new Error("La gestión de reservas no está activa.");
+  }
+
+  const parsed = matchProposalIdSchema.parse({
+    proposalId: textValue(formData.get("proposalId")),
+    clubId: textValue(formData.get("clubId"))
+  });
+  const proposal = await prisma.matchProposal.findUniqueOrThrow({
+    where: { id: parsed.proposalId },
+    include: { club: true, courtReservation: true }
+  });
+  const isAdmin = hasRole(currentUser, "admin");
+  const canManageClub = proposal.club.managerUserId === currentUser.id;
+
+  if (!isAdmin && !canManageClub && proposal.proposerUserId !== currentUser.id) {
+    throw new Error("No puedes cancelar esta propuesta.");
+  }
+
+  await prisma.$transaction([
+    prisma.matchProposal.update({
+      where: { id: proposal.id },
+      data: {
+        status: "cancelled",
+        cancelledAt: new Date(),
+        cancelledByUserId: currentUser.id
+      }
+    }),
+    prisma.courtReservation.update({
+      where: { id: proposal.courtReservationId },
+      data: {
+        status: "cancelled",
+        cancelledAt: new Date(),
+        cancelledByUserId: currentUser.id,
+        updatedByUserId: currentUser.id
+      }
+    })
+  ]);
+
+  revalidatePath(`/clubs/${parsed.clubId}`);
+}
+
+export async function completeMatchProposalAction(formData: FormData) {
+  const currentUser = await requireUser();
+  if (!(await isFeatureEnabled("court_bookings"))) {
+    throw new Error("La gestión de reservas no está activa.");
+  }
+
+  const parsed = completeMatchProposalSchema.parse({
+    proposalId: textValue(formData.get("proposalId")),
+    clubId: textValue(formData.get("clubId")),
+    winnerPlayerId: textValue(formData.get("winnerPlayerId")),
+    scoreSummary: textValue(formData.get("scoreSummary"))
+  });
+  const proposal = await prisma.matchProposal.findUniqueOrThrow({
+    where: { id: parsed.proposalId },
+    include: {
+      club: true,
+      proposerPlayer: true,
+      acceptorPlayer: true,
+      courtReservation: true
+    }
+  });
+  const isAdmin = hasRole(currentUser, "admin");
+  const canManageClub = proposal.club.managerUserId === currentUser.id;
+  const isParticipant = proposal.proposerUserId === currentUser.id || proposal.acceptorUserId === currentUser.id;
+
+  if (!isAdmin && !canManageClub && !isParticipant) {
+    throw new Error("No puedes informar este resultado.");
+  }
+
+  if (proposal.status !== "accepted" || !proposal.acceptorPlayer) {
+    throw new Error("Solo se pueden cerrar propuestas aceptadas.");
+  }
+  const acceptorPlayerId = proposal.acceptorPlayerId;
+  if (!acceptorPlayerId) {
+    throw new Error("La propuesta no tiene jugador aceptante.");
+  }
+
+  if (parsed.winnerPlayerId !== proposal.proposerPlayerId && parsed.winnerPlayerId !== proposal.acceptorPlayerId) {
+    throw new Error("El ganador debe ser uno de los jugadores participantes.");
+  }
+
+  const proposerBefore = Number(proposal.proposerPlayer.skillLevel);
+  const acceptorBefore = Number(proposal.acceptorPlayer.skillLevel);
+  const proposerWins = parsed.winnerPlayerId === proposal.proposerPlayerId;
+  const proposerAfter = proposal.type === "competitive"
+    ? nextSkillLevel(proposerBefore, acceptorBefore, proposal.proposerPlayer.skillReliability, proposerWins ? 1 : 0)
+    : proposerBefore;
+  const acceptorAfter = proposal.type === "competitive"
+    ? nextSkillLevel(acceptorBefore, proposerBefore, proposal.acceptorPlayer.skillReliability, proposerWins ? 0 : 1)
+    : acceptorBefore;
+
+  await prisma.$transaction([
+    prisma.matchProposal.update({
+      where: { id: proposal.id },
+      data: {
+        status: "completed",
+        winnerPlayerId: parsed.winnerPlayerId,
+        scoreSummary: parsed.scoreSummary,
+        proposerLevelBefore: proposerBefore,
+        proposerLevelAfter: proposerAfter,
+        acceptorLevelBefore: acceptorBefore,
+        acceptorLevelAfter: acceptorAfter,
+        completedAt: new Date(),
+        completedByUserId: currentUser.id
+      }
+    }),
+    prisma.player.update({
+      where: { id: proposal.proposerPlayerId },
+      data: {
+        skillLevel: proposerAfter,
+        skillReliability: proposal.type === "competitive" ? { increment: 1 } : undefined
+      }
+    }),
+    prisma.player.update({
+      where: { id: acceptorPlayerId },
+      data: {
+        skillLevel: acceptorAfter,
+        skillReliability: proposal.type === "competitive" ? { increment: 1 } : undefined
+      }
+    })
+  ]);
+
+  revalidatePath(`/clubs/${parsed.clubId}`);
+  revalidatePath(`/players/${proposal.proposerPlayerId}`);
+  if (proposal.acceptorPlayerId) revalidatePath(`/players/${proposal.acceptorPlayerId}`);
+}
+
 export async function cancelCourtReservationAction(formData: FormData) {
   const currentUser = await requireUser();
   if (!(await isFeatureEnabled("court_bookings"))) {
@@ -3076,7 +3426,7 @@ export async function cancelCourtReservationAction(formData: FormData) {
   });
   const reservation = await prisma.courtReservation.findUniqueOrThrow({
     where: { id: parsed.reservationId },
-    include: { club: true }
+    include: { club: true, matchProposal: true }
   });
   const isAdmin = hasRole(currentUser, "admin");
   const canManageClub = reservation.club.managerUserId === currentUser.id;
@@ -3085,15 +3435,29 @@ export async function cancelCourtReservationAction(formData: FormData) {
     throw new Error("No puedes cancelar esta reserva.");
   }
 
-  await prisma.courtReservation.update({
-    where: { id: reservation.id },
-    data: {
-      status: "cancelled",
-      cancelledAt: new Date(),
-      cancelledByUserId: currentUser.id,
-      updatedByUserId: currentUser.id
-    }
-  });
+  await prisma.$transaction([
+    prisma.courtReservation.update({
+      where: { id: reservation.id },
+      data: {
+        status: "cancelled",
+        cancelledAt: new Date(),
+        cancelledByUserId: currentUser.id,
+        updatedByUserId: currentUser.id
+      }
+    }),
+    ...(reservation.matchProposal
+      ? [
+          prisma.matchProposal.update({
+            where: { id: reservation.matchProposal.id },
+            data: {
+              status: "cancelled" as const,
+              cancelledAt: new Date(),
+              cancelledByUserId: currentUser.id
+            }
+          })
+        ]
+      : [])
+  ]);
 
   revalidatePath(`/clubs/${parsed.clubId}`);
 }

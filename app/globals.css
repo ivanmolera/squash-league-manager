@@ -1766,12 +1766,31 @@ h1 {
 }
 
 .slot-booking-form select,
+.match-proposal-row select,
+.match-proposal-row input,
 .slot-booking-form button,
-.slot-reservation button {
+.slot-reservation button,
+.match-proposal-row button {
   font-size: 0.78rem;
   min-height: 30px;
   padding: 6px 8px;
   width: 100%;
+}
+
+.match-proposal-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.match-proposal-list h3 {
+  margin: 0;
+}
+
+.match-proposal-row > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
 .player-photo,

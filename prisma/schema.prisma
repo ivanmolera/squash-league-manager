@@ -133,6 +133,22 @@ enum PlayerLinkRequestStatus {
   @@map("player_link_request_status")
 }
 
+enum MatchProposalType {
+  friendly
+  competitive
+
+  @@map("match_proposal_type")
+}
+
+enum MatchProposalStatus {
+  open
+  accepted
+  cancelled
+  completed
+
+  @@map("match_proposal_status")
+}
+
 model User {
   id          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   firebaseUid String               @unique @map("firebase_uid")
@@ -159,6 +175,10 @@ model User {
   playerMergeLogs PlayerMergeLog[] @relation("PlayerMergeActor")
   courtReservations CourtReservation[] @relation("CourtReservationUser")
   cancelledCourtReservations CourtReservation[] @relation("CourtReservationCancelledBy")
+  proposedMatchProposals MatchProposal[] @relation("MatchProposalProposerUser")
+  acceptedMatchProposals MatchProposal[] @relation("MatchProposalAcceptorUser")
+  completedMatchProposals MatchProposal[] @relation("MatchProposalCompletedBy")
+  cancelledMatchProposals MatchProposal[] @relation("MatchProposalCancelledBy")
   createdFeatureSettings AppFeatureSetting[]
   suspendedBy User?                 @relation("UserSuspensions", fields: [suspendedByUserId], references: [id], onDelete: SetNull)
   suspendedUsers User[]             @relation("UserSuspensions")
@@ -238,6 +258,8 @@ model Player {
   showContactPublic     Boolean                   @default(true) @map("show_contact_public")
   showPhysicalPublic    Boolean                   @default(true) @map("show_physical_public")
   receivesMatchCommunications Boolean             @default(false) @map("receives_match_communications")
+  skillLevel            Decimal                   @default(2.50) @map("skill_level") @db.Decimal(3, 2)
+  skillReliability      Int                       @default(0) @map("skill_reliability")
   mergedIntoPlayerId String?                      @map("merged_into_player_id") @db.Uuid
   mergedAt             DateTime?                  @map("merged_at") @db.Timestamptz(6)
   createdAt             DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -256,6 +278,9 @@ model Player {
   courtReservations CourtReservation[] @relation("CourtReservationPlayer")
   partnerCourtReservations CourtReservation[] @relation("CourtReservationPartner")
   rankingCategories PlayerRankingCategory[]
+  proposedMatchProposals MatchProposal[] @relation("MatchProposalProposerPlayer")
+  acceptedMatchProposals MatchProposal[] @relation("MatchProposalAcceptorPlayer")
+  wonMatchProposals MatchProposal[] @relation("MatchProposalWinnerPlayer")
 
   @@map("players")
 }
@@ -311,6 +336,7 @@ model Club {
   availableCourts Int                   @default(0) @map("available_courts")
   phone         String?
   managesCourtBookings Boolean          @default(false) @map("manages_court_bookings")
+  publicCourtAccess Boolean             @default(true) @map("public_court_access")
   websiteUrl    String?                @map("website_url")
   logoUrl       String?                @map("logo_url")
   showContactPublic Boolean            @default(true) @map("show_contact_public")
@@ -326,6 +352,7 @@ model Club {
   competitionParticipants CompetitionParticipant[]
   hostedCompetitions Competition[]
   courtReservations CourtReservation[]
+  matchProposals MatchProposal[]
   closedDays CourtClosedDay[]
 
   @@map("clubs")
@@ -408,8 +435,48 @@ model CourtReservation {
   player            Player?                @relation("CourtReservationPlayer", fields: [playerId], references: [id], onDelete: SetNull)
   partnerPlayer     Player?                @relation("CourtReservationPartner", fields: [partnerPlayerId], references: [id], onDelete: SetNull)
   cancelledBy       User?                  @relation("CourtReservationCancelledBy", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
+  matchProposal     MatchProposal?
 
   @@map("court_reservations")
+}
+
+model MatchProposal {
+  id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clubId             String              @map("club_id") @db.Uuid
+  courtReservationId String              @unique @map("court_reservation_id") @db.Uuid
+  proposerUserId     String              @map("proposer_user_id") @db.Uuid
+  proposerPlayerId   String              @map("proposer_player_id") @db.Uuid
+  acceptorUserId     String?             @map("acceptor_user_id") @db.Uuid
+  acceptorPlayerId   String?             @map("acceptor_player_id") @db.Uuid
+  type               MatchProposalType   @default(friendly)
+  status             MatchProposalStatus @default(open)
+  winnerPlayerId     String?             @map("winner_player_id") @db.Uuid
+  scoreSummary       String?             @map("score_summary")
+  proposerLevelBefore Decimal?           @map("proposer_level_before") @db.Decimal(3, 2)
+  proposerLevelAfter  Decimal?           @map("proposer_level_after") @db.Decimal(3, 2)
+  acceptorLevelBefore Decimal?           @map("acceptor_level_before") @db.Decimal(3, 2)
+  acceptorLevelAfter  Decimal?           @map("acceptor_level_after") @db.Decimal(3, 2)
+  acceptedAt         DateTime?           @map("accepted_at") @db.Timestamptz(6)
+  completedAt        DateTime?           @map("completed_at") @db.Timestamptz(6)
+  completedByUserId  String?             @map("completed_by_user_id") @db.Uuid
+  cancelledAt        DateTime?           @map("cancelled_at") @db.Timestamptz(6)
+  cancelledByUserId  String?             @map("cancelled_by_user_id") @db.Uuid
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime            @default(now()) @map("updated_at") @db.Timestamptz(6)
+  club               Club                @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  courtReservation   CourtReservation    @relation(fields: [courtReservationId], references: [id], onDelete: Cascade)
+  proposerUser       User                @relation("MatchProposalProposerUser", fields: [proposerUserId], references: [id], onDelete: Cascade)
+  proposerPlayer     Player              @relation("MatchProposalProposerPlayer", fields: [proposerPlayerId], references: [id], onDelete: Cascade)
+  acceptorUser       User?               @relation("MatchProposalAcceptorUser", fields: [acceptorUserId], references: [id], onDelete: SetNull)
+  acceptorPlayer     Player?             @relation("MatchProposalAcceptorPlayer", fields: [acceptorPlayerId], references: [id], onDelete: SetNull)
+  winnerPlayer       Player?             @relation("MatchProposalWinnerPlayer", fields: [winnerPlayerId], references: [id], onDelete: SetNull)
+  completedBy        User?               @relation("MatchProposalCompletedBy", fields: [completedByUserId], references: [id], onDelete: SetNull)
+  cancelledBy        User?               @relation("MatchProposalCancelledBy", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
+
+  @@index([clubId, status])
+  @@index([proposerPlayerId, status])
+  @@index([acceptorPlayerId, status])
+  @@map("match_proposals")
 }
 
 model CourtClosedDay {
