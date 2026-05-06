@@ -285,12 +285,13 @@ function nextSkillLevel(playerLevel: number, opponentLevel: number, reliability:
 }
 
 function initialSkillLevelFromQuestionnaire(value: z.infer<typeof skillQuestionnaireSchema>) {
-  const weeklyFrequency = { rarely: 0, one: 0.45, two_three: 0.85, four_plus: 1.15 }[value.weeklyFrequency];
-  const squashExperience = { none: 0, less_one: 0.45, one_three: 0.95, three_plus: 1.35 }[value.squashExperience];
-  const competitionExperience = { none: 0, social: 0.35, club: 0.8, federated: 1.2 }[value.competitionExperience];
-  const technicalConfidence = { basic: 0, drive_backhand: 0.45, boast_drop: 0.9, advanced: 1.25 }[value.technicalConfidence];
-  const tacticalKnowledge = { none: 0, rules: 0.25, patterns: 0.65, philadelphia: 1 }[value.tacticalKnowledge];
-  return clampSkillLevel(0.4 + weeklyFrequency + squashExperience + competitionExperience + technicalConfidence + tacticalKnowledge);
+  const weeklyFrequency = { rarely: 0, one: 1, two_three: 2, four_plus: 3 }[value.weeklyFrequency];
+  const squashExperience = { none: 0, less_one: 1, one_three: 2, three_plus: 3 }[value.squashExperience];
+  const competitionExperience = { none: 0, social: 1, club: 2, federated: 3 }[value.competitionExperience];
+  const technicalConfidence = { basic: 0, drive_backhand: 1, boast_drop: 2, advanced: 3 }[value.technicalConfidence];
+  const tacticalKnowledge = { none: 0, rules: 1, patterns: 2, philadelphia: 3 }[value.tacticalKnowledge];
+  const score = weeklyFrequency + squashExperience + competitionExperience + technicalConfidence + tacticalKnowledge;
+  return clampSkillLevel(2 + (score / 15) * 2);
 }
 
 function assertCompetitiveSkillIsDefined(players: Array<{ skillLevelConfirmed: boolean }>) {

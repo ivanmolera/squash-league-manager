@@ -106,42 +106,42 @@ export default async function EditPlayerPage({
             </p>
             <label>{t.skillFrequencyQuestion}
               <select name="weeklyFrequency" defaultValue="one" required>
-                <option value="rarely">{t.skillFrequencyRarely}</option>
-                <option value="one">{t.skillFrequencyOne}</option>
                 <option value="two_three">{t.skillFrequencyTwoThree}</option>
+                <option value="rarely">{t.skillFrequencyRarely}</option>
                 <option value="four_plus">{t.skillFrequencyFourPlus}</option>
+                <option value="one">{t.skillFrequencyOne}</option>
               </select>
             </label>
             <label>{t.skillExperienceQuestion}
               <select name="squashExperience" defaultValue="less_one" required>
-                <option value="none">{t.skillExperienceNone}</option>
-                <option value="less_one">{t.skillExperienceLessOne}</option>
                 <option value="one_three">{t.skillExperienceOneThree}</option>
+                <option value="none">{t.skillExperienceNone}</option>
                 <option value="three_plus">{t.skillExperienceThreePlus}</option>
+                <option value="less_one">{t.skillExperienceLessOne}</option>
               </select>
             </label>
             <label>{t.skillCompetitionQuestion}
               <select name="competitionExperience" defaultValue="none" required>
-                <option value="none">{t.skillCompetitionNone}</option>
-                <option value="social">{t.skillCompetitionSocial}</option>
                 <option value="club">{t.skillCompetitionClub}</option>
+                <option value="none">{t.skillCompetitionNone}</option>
                 <option value="federated">{t.skillCompetitionFederated}</option>
+                <option value="social">{t.skillCompetitionSocial}</option>
               </select>
             </label>
             <label>{t.skillTechniqueQuestion}
               <select name="technicalConfidence" defaultValue="basic" required>
-                <option value="basic">{t.skillTechniqueBasic}</option>
-                <option value="drive_backhand">{t.skillTechniqueDriveBackhand}</option>
                 <option value="boast_drop">{t.skillTechniqueBoastDrop}</option>
+                <option value="basic">{t.skillTechniqueBasic}</option>
                 <option value="advanced">{t.skillTechniqueAdvanced}</option>
+                <option value="drive_backhand">{t.skillTechniqueDriveBackhand}</option>
               </select>
             </label>
             <label>{t.skillTacticsQuestion}
               <select name="tacticalKnowledge" defaultValue="rules" required>
-                <option value="none">{t.skillTacticsNone}</option>
-                <option value="rules">{t.skillTacticsRules}</option>
                 <option value="patterns">{t.skillTacticsPatterns}</option>
+                <option value="none">{t.skillTacticsNone}</option>
                 <option value="philadelphia">{t.skillTacticsPhiladelphia}</option>
+                <option value="rules">{t.skillTacticsRules}</option>
               </select>
             </label>
             <button type="submit">{t.calculateSkillLevel}</button>
