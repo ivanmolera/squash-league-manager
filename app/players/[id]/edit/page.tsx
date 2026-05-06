@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { changePlayerPasswordAction, requestJoinClubAction, savePlayerAction, savePlayerSkillQuestionnaireAction } from "@/app/admin/actions";
+import { changePlayerPasswordAction, reopenPlayerSkillQuestionnaireAction, requestJoinClubAction, savePlayerAction, savePlayerSkillQuestionnaireAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
 import { getFeatureSettings } from "@/src/lib/features";
@@ -14,7 +14,7 @@ export default async function EditPlayerPage({
   searchParams
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ saved?: string; joinRequested?: string; joinEmailFailed?: string }>;
+  searchParams?: Promise<{ saved?: string; joinRequested?: string; joinEmailFailed?: string; joinAlready?: string }>;
 }) {
   const { id } = await params;
   const query = await searchParams;
@@ -37,7 +37,15 @@ export default async function EditPlayerPage({
     getCurrentUser(),
     getDictionary(),
     getFeatureSettings(),
-    prisma.season.findFirst({ where: { status: "active" }, orderBy: { startsAt: "desc" } }),
+    prisma.season.findFirst({
+      where: {
+        status: "active",
+        name: { contains: "/" },
+        startsAt: { lte: new Date() },
+        endsAt: { gte: new Date() }
+      },
+      orderBy: { startsAt: "desc" }
+    }),
     prisma.club.findMany({ include: { manager: true }, orderBy: [{ province: "asc" }, { name: "asc" }] })
   ]);
   const { t } = dictionary;
@@ -47,7 +55,7 @@ export default async function EditPlayerPage({
   if (!isAdmin && player.userId !== currentUser?.id) notFound();
   const isOwnProfile = player.userId === currentUser?.id;
   const currentMembership = currentSeason
-    ? player.memberships.find((membership) => membership.seasonId === currentSeason.id)
+    ? player.memberships.find((membership) => membership.seasonId === currentSeason.id && !membership.toDate)
     : null;
   const pendingJoinRequest = currentSeason
     ? player.joinRequests.find((request) => request.seasonId === currentSeason.id)
@@ -63,6 +71,7 @@ export default async function EditPlayerPage({
           {query?.saved === "1" ? <SaveConfirmation message={t.savedChanges} /> : null}
           {query?.joinRequested === "1" ? <SaveConfirmation message={t.clubJoinRequestSent} /> : null}
           {query?.joinEmailFailed === "1" ? <p className="warning-box">{t.clubJoinRequestEmailFailed}</p> : null}
+          {query?.joinAlready === "1" ? <p className="warning-box">{t.alreadyBelongsToClub}</p> : null}
           <input type="hidden" name="playerId" value={player.id} />
           <input type="hidden" name="profilePhotoUrl" value={player.profilePhotoUrl ?? ""} />
           <label>{t.firstName}<input name="firstName" defaultValue={player.firstName} required /></label>
@@ -98,12 +107,23 @@ export default async function EditPlayerPage({
           <button type="submit">{t.save}</button>
         </form>
         {player.userId ? (
+          player.skillLevelConfirmed ? (
+            <section className="admin-form">
+              <h2>{t.skillQuestionnaire}</h2>
+              <p className="success-message">{t.skillLevel}: {Number(player.skillLevel).toFixed(2)}</p>
+              <p className="muted">{t.skillQuestionnaireClosed}</p>
+              {isAdmin ? (
+                <form action={reopenPlayerSkillQuestionnaireAction}>
+                  <input type="hidden" name="playerId" value={player.id} />
+                  <button type="submit">{t.reopenSkillQuestionnaire}</button>
+                </form>
+              ) : null}
+            </section>
+          ) : (
           <form className="admin-form" action={savePlayerSkillQuestionnaireAction}>
             <h2>{t.skillQuestionnaire}</h2>
             <input type="hidden" name="playerId" value={player.id} />
-            <p className={player.skillLevelConfirmed ? "success-message" : "warning-box"}>
-              {player.skillLevelConfirmed ? `${t.skillLevel}: ${Number(player.skillLevel).toFixed(2)}` : t.skillQuestionnaireRequired}
-            </p>
+            <p className="warning-box">{t.skillQuestionnaireRequired}</p>
             <label>{t.skillFrequencyQuestion}
               <select name="weeklyFrequency" defaultValue="one" required>
                 <option value="two_three">{t.skillFrequencyTwoThree}</option>
@@ -146,6 +166,7 @@ export default async function EditPlayerPage({
             </label>
             <button type="submit">{t.calculateSkillLevel}</button>
           </form>
+          )
         ) : null}
         {player.userId ? (
           <form className="admin-form" action={changePlayerPasswordAction}>

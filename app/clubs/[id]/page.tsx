@@ -144,7 +144,7 @@ export default async function ClubDetailPage({
   searchParams
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ bookingDate?: string; joinReviewed?: string }>;
+  searchParams?: Promise<{ bookingDate?: string; bookingNotice?: string; joinReviewed?: string }>;
 }) {
   const { id } = await params;
   const query = await searchParams;
@@ -207,9 +207,15 @@ export default async function ClubDetailPage({
         })
     : [];
   const closedDayKeys = new Set(club.closedDays.map((day) => day.closedOn.toISOString().slice(0, 10)));
-  const activeFutureReservation = currentUser
-    ? reservations.find((reservation) => reservation.userId === currentUser.id && reservation.startsAt >= new Date())
-    : null;
+  const selectedDayUserReservationCount = currentUser
+    ? await prisma.courtReservation.count({
+        where: {
+          userId: currentUser.id,
+          status: "active",
+          startsAt: { gte: selectedBookingDate, lt: selectedBookingDateEnd }
+        }
+      })
+    : 0;
   const selectedDayReservations = reservations.filter((reservation) =>
     reservation.startsAt >= selectedBookingDate && reservation.startsAt < selectedBookingDateEnd
   );
@@ -296,7 +302,8 @@ export default async function ClubDetailPage({
             {!currentUser ? <p className="warning-box">{t.signInToBookCourt}</p> : null}
             {currentUser && !canUseClubCourts ? <p className="warning-box">{t.membersOnlyBookingWarning}</p> : null}
             {currentPlayer && !currentPlayer.skillLevelConfirmed ? <p className="warning-box">{t.skillQuestionnaireCompetitiveWarning}</p> : null}
-            {activeFutureReservation ? <p className="warning-box">{t.activeCourtReservationWarning}</p> : null}
+            {selectedDayUserReservationCount >= 3 || query?.bookingNotice === "limit" ? <p className="warning-box">{t.activeCourtReservationWarning}</p> : null}
+            {query?.bookingNotice === "overlap" ? <p className="warning-box">{t.courtBookingOverlapWarning}</p> : null}
             <div className="court-booking-toolbar">
               {previousBookingDate ? (
                 <Link aria-label={t.previousDay} className="court-booking-arrow" href={`/clubs/${club.id}?bookingDate=${previousBookingDate}#reservas`}>‹</Link>
@@ -327,7 +334,7 @@ export default async function ClubDetailPage({
                         const reservation = selectedDayReservations.find((item) => item.courtNumber === courtIndex + 1 && isSlotOverlapping(item, startsAt));
                         const isPast = startsAt < new Date();
                         const isClosed = closedDayKeys.has(selectedBookingDateKey);
-                        const canBook = currentUser && canUseClubCourts && !reservation && !isPast && !isClosed && !activeFutureReservation;
+                        const canBook = currentUser && canUseClubCourts && !reservation && !isPast && !isClosed && selectedDayUserReservationCount < 3;
                         const proposal = reservation?.matchProposal;
                         const canAcceptProposal = proposal?.status === "open" && currentPlayer && canUseClubCourts && proposal.proposerPlayerId !== currentPlayer.id &&
                           (proposal.type !== "competitive" || (currentPlayer.skillLevelConfirmed && proposal.proposerPlayer.skillLevelConfirmed && Math.abs(Number(currentPlayer.skillLevel) - Number(proposal.proposerPlayer.skillLevel)) <= 2));
@@ -384,6 +391,11 @@ export default async function ClubDetailPage({
                                       <option value="friendly">{t.friendlyMatch}</option>
                                       {canProposeCompetitive ? <option value="competitive">{t.competitiveMatch}</option> : null}
                                     </select>
+                                    {query?.bookingNotice === "overlap" ? (
+                                      <label className="check-line">
+                                        <input name="confirmOverlap" type="checkbox" required /> {t.confirmCourtBookingOverlap}
+                                      </label>
+                                    ) : null}
                                     <button type="submit">{t.proposeMatch}</button>
                                   </form>
                                 ) : null}

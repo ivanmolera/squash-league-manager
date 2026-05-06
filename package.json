@@ -19,6 +19,7 @@
     "import:team-league": "node scripts/import-team-league-csv.mjs",
     "import:tournaments": "node scripts/import-tournaments-csv.mjs",
     "import:ct-sabadell-2026": "node scripts/import-ct-sabadell-2026-csv.mjs",
+    "recalculate:player-skills": "node scripts/recalculate-player-skills.mjs",
     "seed:admin": "node scripts/seed-admin.mjs",
     "seed:demo": "node scripts/seed-demo.mjs"
   },

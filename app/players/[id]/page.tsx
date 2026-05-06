@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/src/lib/auth";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 import { getTournamentRankingRows, type RankingScope } from "@/src/lib/tournament-rankings";
+import { SaveConfirmation } from "./edit/save-confirmation";
 
 export const dynamic = "force-dynamic";
 
@@ -325,6 +326,14 @@ function formatMatchDate(value: Date | null, locale: string, fallback: string) {
   return value ? value.toLocaleDateString(locale, { dateStyle: "short" }) : fallback;
 }
 
+function formatMatchDateTime(value: Date, locale: string) {
+  return `${value.toLocaleDateString(locale, { dateStyle: "short" })} · ${value.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}`;
+}
+
+function displayPlayerName(player: { firstName: string; lastName: string }) {
+  return `${player.firstName} ${player.lastName}`;
+}
+
 function DonutChart({ won, lost, labels }: { won: number; lost: number; labels: { won: string; lost: string } }) {
   const total = won + lost;
   const wonPercentage = total ? Math.round((won / total) * 100) : 0;
@@ -392,8 +401,15 @@ function PlayerRankingEvolutionChart({ series }: { series: RankingEvolutionSerie
   );
 }
 
-export default async function PlayerDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function PlayerDetailPage({
+  params,
+  searchParams
+}: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ saved?: string }>;
+}) {
   const { id } = await params;
+  const query = await searchParams;
   const [player, currentUser, openSeasons] = await Promise.all([
     prisma.player.findUnique({
       where: { id },
@@ -419,10 +435,33 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ i
 
   const openSeasonIds = new Set(openSeasons.map((season) => season.id));
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
+  const isOwnProfile = player.userId === currentUser?.id;
   const canEdit = isAdmin || player.userId === currentUser?.id;
   const canSeeContact = canEdit || player.showContactPublic;
   const canSeePhysical = canEdit || player.showPhysicalPublic;
   const statistics = await getPlayerStatistics(player.id, player.memberships.map((membership) => membership.seasonId));
+  const pendingMatchProposals = isOwnProfile
+    ? await prisma.matchProposal.findMany({
+        where: {
+          status: "accepted",
+          OR: [
+            { proposerPlayerId: player.id },
+            { acceptorPlayerId: player.id }
+          ],
+          courtReservation: {
+            status: "active",
+            startsAt: { gte: new Date() }
+          }
+        },
+        include: {
+          club: true,
+          courtReservation: true,
+          proposerPlayer: true,
+          acceptorPlayer: true
+        },
+        orderBy: [{ courtReservation: { startsAt: "asc" } }]
+      })
+    : [];
   const playerAge = ageAt(player.birthDate);
   const bestRanking = statistics.bestRanking ? (
     <span className="best-ranking-badge">
@@ -433,6 +472,7 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ i
   return (
     <main className="app-shell">
       <Navigation />
+      {query?.saved === "1" ? <SaveConfirmation message={t.savedChanges} /> : null}
       <section className="detail-header">
         <div>
           <p className="eyebrow">{t.player}</p>
@@ -513,6 +553,28 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ i
         </div>
       </section>
       <section className="detail-grid player-secondary-stat-sections">
+        {isOwnProfile ? (
+          <article className="list-panel">
+            <h2>{t.pendingMatchesToPlay}</h2>
+            {pendingMatchProposals.length ? (
+              <div className="latest-match-list">
+                {pendingMatchProposals.map((proposal) => {
+                  const opponent = proposal.proposerPlayerId === player.id ? proposal.acceptorPlayer : proposal.proposerPlayer;
+                  return (
+                    <div className="latest-match-row" key={proposal.id}>
+                      <span>{formatMatchDateTime(proposal.courtReservation.startsAt, locale)} · <Link href={`/clubs/${proposal.clubId}`}>{proposal.club.name}</Link></span>
+                      <strong>{t.pendingMatchToPlay}</strong>
+                      <p>{t.court} {proposal.courtReservation.courtNumber} · {proposal.type === "competitive" ? t.competitiveMatch : t.friendlyMatch}</p>
+                      <p>{t.proposer}: {displayPlayerName(proposal.proposerPlayer)}{opponent ? ` · ${t.opponent}: ${displayPlayerName(opponent)}` : ""}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="muted">{t.noPendingMatchesToPlay}</p>
+            )}
+          </article>
+        ) : null}
         <article className="list-panel">
           <h2>{t.rankingPoints}</h2>
           {statistics.rankingPoints.length ? (

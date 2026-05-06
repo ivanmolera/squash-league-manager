@@ -1,6 +1,7 @@
 "use server";
 
 import bcrypt from "bcryptjs";
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -53,6 +54,10 @@ const skillQuestionnaireSchema = z.object({
   competitionExperience: z.enum(["none", "social", "club", "federated"]),
   technicalConfidence: z.enum(["basic", "drive_backhand", "boast_drop", "advanced"]),
   tacticalKnowledge: z.enum(["none", "rules", "patterns", "philadelphia"])
+});
+
+const playerIdSchema = z.object({
+  playerId: z.string().uuid()
 });
 
 const playerPasswordSchema = z.object({
@@ -189,7 +194,8 @@ const courtReservationSchema = z.object({
 });
 
 const matchProposalSchema = courtReservationSchema.extend({
-  type: z.enum(["friendly", "competitive"]).default("friendly")
+  type: z.enum(["friendly", "competitive"]).default("friendly"),
+  confirmOverlap: z.coerce.boolean().default(false)
 });
 
 const matchProposalIdSchema = z.object({
@@ -206,6 +212,12 @@ const cancelCourtReservationSchema = z.object({
   reservationId: z.string().uuid(),
   clubId: z.string().uuid()
 });
+
+class CourtBookingNotice extends Error {
+  constructor(readonly notice: "limit" | "overlap", message: string) {
+    super(message);
+  }
+}
 
 function textValue(value: unknown) {
   return value?.toString().trim() || undefined;
@@ -338,46 +350,53 @@ function canPlayerUseClubCourts({
 async function assertCourtBookingAllowed({
   currentUserId,
   club,
-  startsAt
+  startsAt,
+  allowOverlap = false
 }: {
   currentUserId: string;
   club: { id: string; publicCourtAccess: boolean };
   startsAt: Date;
+  allowOverlap?: boolean;
 }) {
   const { player } = await getCourtBookingPlayer(currentUserId);
   if (!canPlayerUseClubCourts({ publicCourtAccess: club.publicCourtAccess, player, clubId: club.id })) {
     throw new Error("Solo los jugadores abonados a este club pueden reservar sus pistas.");
   }
 
-  const activeFutureReservation = await prisma.courtReservation.findFirst({
+  const endsAt = new Date(startsAt.getTime() + 60 * 60 * 1000);
+  const overlappingUserReservation = await prisma.courtReservation.findFirst({
     where: {
       userId: currentUserId,
       status: "active",
-      startsAt: { gte: new Date() }
+      startsAt: { lt: endsAt },
+      endsAt: { gt: startsAt }
     },
     select: { id: true }
   });
 
-  if (activeFutureReservation) {
-    throw new Error("Ya tienes una reserva vigente.");
+  if (overlappingUserReservation && !allowOverlap) {
+    throw new CourtBookingNotice("overlap", "Ya tienes otra reserva en esa misma franja horaria.");
   }
 
   const sameDayStart = courtLocalDateTimeToUtc(courtDateKey(startsAt));
   const sameDayEnd = courtLocalDateTimeToUtc(addDaysToCourtDateKey(courtDateKey(startsAt), 1));
-  const sameDayReservation = await prisma.courtReservation.findFirst({
+  const sameDayReservations = await prisma.courtReservation.count({
     where: {
       userId: currentUserId,
       status: "active",
       startsAt: { gte: sameDayStart, lt: sameDayEnd }
-    },
-    select: { id: true }
+    }
   });
 
-  if (sameDayReservation) {
-    throw new Error("Solo puedes reservar una hora de pista al día.");
+  if (sameDayReservations >= 3) {
+    throw new CourtBookingNotice("limit", "Puedes reservar un máximo de 3 partidas por día.");
   }
 
   return player;
+}
+
+function courtBookingNoticeUrl(clubId: string, startsAt: Date, notice: "limit" | "overlap") {
+  return `/clubs/${clubId}?bookingDate=${courtDateKey(startsAt)}&bookingNotice=${notice}#reservas`;
 }
 
 async function assertCourtSlotAvailable({
@@ -585,6 +604,20 @@ async function getDefaultSeason() {
       status: "active"
     }
   });
+}
+
+async function getMembershipSeason() {
+  const today = new Date();
+  const season = await prisma.season.findFirst({
+    where: {
+      status: "active",
+      name: { contains: "/" },
+      startsAt: { lte: today },
+      endsAt: { gte: today }
+    },
+    orderBy: { startsAt: "desc" }
+  });
+  return season ?? getDefaultSeason();
 }
 
 async function getDefaultCategory() {
@@ -1376,7 +1409,7 @@ export async function savePlayerAction(formData: FormData) {
   revalidatePath(`/players/${player.id}`);
   revalidatePath(`/players/${player.id}/edit`);
   affectedTeamIds.forEach((teamId) => revalidatePath(`/teams/${teamId}`));
-  redirect(`/players/${player.id}/edit?saved=1`);
+  redirect(`/players/${player.id}?saved=1`);
 }
 
 export async function changePlayerPasswordAction(formData: FormData) {
@@ -1493,11 +1526,15 @@ export async function savePlayerSkillQuestionnaireAction(formData: FormData) {
   });
   const player = await prisma.player.findUniqueOrThrow({
     where: { id: parsed.playerId },
-    select: { id: true, userId: true }
+    select: { id: true, userId: true, skillLevelConfirmed: true }
   });
 
   if (!isAdmin && player.userId !== currentUser.id) {
     throw new Error("Solo puedes definir el nivel de tu propia ficha.");
+  }
+
+  if (player.skillLevelConfirmed) {
+    throw new Error("El cuestionario de nivel ya está cerrado. Un administrador debe volver a habilitarlo.");
   }
 
   await prisma.player.update({
@@ -1513,6 +1550,29 @@ export async function savePlayerSkillQuestionnaireAction(formData: FormData) {
   revalidatePath(`/players/${player.id}`);
   revalidatePath(`/players/${player.id}/edit`);
   redirect(`/players/${player.id}/edit?saved=1`);
+}
+
+export async function reopenPlayerSkillQuestionnaireAction(formData: FormData) {
+  const currentUser = await requireUser();
+  if (!hasRole(currentUser, "admin")) {
+    throw new Error("Solo un admin puede volver a habilitar el cuestionario.");
+  }
+
+  const parsed = playerIdSchema.parse({
+    playerId: textValue(formData.get("playerId"))
+  });
+
+  await prisma.player.update({
+    where: { id: parsed.playerId },
+    data: {
+      skillLevelConfirmed: false,
+      skillQuestionnaire: Prisma.JsonNull
+    }
+  });
+
+  revalidatePath(`/players/${parsed.playerId}`);
+  revalidatePath(`/players/${parsed.playerId}/edit`);
+  redirect(`/players/${parsed.playerId}/edit?saved=1`);
 }
 
 export async function saveFederationManagerAction(formData: FormData) {
@@ -1916,7 +1976,7 @@ export async function requestJoinClubAction(formData: FormData) {
       where: { id: parsed.clubId },
       include: { manager: true }
     }),
-    getDefaultSeason()
+    getMembershipSeason()
   ]);
 
   if (!player || player.userId !== currentUser.id) {
@@ -1934,13 +1994,18 @@ export async function requestJoinClubAction(formData: FormData) {
   const currentMembership = await prisma.playerClubMembership.findFirst({
     where: {
       playerId: player.id,
-      seasonId: season.id
+      toDate: null,
+      season: {
+        status: "active",
+        startsAt: { lte: new Date() },
+        endsAt: { gte: new Date() }
+      }
     },
     include: { club: true }
   });
 
   if (currentMembership) {
-    throw new Error("Ya perteneces a un club en esta temporada.");
+    redirect(`/players/${player.id}/edit?joinAlready=1`);
   }
 
   await prisma.clubJoinRequest.upsert({
@@ -3218,7 +3283,15 @@ export async function reserveCourtAction(formData: FormData) {
   }
 
   await assertCourtSlotAvailable({ clubId: club.id, startsAt, courtNumber: parsed.courtNumber });
-  const player = await assertCourtBookingAllowed({ currentUserId: currentUser.id, club, startsAt });
+  let player: Awaited<ReturnType<typeof assertCourtBookingAllowed>>;
+  try {
+    player = await assertCourtBookingAllowed({ currentUserId: currentUser.id, club, startsAt });
+  } catch (error) {
+    if (error instanceof CourtBookingNotice) {
+      redirect(courtBookingNoticeUrl(club.id, startsAt, error.notice));
+    }
+    throw error;
+  }
 
   await prisma.courtReservation.create({
     data: {
@@ -3247,7 +3320,8 @@ export async function proposeMatchAction(formData: FormData) {
     clubId: textValue(formData.get("clubId")),
     courtNumber: textValue(formData.get("courtNumber")),
     startsAt: textValue(formData.get("startsAt")),
-    type: textValue(formData.get("type")) ?? "friendly"
+    type: textValue(formData.get("type")) ?? "friendly",
+    confirmOverlap: formData.get("confirmOverlap") === "on"
   });
   const startsAt = new Date(parsed.startsAt);
   const endsAt = new Date(startsAt.getTime() + 60 * 60 * 1000);
@@ -3266,7 +3340,20 @@ export async function proposeMatchAction(formData: FormData) {
   }
 
   await assertCourtSlotAvailable({ clubId: club.id, startsAt, courtNumber: parsed.courtNumber });
-  const player = await assertCourtBookingAllowed({ currentUserId: currentUser.id, club, startsAt });
+  let player: Awaited<ReturnType<typeof assertCourtBookingAllowed>>;
+  try {
+    player = await assertCourtBookingAllowed({
+      currentUserId: currentUser.id,
+      club,
+      startsAt,
+      allowOverlap: parsed.confirmOverlap
+    });
+  } catch (error) {
+    if (error instanceof CourtBookingNotice) {
+      redirect(courtBookingNoticeUrl(club.id, startsAt, error.notice));
+    }
+    throw error;
+  }
 
   if (!player) {
     throw new Error("Necesitas tener una ficha de jugador para proponer partidos.");
