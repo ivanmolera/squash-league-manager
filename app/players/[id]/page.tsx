@@ -437,10 +437,25 @@ export default async function PlayerDetailPage({
 
   const openSeasonIds = new Set(openSeasons.map((season) => season.id));
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
+  const isFederationManager = Boolean(currentUser?.roles.some((role) => role.role === "manager_fed"));
   const isOwnProfile = player.userId === currentUser?.id;
   const canEdit = isAdmin || player.userId === currentUser?.id;
   const canSeeContact = canEdit || player.showContactPublic;
   const canSeePhysical = canEdit || player.showPhysicalPublic;
+  const managedFederationIds = currentUser && isFederationManager && !isAdmin
+    ? new Set((await prisma.federation.findMany({
+        where: { managerUserId: currentUser.id },
+        select: { id: true }
+      })).map((federation) => federation.id))
+    : new Set<string>();
+  const canSeeAccountStatus = Boolean(
+    !player.userId &&
+    (
+      isAdmin ||
+      player.memberships.some((membership) => membership.club.managerUserId === currentUser?.id) ||
+      player.memberships.some((membership) => membership.club.federationId && managedFederationIds.has(membership.club.federationId))
+    )
+  );
   const statistics = await getPlayerStatistics(player.id, player.memberships.map((membership) => membership.seasonId));
   const pendingMatchProposals = isOwnProfile && features.match_proposals
     ? await prisma.matchProposal.findMany({
@@ -479,6 +494,7 @@ export default async function PlayerDetailPage({
         <div>
           <p className="eyebrow">{t.player}</p>
           <h1>{player.firstName} {player.lastName}</h1>
+          {canSeeAccountStatus ? <span className="management-status-badge">{t.playerWithoutUserAccount}</span> : null}
         </div>
         {canEdit ? <Link className="primary-link" href={`/players/${player.id}/edit`}>{t.edit}</Link> : null}
       </section>

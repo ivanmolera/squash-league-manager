@@ -1002,6 +1002,19 @@ h1 {
   gap: 8px;
 }
 
+.management-status-badge {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 999px;
+  color: #9a3412;
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 900;
+  line-height: 1;
+  margin-top: 8px;
+  padding: 6px 10px;
+}
+
 .club-list-name {
   align-items: center;
   display: inline-flex;
