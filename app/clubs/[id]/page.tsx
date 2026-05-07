@@ -29,6 +29,10 @@ import { prisma } from "@/src/lib/prisma";
 export const dynamic = "force-dynamic";
 
 type ClubMembership = NonNullable<Awaited<ReturnType<typeof getClub>>>["memberships"][number];
+type Dictionary = Awaited<ReturnType<typeof getDictionary>>["t"];
+
+const matchProposalScoreOptions = ["3-0", "3-1", "3-2", "2-3", "1-3", "0-3"] as const;
+const matchProposalPointOptions = Array.from({ length: 61 }, (_, index) => index);
 
 async function getClub(id: string) {
   return prisma.club.findUnique({
@@ -103,6 +107,65 @@ function isSlotOverlapping(reservation: { startsAt: Date; endsAt: Date }, starts
 
 function playerName(player: { firstName: string; lastName: string }) {
   return `${player.firstName} ${player.lastName}`;
+}
+
+function skillLevelLabel(player: { skillLevel: unknown; skillLevelConfirmed: boolean }, t: Dictionary) {
+  return player.skillLevelConfirmed ? `${t.skillLevel}: ${Number(player.skillLevel).toFixed(2)}` : `${t.skillLevel}: ${t.skillLevelUndefined}`;
+}
+
+function MatchProposalResultForm({
+  clubId,
+  proposal,
+  t
+}: {
+  clubId: string;
+  proposal: {
+    id: string;
+    proposerPlayerId: string;
+    acceptorPlayerId: string | null;
+    proposerPlayer: { firstName: string; lastName: string };
+    acceptorPlayer: { firstName: string; lastName: string } | null;
+  };
+  t: Dictionary;
+}) {
+  if (!proposal.acceptorPlayerId || !proposal.acceptorPlayer) return null;
+
+  return (
+    <form className="result-form structured-result-form match-proposal-result-form" action={completeMatchProposalAction}>
+      <input type="hidden" name="proposalId" value={proposal.id} />
+      <input type="hidden" name="clubId" value={clubId} />
+      <label>
+        {t.finalResult}
+        <select name="matchScore" required aria-label={t.finalResult}>
+          <option value="">-</option>
+          {matchProposalScoreOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+        </select>
+      </label>
+      <fieldset>
+        <legend>{t.sets}</legend>
+        {Array.from({ length: 5 }, (_, index) => {
+          const setNumber = index + 1;
+
+          return (
+            <div className="set-score-row" key={setNumber}>
+              <span>{t.set} {setNumber}</span>
+              <select name={`set${setNumber}HomePoints`} aria-label={`${t.set} ${setNumber} ${playerName(proposal.proposerPlayer)}`}>
+                <option value="">-</option>
+                {matchProposalPointOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+              </select>
+              <span>-</span>
+              <select name={`set${setNumber}AwayPoints`} aria-label={`${t.set} ${setNumber} ${playerName(proposal.acceptorPlayer!)}`}>
+                <option value="">-</option>
+                {matchProposalPointOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+              </select>
+            </div>
+          );
+        })}
+      </fieldset>
+      <p className="muted proposal-result-order">{playerName(proposal.proposerPlayer)} - {playerName(proposal.acceptorPlayer)}</p>
+      <button type="submit">{t.completeMatch}</button>
+    </form>
+  );
 }
 
 function groupMembershipsBySeason(memberships: ClubMembership[]) {
@@ -352,6 +415,7 @@ export default async function ClubDetailPage({
                                   <>
                                     <span>{proposal.type === "competitive" ? t.competitiveMatch : t.friendlyMatch}</span>
                                     <span>{playerName(proposal.proposerPlayer)}</span>
+                                    {proposal.type === "competitive" ? <span>{skillLevelLabel(proposal.proposerPlayer, t)}</span> : null}
                                     {proposal.acceptorPlayer ? <span>{playerName(proposal.acceptorPlayer)}</span> : null}
                                     {canAcceptProposal ? (
                                       <form action={acceptMatchProposalAction}>
@@ -427,6 +491,7 @@ export default async function ClubDetailPage({
                       <strong>{formatDay(proposal.courtReservation.startsAt, locale)} · {formatTime(proposal.courtReservation.startsAt)}</strong>
                       <span>{t.court} {proposal.courtReservation.courtNumber} · {proposal.type === "competitive" ? t.competitiveMatch : t.friendlyMatch}</span>
                       <span>{t.proposer}: {playerName(proposal.proposerPlayer)}</span>
+                      {proposal.type === "competitive" ? <span>{skillLevelLabel(proposal.proposerPlayer, t)}</span> : null}
                       <span>{proposal.acceptorPlayer ? `${t.acceptedBy}: ${playerName(proposal.acceptorPlayer)}` : t.openMatchProposal}</span>
                     </div>
                     {canAcceptProposal ? (
@@ -437,18 +502,7 @@ export default async function ClubDetailPage({
                       </form>
                     ) : null}
                     {proposal.status === "accepted" && canCompleteProposal ? (
-                      <form className="inline-form" action={completeMatchProposalAction}>
-                        <input type="hidden" name="proposalId" value={proposal.id} />
-                        <input type="hidden" name="clubId" value={club.id} />
-                        <select name="winnerPlayerId" aria-label={t.winner}>
-                          <option value={proposal.proposerPlayerId}>{playerName(proposal.proposerPlayer)}</option>
-                          {proposal.acceptorPlayerId && proposal.acceptorPlayer ? (
-                            <option value={proposal.acceptorPlayerId}>{playerName(proposal.acceptorPlayer)}</option>
-                          ) : null}
-                        </select>
-                        <input name="scoreSummary" placeholder={t.result} />
-                        <button type="submit">{t.completeMatch}</button>
-                      </form>
+                      <MatchProposalResultForm clubId={club.id} proposal={proposal} t={t} />
                     ) : null}
                     {canCancelProposal ? (
                       <form action={cancelMatchProposalAction}>

@@ -203,9 +203,10 @@ const matchProposalIdSchema = z.object({
   clubId: z.string().uuid()
 });
 
+const matchProposalScoreOptions = ["3-0", "3-1", "3-2", "2-3", "1-3", "0-3"] as const;
+
 const completeMatchProposalSchema = matchProposalIdSchema.extend({
-  winnerPlayerId: z.string().uuid(),
-  scoreSummary: z.string().max(120).optional()
+  matchScore: z.enum(matchProposalScoreOptions)
 });
 
 const cancelCourtReservationSchema = z.object({
@@ -703,6 +704,11 @@ function parseSetScores(formData: FormData, bestOfSets: number) {
   }
 
   return { sets, homeSets, awaySets };
+}
+
+function scoreSummaryFromSets(homeSets: number, awaySets: number, sets: Array<{ homePoints: number; awayPoints: number }>) {
+  const partials = sets.map((set) => `${set.homePoints}-${set.awayPoints}`).join(", ");
+  return `${homeSets}-${awaySets}${partials ? ` (${partials})` : ""}`;
 }
 
 function seedPositionGroups(bracketSize: number) {
@@ -3502,8 +3508,7 @@ export async function completeMatchProposalAction(formData: FormData) {
   const parsed = completeMatchProposalSchema.parse({
     proposalId: textValue(formData.get("proposalId")),
     clubId: textValue(formData.get("clubId")),
-    winnerPlayerId: textValue(formData.get("winnerPlayerId")),
-    scoreSummary: textValue(formData.get("scoreSummary"))
+    matchScore: textValue(formData.get("matchScore"))
   });
   const proposal = await prisma.matchProposal.findUniqueOrThrow({
     where: { id: parsed.proposalId },
@@ -3530,13 +3535,17 @@ export async function completeMatchProposalAction(formData: FormData) {
     throw new Error("La propuesta no tiene jugador aceptante.");
   }
 
-  if (parsed.winnerPlayerId !== proposal.proposerPlayerId && parsed.winnerPlayerId !== proposal.acceptorPlayerId) {
-    throw new Error("El ganador debe ser uno de los jugadores participantes.");
+  const { sets, homeSets, awaySets } = parseSetScores(formData, 5);
+  const calculatedScore = `${homeSets}-${awaySets}`;
+  if (parsed.matchScore !== calculatedScore) {
+    throw new Error("El resultado final seleccionado no coincide con los sets informados.");
   }
+  const winnerPlayerId = homeSets > awaySets ? proposal.proposerPlayerId : proposal.acceptorPlayerId;
+  const scoreSummary = scoreSummaryFromSets(homeSets, awaySets, sets);
 
   const proposerBefore = Number(proposal.proposerPlayer.skillLevel);
   const acceptorBefore = Number(proposal.acceptorPlayer.skillLevel);
-  const proposerWins = parsed.winnerPlayerId === proposal.proposerPlayerId;
+  const proposerWins = winnerPlayerId === proposal.proposerPlayerId;
   if (proposal.type === "competitive") {
     assertCompetitiveSkillIsDefined([proposal.proposerPlayer, proposal.acceptorPlayer]);
     assertCompetitiveLevelsAreBalanced(proposerBefore, acceptorBefore);
@@ -3553,8 +3562,8 @@ export async function completeMatchProposalAction(formData: FormData) {
       where: { id: proposal.id },
       data: {
         status: "completed",
-        winnerPlayerId: parsed.winnerPlayerId,
-        scoreSummary: parsed.scoreSummary,
+        winnerPlayerId,
+        scoreSummary,
         proposerLevelBefore: proposerBefore,
         proposerLevelAfter: proposerAfter,
         acceptorLevelBefore: acceptorBefore,

@@ -3,6 +3,7 @@ import { savePlayerAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
 import { getDictionary } from "@/src/lib/i18n";
+import { prisma } from "@/src/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,38 @@ export default async function MyPlayerProfilePage() {
   if (!currentUser) redirect("/login");
   if (currentUser.player) redirect(`/players/${currentUser.player.id}`);
 
+  const existingPlayer = await prisma.player.findFirst({
+    where: {
+      mergedIntoPlayerId: null,
+      userId: currentUser.id
+    },
+    select: { id: true, userId: true }
+  });
+
+  if (existingPlayer) {
+    if (!existingPlayer.userId) {
+      await prisma.player.update({
+        where: { id: existingPlayer.id },
+        data: { userId: currentUser.id }
+      });
+    }
+    redirect(`/players/${existingPlayer.id}`);
+  }
+
   const name = splitDisplayName(currentUser.displayName);
+  const isAdmin = currentUser.roles.some((role) => role.role === "admin");
+
+  if (isAdmin) {
+    const player = await prisma.player.create({
+      data: {
+        userId: currentUser.id,
+        firstName: name.firstName || currentUser.email.split("@")[0],
+        lastName: name.lastName || currentUser.email
+      },
+      select: { id: true }
+    });
+    redirect(`/players/${player.id}`);
+  }
 
   return (
     <main className="app-shell">
