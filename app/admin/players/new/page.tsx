@@ -30,6 +30,7 @@ export default async function NewPlayerProfilePage() {
       </section>
       <section className="centered-list player-form-section">
         <form className="admin-form" action={savePlayerAction}>
+          <input type="hidden" name="returnTo" value="/admin/players" />
           <PlayerFields clubs={clubs} currentUserEmail={currentUser.email} isAdmin={isAdmin} labels={t} />
           <button type="submit">{t.createPlayer}</button>
         </form>

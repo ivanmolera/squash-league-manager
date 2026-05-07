@@ -224,6 +224,11 @@ function textValue(value: unknown) {
   return value?.toString().trim() || undefined;
 }
 
+function returnToListPath(value: unknown) {
+  const path = textValue(value);
+  return path === "/admin/players" || path === "/admin/clubs" ? path : null;
+}
+
 function federationAllowsRanking(federationCode: string | null | undefined, federationRankingCode: string | null | undefined, rankingCode: string) {
   if (rankingCode === "none") return true;
   if (federationCode === "RFES" && (rankingCode === "RFES" || rankingCode === "PSA")) return true;
@@ -1266,6 +1271,7 @@ async function registerTournamentPlayer(competitionCategoryId: string, playerId:
 export async function savePlayerAction(formData: FormData) {
   const currentUser = await requireUser();
   const isAdmin = hasRole(currentUser, "admin");
+  const returnTo = returnToListPath(formData.get("returnTo"));
   const uploadedProfilePhotoUrl = await readProfilePhoto(formData);
   const communicationsEnabled = await isFeatureEnabled("player_communications");
   const parsed = playerSchema.parse({
@@ -1415,6 +1421,7 @@ export async function savePlayerAction(formData: FormData) {
   revalidatePath(`/players/${player.id}`);
   revalidatePath(`/players/${player.id}/edit`);
   affectedTeamIds.forEach((teamId) => revalidatePath(`/teams/${teamId}`));
+  if (returnTo) redirect(returnTo);
   redirect(`/players/${player.id}?saved=1`);
 }
 
@@ -2175,6 +2182,7 @@ export async function reviewClubJoinRequestAction(formData: FormData) {
 export async function saveClubAction(formData: FormData) {
   const currentUser = await requireUser();
   const isAdmin = hasRole(currentUser, "admin");
+  const returnTo = returnToListPath(formData.get("returnTo"));
   const logoUrl = await readClubLogo(formData);
   const parsedResult = clubSchema.safeParse({
     clubId: textValue(formData.get("clubId")),
@@ -2407,6 +2415,7 @@ export async function saveClubAction(formData: FormData) {
   new Set([...membershipPlayerIds, ...rosterPlayerIds].map((row) => row.playerId)).forEach((playerId) => {
     revalidatePath(`/players/${playerId}`);
   });
+  if (returnTo) redirect(returnTo);
 }
 
 async function upsertCompetitionCategoryByDisplayName({

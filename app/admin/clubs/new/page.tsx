@@ -32,6 +32,7 @@ export default async function NewClubPage() {
       </section>
       <section className="centered-list">
         <form className="admin-form" action={saveClubAction}>
+          <input type="hidden" name="returnTo" value="/admin/clubs" />
           <ClubFields managers={managers} federations={federations} isAdmin={isAdmin} labels={t} />
           <button type="submit">{t.createClub}</button>
         </form>
