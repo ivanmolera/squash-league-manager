@@ -51,7 +51,7 @@ async function assertPlayerMeetsCategoryRestrictions({
 
   const genderMatches = category.genderScope === "not_specified" || player.gender === category.genderScope;
   if (!genderMatches) {
-    throw new Error("El jugador no cumple la restricción de sexo de esta categoría.");
+    throw new Error("El jugador no cumple la restricción de género de esta categoría.");
   }
 
   const age = playerAgeAt(referenceDate, player.birthDate);
