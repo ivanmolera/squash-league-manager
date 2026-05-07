@@ -226,7 +226,12 @@ function textValue(value: unknown) {
 
 function returnToListPath(value: unknown) {
   const path = textValue(value);
-  return path === "/admin/players" || path === "/admin/clubs" ? path : null;
+  return path === "/admin/players" ||
+    path === "/admin/clubs" ||
+    path === "/admin/leagues" ||
+    path === "/manager/tournaments"
+    ? path
+    : null;
 }
 
 function federationAllowsRanking(federationCode: string | null | undefined, federationRankingCode: string | null | undefined, rankingCode: string) {
@@ -2464,6 +2469,7 @@ export async function saveLeagueAction(formData: FormData) {
     throw new Error("La gestión de ligas no está activa.");
   }
   await requireAdmin();
+  const returnTo = returnToListPath(formData.get("returnTo"));
   const shouldRegenerateSchedule = formData.get("mode")?.toString() === "regenerate" || !textValue(formData.get("competitionId"));
   const parsed = competitionSchema.parse({
     competitionId: textValue(formData.get("competitionId")),
@@ -2550,6 +2556,7 @@ export async function saveLeagueAction(formData: FormData) {
     revalidatePath("/admin/leagues");
     revalidatePath(`/leagues/${competition.id}`);
     revalidatePath(`/leagues/${competition.id}/edit`);
+    if (returnTo) redirect(returnTo);
     return;
   }
 
@@ -2571,6 +2578,7 @@ export async function saveLeagueAction(formData: FormData) {
       revalidatePath("/admin/leagues");
       revalidatePath(`/leagues/${competition.id}`);
       revalidatePath(`/leagues/${competition.id}/edit`);
+      if (returnTo) redirect(returnTo);
       return;
     }
 
@@ -2638,6 +2646,7 @@ export async function saveLeagueAction(formData: FormData) {
       revalidatePath("/admin/leagues");
       revalidatePath(`/leagues/${competition.id}`);
       revalidatePath(`/leagues/${competition.id}/edit`);
+      if (returnTo) redirect(returnTo);
       return;
     }
     await prisma.competitionParticipant.createMany({
@@ -2721,6 +2730,7 @@ export async function saveLeagueAction(formData: FormData) {
   revalidatePath("/admin/leagues");
   revalidatePath(`/leagues/${competition.id}`);
   revalidatePath(`/leagues/${competition.id}/edit`);
+  if (returnTo) redirect(returnTo);
 }
 
 export async function saveTournamentAction(formData: FormData) {
@@ -2729,6 +2739,7 @@ export async function saveTournamentAction(formData: FormData) {
   }
   const currentUser = await requireUser();
   const isAdmin = hasRole(currentUser, "admin");
+  const returnTo = returnToListPath(formData.get("returnTo"));
   const shouldGenerateDraw = formData.get("mode")?.toString() === "generate";
   const uploadedPosterUrl = await readTournamentPoster(formData);
   const parsed = tournamentSchema.parse({
@@ -2891,6 +2902,7 @@ export async function saveTournamentAction(formData: FormData) {
     revalidatePath("/manager/tournaments");
     revalidatePath(`/tournaments/${competition.id}`);
     revalidatePath(`/tournaments/${competition.id}/edit`);
+    if (returnTo) redirect(returnTo);
     return;
   }
 
@@ -3052,6 +3064,7 @@ export async function saveTournamentAction(formData: FormData) {
   revalidatePath("/manager/tournaments");
   revalidatePath(`/tournaments/${competition.id}`);
   revalidatePath(`/tournaments/${competition.id}/edit`);
+  if (returnTo) redirect(returnTo);
 }
 
 export async function registerSelfForTournamentAction(formData: FormData) {

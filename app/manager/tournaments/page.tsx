@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { saveTournamentAction } from "@/app/admin/actions";
 import { SeasonFilter } from "@/app/manager/tournaments/season-filter";
 import { Navigation } from "@/app/navigation";
 import { ClubCrest } from "@/src/components/club-crest";
-import { RankingCodeBadge, RankingCodePicker } from "@/src/components/ranking-code-picker";
+import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
 import { getCurrentUser } from "@/src/lib/auth";
 import { requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
@@ -41,8 +40,7 @@ export default async function TournamentsPage({
   await requireFeature("tournaments");
   const query = await searchParams;
   const tab = selectedTab(query?.tab);
-  const [categories, clubs, federations, seasons, currentUser, dictionary] = await Promise.all([
-    prisma.category.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
+  const [clubs, federations, seasons, currentUser, dictionary] = await Promise.all([
     prisma.club.findMany({ include: { federation: true }, orderBy: [{ province: "asc" }, { name: "asc" }] }),
     prisma.federation.findMany({ include: { ranking: true }, orderBy: [{ name: "asc" }] }),
     prisma.season.findMany({ orderBy: [{ startsAt: "desc" }] }),
@@ -85,62 +83,14 @@ export default async function TournamentsPage({
       <section className="page-heading">
         <p className="eyebrow">{t.manager}</p>
         <h1>{t.tournaments}</h1>
+        {canEdit ? (
+          <div className="heading-actions">
+            <Link className="primary-link" href="/manager/tournaments/new">{t.createNewTournament}</Link>
+          </div>
+        ) : null}
       </section>
 
       <section className="tournament-page-stack">
-        {canEdit ? (
-          <form className="admin-form wide-form" action={saveTournamentAction}>
-            <h2>{t.newTournament}</h2>
-            <label>{t.name}<input name="name" required /></label>
-            <label>{t.description}<textarea name="description" rows={3} /></label>
-            <input type="hidden" name="posterUrl" value="" />
-            <label>{t.poster}<input name="poster" type="file" accept="image/*" /></label>
-            <label>{t.referee}<input name="refereeName" /></label>
-            {editableFederations.length ? (
-              <label>{t.organizerFederation}
-                <select name="organizerFederationId">
-                  {isAdmin ? <option value="">{t.noFederation}</option> : null}
-                  {editableFederations.map((federation) => (
-                    <option key={federation.id} value={federation.id}>
-                      {federation.name}{federation.ranking ? ` · ${federation.ranking.code}` : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
-            <RankingCodePicker defaultCode="none" label={t.scoreable} />
-            <label>{t.matchFormat}
-              <select name="bestOfSets" defaultValue="5">
-                <option value="5">{t.bestOf5}</option>
-                <option value="3">{t.bestOf3}</option>
-              </select>
-            </label>
-            <label>{t.hostClub}
-              <select name="hostClubId" required>
-                {editableClubs.map((club) => <option key={club.id} value={club.id}>{club.name}</option>)}
-              </select>
-            </label>
-            <div className="form-row">
-              <label>{t.registrationDeadline}<input name="registrationDeadline" type="date" required /></label>
-              <label>{t.start}<input name="startsAt" type="date" required /></label>
-            </div>
-            <div className="form-row">
-              <label>{t.end}<input name="endsAt" type="date" required /></label>
-            </div>
-            <fieldset className="check-grid">
-              <legend>{t.categories}</legend>
-              {categories.map((category) => (
-                <label key={category.id}>
-                  <input type="checkbox" name="categoryIds" value={category.id} />
-                  {category.name}
-                </label>
-              ))}
-            </fieldset>
-            <p className="muted">{t.tournamentCreatedWithoutPlayers}</p>
-            <button type="submit" name="mode" value="save">{t.saveTournament}</button>
-          </form>
-        ) : null}
-
         <section className="tournament-list-panel">
           <div className="tournament-toolbar">
             <nav className="tournament-tabs" aria-label={t.tournaments}>
