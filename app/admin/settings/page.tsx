@@ -4,13 +4,14 @@ import { Navigation } from "@/app/navigation";
 import { featureKeys, getFeatureSettings, type FeatureKey } from "@/src/lib/features";
 import { getCurrentUser } from "@/src/lib/auth";
 import { getDictionary } from "@/src/lib/i18n";
-import { BarChart3, CalendarCheck, CalendarDays, ClipboardCheck, MapPin, MessageSquare, PencilLine, Trophy, UserPlus, Users, type LucideIcon } from "lucide-react";
+import { BarChart3, CalendarCheck, CalendarDays, ClipboardCheck, MapPin, MessageSquare, PencilLine, Swords, Trophy, UserPlus, Users, type LucideIcon } from "lucide-react";
 import { notFound } from "next/navigation";
 
 const featureLabelKeys: Record<FeatureKey, string> = {
   leagues: "featureLeagues",
   tournaments: "featureTournaments",
   court_bookings: "featureCourtBookings",
+  match_proposals: "featureMatchProposals",
   rankings_statistics: "featureRankingsStatistics",
   public_registration: "featurePublicRegistration",
   tournament_online_registration: "featureTournamentOnlineRegistration",
@@ -24,6 +25,7 @@ const featureIcons: Record<FeatureKey, LucideIcon> = {
   leagues: Trophy,
   tournaments: CalendarDays,
   court_bookings: CalendarCheck,
+  match_proposals: Swords,
   rankings_statistics: BarChart3,
   public_registration: UserPlus,
   tournament_online_registration: ClipboardCheck,

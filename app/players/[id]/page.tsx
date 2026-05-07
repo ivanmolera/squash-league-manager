@@ -4,6 +4,7 @@ import { Navigation } from "@/app/navigation";
 import { ClubCrest } from "@/src/components/club-crest";
 import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
 import { getCurrentUser } from "@/src/lib/auth";
+import { getFeatureSettings } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 import { getTournamentRankingRows, type RankingScope } from "@/src/lib/tournament-rankings";
@@ -410,7 +411,7 @@ export default async function PlayerDetailPage({
 }) {
   const { id } = await params;
   const query = await searchParams;
-  const [player, currentUser, openSeasons] = await Promise.all([
+  const [player, currentUser, openSeasons, features] = await Promise.all([
     prisma.player.findUnique({
       where: { id },
       include: {
@@ -426,7 +427,8 @@ export default async function PlayerDetailPage({
     prisma.season.findMany({
       where: { status: { not: "closed" } },
       select: { id: true }
-    })
+    }),
+    getFeatureSettings()
   ]);
   const { locale, t } = await getDictionary();
 
@@ -440,7 +442,7 @@ export default async function PlayerDetailPage({
   const canSeeContact = canEdit || player.showContactPublic;
   const canSeePhysical = canEdit || player.showPhysicalPublic;
   const statistics = await getPlayerStatistics(player.id, player.memberships.map((membership) => membership.seasonId));
-  const pendingMatchProposals = isOwnProfile
+  const pendingMatchProposals = isOwnProfile && features.match_proposals
     ? await prisma.matchProposal.findMany({
         where: {
           status: "accepted",
@@ -553,7 +555,7 @@ export default async function PlayerDetailPage({
         </div>
       </section>
       <section className="detail-grid player-secondary-stat-sections">
-        {isOwnProfile ? (
+        {isOwnProfile && features.match_proposals ? (
           <article className="list-panel">
             <h2>{t.pendingMatchesToPlay}</h2>
             {pendingMatchProposals.length ? (

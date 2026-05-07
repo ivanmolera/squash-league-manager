@@ -8,6 +8,7 @@ export const featureKeys = [
   "leagues",
   "tournaments",
   "court_bookings",
+  "match_proposals",
   "rankings_statistics",
   "public_registration",
   "tournament_online_registration",

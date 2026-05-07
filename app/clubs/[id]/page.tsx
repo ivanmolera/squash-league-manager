@@ -227,6 +227,7 @@ export default async function ClubDetailPage({
   const mapUrl = features.club_maps && canSeeContact ? clubMapUrl(club) : null;
   const community = autonomousCommunityForLocation(club);
   const showBookings = features.court_bookings && club.managesCourtBookings && club.availableCourts > 0;
+  const showMatchProposals = showBookings && features.match_proposals;
   const currentPlayer = currentUser
     ? await prisma.player.findUnique({
         where: { userId: currentUser.id },
@@ -282,7 +283,7 @@ export default async function ClubDetailPage({
   const selectedDayReservations = reservations.filter((reservation) =>
     reservation.startsAt >= selectedBookingDate && reservation.startsAt < selectedBookingDateEnd
   );
-  const matchProposals = showBookings
+  const matchProposals = showMatchProposals
     ? await prisma.matchProposal.findMany({
         where: {
           clubId: club.id,
@@ -364,7 +365,7 @@ export default async function ClubDetailPage({
             <h2>{t.courtBookings}</h2>
             {!currentUser ? <p className="warning-box">{t.signInToBookCourt}</p> : null}
             {currentUser && !canUseClubCourts ? <p className="warning-box">{t.membersOnlyBookingWarning}</p> : null}
-            {currentPlayer && !currentPlayer.skillLevelConfirmed ? <p className="warning-box">{t.skillQuestionnaireCompetitiveWarning}</p> : null}
+            {showMatchProposals && currentPlayer && !currentPlayer.skillLevelConfirmed ? <p className="warning-box">{t.skillQuestionnaireCompetitiveWarning}</p> : null}
             {selectedDayUserReservationCount >= 3 || query?.bookingNotice === "limit" ? <p className="warning-box">{t.activeCourtReservationWarning}</p> : null}
             {query?.bookingNotice === "overlap" ? <p className="warning-box">{t.courtBookingOverlapWarning}</p> : null}
             <div className="court-booking-toolbar">
@@ -398,7 +399,7 @@ export default async function ClubDetailPage({
                         const isPast = startsAt < new Date();
                         const isClosed = closedDayKeys.has(selectedBookingDateKey);
                         const canBook = currentUser && canUseClubCourts && !reservation && !isPast && !isClosed && selectedDayUserReservationCount < 3;
-                        const proposal = reservation?.matchProposal;
+                        const proposal = showMatchProposals ? reservation?.matchProposal : null;
                         const canAcceptProposal = proposal?.status === "open" && currentPlayer && (canUseClubCourts || canEdit) && proposal.proposerPlayerId !== currentPlayer.id &&
                           (proposal.type !== "competitive" || (currentPlayer.skillLevelConfirmed && proposal.proposerPlayer.skillLevelConfirmed && Math.abs(Number(currentPlayer.skillLevel) - Number(proposal.proposerPlayer.skillLevel)) <= 2));
                         const canProposeCompetitive = currentPlayer?.skillLevelConfirmed;
@@ -449,7 +450,7 @@ export default async function ClubDetailPage({
                                   <input type="hidden" name="startsAt" value={startsAt.toISOString()} />
                                   <button type="submit">{t.bookCourt}</button>
                                 </form>
-                                {currentPlayer ? (
+                                {showMatchProposals && currentPlayer ? (
                                   <form className="slot-booking-form" action={proposeMatchAction}>
                                     <input type="hidden" name="clubId" value={club.id} />
                                     <input type="hidden" name="courtNumber" value={courtIndex + 1} />
@@ -478,43 +479,45 @@ export default async function ClubDetailPage({
                 </tbody>
               </table>
             </div>
-            <section className="match-proposal-list">
-              <h3>{t.matchProposals}</h3>
-              {matchProposals.length ? matchProposals.map((proposal) => {
-                const canAcceptProposal = proposal.status === "open" && currentPlayer && (canUseClubCourts || canEdit) && proposal.proposerPlayerId !== currentPlayer.id &&
-                  (proposal.type !== "competitive" || (currentPlayer.skillLevelConfirmed && Math.abs(Number(currentPlayer.skillLevel) - Number(proposal.proposerPlayer.skillLevel)) <= 2));
-                const canCompleteProposal = canEdit || proposal.proposerUserId === currentUser?.id || proposal.acceptorUserId === currentUser?.id;
-                const canCancelProposal = canEdit || proposal.proposerUserId === currentUser?.id;
-                return (
-                  <article className="row-card match-proposal-row" key={proposal.id}>
-                    <div>
-                      <strong>{formatDay(proposal.courtReservation.startsAt, locale)} · {formatTime(proposal.courtReservation.startsAt)}</strong>
-                      <span>{t.court} {proposal.courtReservation.courtNumber} · {proposal.type === "competitive" ? t.competitiveMatch : t.friendlyMatch}</span>
-                      <span>{t.proposer}: {playerName(proposal.proposerPlayer)}</span>
-                      {proposal.type === "competitive" ? <span>{skillLevelLabel(proposal.proposerPlayer, t)}</span> : null}
-                      <span>{proposal.acceptorPlayer ? `${t.acceptedBy}: ${playerName(proposal.acceptorPlayer)}` : t.openMatchProposal}</span>
-                    </div>
-                    {canAcceptProposal ? (
-                      <form action={acceptMatchProposalAction}>
-                        <input type="hidden" name="proposalId" value={proposal.id} />
-                        <input type="hidden" name="clubId" value={club.id} />
-                        <button type="submit">{t.acceptMatchProposal}</button>
-                      </form>
-                    ) : null}
-                    {proposal.status === "accepted" && canCompleteProposal ? (
-                      <MatchProposalResultForm clubId={club.id} proposal={proposal} t={t} />
-                    ) : null}
-                    {canCancelProposal ? (
-                      <form action={cancelMatchProposalAction}>
-                        <input type="hidden" name="proposalId" value={proposal.id} />
-                        <input type="hidden" name="clubId" value={club.id} />
-                        <button type="submit">{t.cancelMatchProposal}</button>
-                      </form>
-                    ) : null}
-                  </article>
-                );
-              }) : <p className="muted">{t.noMatchProposals}</p>}
-            </section>
+            {showMatchProposals ? (
+              <section className="match-proposal-list">
+                <h3>{t.matchProposals}</h3>
+                {matchProposals.length ? matchProposals.map((proposal) => {
+                  const canAcceptProposal = proposal.status === "open" && currentPlayer && (canUseClubCourts || canEdit) && proposal.proposerPlayerId !== currentPlayer.id &&
+                    (proposal.type !== "competitive" || (currentPlayer.skillLevelConfirmed && Math.abs(Number(currentPlayer.skillLevel) - Number(proposal.proposerPlayer.skillLevel)) <= 2));
+                  const canCompleteProposal = canEdit || proposal.proposerUserId === currentUser?.id || proposal.acceptorUserId === currentUser?.id;
+                  const canCancelProposal = canEdit || proposal.proposerUserId === currentUser?.id;
+                  return (
+                    <article className="row-card match-proposal-row" key={proposal.id}>
+                      <div>
+                        <strong>{formatDay(proposal.courtReservation.startsAt, locale)} · {formatTime(proposal.courtReservation.startsAt)}</strong>
+                        <span>{t.court} {proposal.courtReservation.courtNumber} · {proposal.type === "competitive" ? t.competitiveMatch : t.friendlyMatch}</span>
+                        <span>{t.proposer}: {playerName(proposal.proposerPlayer)}</span>
+                        {proposal.type === "competitive" ? <span>{skillLevelLabel(proposal.proposerPlayer, t)}</span> : null}
+                        <span>{proposal.acceptorPlayer ? `${t.acceptedBy}: ${playerName(proposal.acceptorPlayer)}` : t.openMatchProposal}</span>
+                      </div>
+                      {canAcceptProposal ? (
+                        <form action={acceptMatchProposalAction}>
+                          <input type="hidden" name="proposalId" value={proposal.id} />
+                          <input type="hidden" name="clubId" value={club.id} />
+                          <button type="submit">{t.acceptMatchProposal}</button>
+                        </form>
+                      ) : null}
+                      {proposal.status === "accepted" && canCompleteProposal ? (
+                        <MatchProposalResultForm clubId={club.id} proposal={proposal} t={t} />
+                      ) : null}
+                      {canCancelProposal ? (
+                        <form action={cancelMatchProposalAction}>
+                          <input type="hidden" name="proposalId" value={proposal.id} />
+                          <input type="hidden" name="clubId" value={club.id} />
+                          <button type="submit">{t.cancelMatchProposal}</button>
+                        </form>
+                      ) : null}
+                    </article>
+                  );
+                }) : <p className="muted">{t.noMatchProposals}</p>}
+              </section>
+            ) : null}
           </article>
         ) : null}
         {features.court_bookings && canEdit && !showBookings ? (

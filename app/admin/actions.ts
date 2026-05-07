@@ -3343,6 +3343,9 @@ export async function proposeMatchAction(formData: FormData) {
   if (!(await isFeatureEnabled("court_bookings"))) {
     throw new Error("La gestión de reservas no está activa.");
   }
+  if (!(await isFeatureEnabled("match_proposals"))) {
+    throw new Error("La propuesta de partidos no está activa.");
+  }
 
   const parsed = matchProposalSchema.parse({
     clubId: textValue(formData.get("clubId")),
@@ -3424,6 +3427,9 @@ export async function acceptMatchProposalAction(formData: FormData) {
   if (!(await isFeatureEnabled("court_bookings"))) {
     throw new Error("La gestión de reservas no está activa.");
   }
+  if (!(await isFeatureEnabled("match_proposals"))) {
+    throw new Error("La propuesta de partidos no está activa.");
+  }
 
   const parsed = matchProposalIdSchema.parse({
     proposalId: textValue(formData.get("proposalId")),
@@ -3482,6 +3488,9 @@ export async function cancelMatchProposalAction(formData: FormData) {
   if (!(await isFeatureEnabled("court_bookings"))) {
     throw new Error("La gestión de reservas no está activa.");
   }
+  if (!(await isFeatureEnabled("match_proposals"))) {
+    throw new Error("La propuesta de partidos no está activa.");
+  }
 
   const parsed = matchProposalIdSchema.parse({
     proposalId: textValue(formData.get("proposalId")),
@@ -3525,6 +3534,9 @@ export async function completeMatchProposalAction(formData: FormData) {
   const currentUser = await requireUser();
   if (!(await isFeatureEnabled("court_bookings"))) {
     throw new Error("La gestión de reservas no está activa.");
+  }
+  if (!(await isFeatureEnabled("match_proposals"))) {
+    throw new Error("La propuesta de partidos no está activa.");
   }
 
   const parsed = completeMatchProposalSchema.parse({
