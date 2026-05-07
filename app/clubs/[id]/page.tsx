@@ -336,9 +336,12 @@ export default async function ClubDetailPage({
                         const isClosed = closedDayKeys.has(selectedBookingDateKey);
                         const canBook = currentUser && canUseClubCourts && !reservation && !isPast && !isClosed && selectedDayUserReservationCount < 3;
                         const proposal = reservation?.matchProposal;
-                        const canAcceptProposal = proposal?.status === "open" && currentPlayer && canUseClubCourts && proposal.proposerPlayerId !== currentPlayer.id &&
+                        const canAcceptProposal = proposal?.status === "open" && currentPlayer && (canUseClubCourts || canEdit) && proposal.proposerPlayerId !== currentPlayer.id &&
                           (proposal.type !== "competitive" || (currentPlayer.skillLevelConfirmed && proposal.proposerPlayer.skillLevelConfirmed && Math.abs(Number(currentPlayer.skillLevel) - Number(proposal.proposerPlayer.skillLevel)) <= 2));
                         const canProposeCompetitive = currentPlayer?.skillLevelConfirmed;
+                        const canReleaseSlot = reservation && (proposal
+                          ? canEdit || proposal.proposerUserId === currentUser?.id
+                          : reservation.userId === currentUser?.id || canEdit);
 
                         return (
                           <td className={reservation ? "reserved-slot" : isClosed || isPast ? "unavailable-slot" : "available-slot"} key={`${selectedBookingDateKey}-${courtIndex}-${slot.hour}-${slot.minute}`}>
@@ -359,7 +362,7 @@ export default async function ClubDetailPage({
                                     ) : null}
                                   </>
                                 ) : null}
-                                {(reservation.userId === currentUser?.id || canEdit) ? (
+                                {canReleaseSlot ? (
                                   <form action={proposal ? cancelMatchProposalAction : cancelCourtReservationAction}>
                                     {proposal ? (
                                       <input type="hidden" name="proposalId" value={proposal.id} />
@@ -414,9 +417,10 @@ export default async function ClubDetailPage({
             <section className="match-proposal-list">
               <h3>{t.matchProposals}</h3>
               {matchProposals.length ? matchProposals.map((proposal) => {
-                const canAcceptProposal = proposal.status === "open" && currentPlayer && canUseClubCourts && proposal.proposerPlayerId !== currentPlayer.id &&
+                const canAcceptProposal = proposal.status === "open" && currentPlayer && (canUseClubCourts || canEdit) && proposal.proposerPlayerId !== currentPlayer.id &&
                   (proposal.type !== "competitive" || (currentPlayer.skillLevelConfirmed && Math.abs(Number(currentPlayer.skillLevel) - Number(proposal.proposerPlayer.skillLevel)) <= 2));
-                const canManageProposal = canEdit || proposal.proposerUserId === currentUser?.id || proposal.acceptorUserId === currentUser?.id;
+                const canCompleteProposal = canEdit || proposal.proposerUserId === currentUser?.id || proposal.acceptorUserId === currentUser?.id;
+                const canCancelProposal = canEdit || proposal.proposerUserId === currentUser?.id;
                 return (
                   <article className="row-card match-proposal-row" key={proposal.id}>
                     <div>
@@ -432,7 +436,7 @@ export default async function ClubDetailPage({
                         <button type="submit">{t.acceptMatchProposal}</button>
                       </form>
                     ) : null}
-                    {proposal.status === "accepted" && canManageProposal ? (
+                    {proposal.status === "accepted" && canCompleteProposal ? (
                       <form className="inline-form" action={completeMatchProposalAction}>
                         <input type="hidden" name="proposalId" value={proposal.id} />
                         <input type="hidden" name="clubId" value={club.id} />
@@ -446,7 +450,7 @@ export default async function ClubDetailPage({
                         <button type="submit">{t.completeMatch}</button>
                       </form>
                     ) : null}
-                    {canManageProposal ? (
+                    {canCancelProposal ? (
                       <form action={cancelMatchProposalAction}>
                         <input type="hidden" name="proposalId" value={proposal.id} />
                         <input type="hidden" name="clubId" value={club.id} />

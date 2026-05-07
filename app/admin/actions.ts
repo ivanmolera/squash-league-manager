@@ -3404,7 +3404,7 @@ export async function acceptMatchProposalAction(formData: FormData) {
   const proposal = await prisma.matchProposal.findUniqueOrThrow({
     where: { id: parsed.proposalId },
     include: {
-      club: { select: { id: true, publicCourtAccess: true } },
+      club: { select: { id: true, managerUserId: true, publicCourtAccess: true } },
       courtReservation: true
     }
   });
@@ -3422,7 +3422,8 @@ export async function acceptMatchProposalAction(formData: FormData) {
     throw new Error("No puedes aceptar tu propia propuesta.");
   }
 
-  if (!canPlayerUseClubCourts({ publicCourtAccess: proposal.club.publicCourtAccess, player, clubId: proposal.clubId })) {
+  const canManageClub = hasRole(currentUser, "admin") || proposal.club.managerUserId === currentUser.id;
+  if (!canManageClub && !canPlayerUseClubCourts({ publicCourtAccess: proposal.club.publicCourtAccess, player, clubId: proposal.clubId })) {
     throw new Error("Solo los jugadores abonados a este club pueden aceptar esta propuesta.");
   }
 
