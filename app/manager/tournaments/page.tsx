@@ -60,13 +60,10 @@ export default async function TournamentsPage({
   const selectedSeason = visibleSeasons.find((season) => season.id === requestedSeasonId) ??
     visibleSeasons.find((season) => season.startsAt <= today && season.endsAt >= today) ??
     visibleSeasons[0];
-  const selectedSeasonIds = selectedSeason
-    ? [selectedSeason.id, ...(selectedSeason.id === season2025?.id && legacySeason2026 ? [legacySeason2026.id] : [])]
-    : [];
   const tournaments = selectedSeason ? await prisma.competition.findMany({
     where: {
       type: "tournament",
-      seasonId: { in: selectedSeasonIds },
+      seasonId: selectedSeason.id,
       ...(tab === "completed" ? { endsAt: { lt: today } } : { OR: [{ endsAt: null }, { endsAt: { gte: today } }] })
     },
     include: {

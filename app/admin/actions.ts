@@ -23,6 +23,7 @@ import { prisma } from "@/src/lib/prisma";
 import { rankingCodeValues, rankingScopeForCode } from "@/src/lib/ranking-codes";
 import { generateRoundRobin, nextPowerOfTwo, shuffle } from "@/src/lib/schedule";
 import { getTournamentRankingRows } from "@/src/lib/tournament-rankings";
+import { tournamentSeasonForDate } from "@/src/lib/tournament-season";
 
 const testPassword = "TestUser1234";
 
@@ -2809,7 +2810,13 @@ export async function saveTournamentAction(formData: FormData) {
     }
   }
 
-  const season = await getDefaultSeason();
+  const tournamentStartsAt = new Date(parsed.startsAt);
+  const tournamentSeason = tournamentSeasonForDate(tournamentStartsAt);
+  const season = await prisma.season.upsert({
+    where: { name: tournamentSeason.name },
+    update: { startsAt: tournamentSeason.startsAt, endsAt: tournamentSeason.endsAt },
+    create: { ...tournamentSeason, status: "active" }
+  });
   const defaultCategory = await getDefaultCategory();
   const categoryIds = parsed.categoryIds.length ? parsed.categoryIds : [defaultCategory.id];
   const rankingScope = rankingScopeForCode(parsed.rankingCode);
@@ -2818,6 +2825,7 @@ export async function saveTournamentAction(formData: FormData) {
     ? await prisma.competition.update({
         where: { id: parsed.competitionId },
         data: {
+          seasonId: season.id,
           name: parsed.name,
           description: parsed.description,
           posterUrl: parsed.posterUrl || null,
@@ -2829,7 +2837,7 @@ export async function saveTournamentAction(formData: FormData) {
           rankingId,
           bestOfSets: parsed.bestOfSets,
           registrationDeadline: new Date(parsed.registrationDeadline),
-          startsAt: new Date(parsed.startsAt),
+          startsAt: tournamentStartsAt,
           endsAt: new Date(parsed.endsAt)
         }
       })
@@ -2849,7 +2857,7 @@ export async function saveTournamentAction(formData: FormData) {
           rankingId,
           bestOfSets: parsed.bestOfSets,
           registrationDeadline: new Date(parsed.registrationDeadline),
-          startsAt: new Date(parsed.startsAt),
+          startsAt: tournamentStartsAt,
           endsAt: new Date(parsed.endsAt)
         }
       });
