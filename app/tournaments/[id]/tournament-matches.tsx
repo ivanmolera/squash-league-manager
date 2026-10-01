@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { Trophy } from "lucide-react";
 import { MatchResultForm } from "@/app/match-result-form";
+import { BracketLinks } from "@/app/tournaments/[id]/bracket-links";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 
@@ -32,6 +32,7 @@ async function getTournamentDraws(competitionId: string, competitionCategoryId?:
     where: { competitionId, format: "knockout", ...(competitionCategoryId ? { id: competitionCategoryId } : {}) },
     include: {
       category: true,
+      seeds: true,
       drawEntries: { orderBy: { bracketPosition: "asc" } }
     },
     orderBy: { createdAt: "asc" }
@@ -92,7 +93,9 @@ function BracketMatchBox({
   fallbackAway,
   pendingLabel,
   finishedLabel,
-  locale
+  locale,
+  seedNumbers,
+  seedLabel
 }: {
   match?: TournamentMatch;
   fallbackHome?: TournamentDraw["drawEntries"][number];
@@ -100,11 +103,15 @@ function BracketMatchBox({
   pendingLabel: string;
   finishedLabel: string;
   locale: string;
+  seedNumbers: Map<string, number>;
+  seedLabel: string;
 }) {
   const homeId = match?.homePlayerId ?? fallbackHome?.playerId ?? null;
   const awayId = match?.awayPlayerId ?? fallbackAway?.playerId ?? null;
   const homeName = playerName(match?.homePlayerNameAtMatchTime ?? fallbackHome?.playerNameAtTime, fallbackHome?.isBye, pendingLabel);
   const awayName = playerName(match?.awayPlayerNameAtMatchTime ?? fallbackAway?.playerNameAtTime, fallbackAway?.isBye, pendingLabel);
+  const homeSeed = homeId ? seedNumbers.get(homeId) : undefined;
+  const awaySeed = awayId ? seedNumbers.get(awayId) : undefined;
   const homeWinner = Boolean(homeId && match?.winnerPlayerId === homeId);
   const awayWinner = Boolean(awayId && match?.winnerPlayerId === awayId);
   const finished = Boolean(match?.winnerPlayerId);
@@ -118,11 +125,17 @@ function BracketMatchBox({
     <div className={`bracket-match${finished ? " is-complete" : ""}`}>
       <span className="bracket-match-status">{status}</span>
       <div className={`bracket-player${homeWinner ? " is-winner" : ""}${finished && !homeWinner ? " is-loser" : ""}`}>
-        <span className="bracket-player-name" title={homeName}>{homeName}</span>
+        <span className="bracket-player-identity">
+          <span className="bracket-player-name" title={homeName}>{homeName}</span>
+          {homeSeed ? <span className="bracket-seed" title={`${seedLabel} #${homeSeed}`} aria-label={`${seedLabel} #${homeSeed}`}>#{homeSeed}</span> : null}
+        </span>
         <span className="bracket-player-score">{homeWinner && !match?.sets.length ? "W" : sideSets(match, "home")}</span>
       </div>
       <div className={`bracket-player${awayWinner ? " is-winner" : ""}${finished && !awayWinner ? " is-loser" : ""}`}>
-        <span className="bracket-player-name" title={awayName}>{awayName}</span>
+        <span className="bracket-player-identity">
+          <span className="bracket-player-name" title={awayName}>{awayName}</span>
+          {awaySeed ? <span className="bracket-seed" title={`${seedLabel} #${awaySeed}`} aria-label={`${seedLabel} #${awaySeed}`}>#{awaySeed}</span> : null}
+        </span>
         <span className="bracket-player-score">{awayWinner && !match?.sets.length ? "W" : sideSets(match, "away")}</span>
       </div>
       <span className="bracket-match-partials" title={typeof score === "string" ? score : score?.partials ?? ""}>
@@ -132,7 +145,7 @@ function BracketMatchBox({
   );
 
   return match
-    ? <Link className="bracket-match-link" href={`#match-${match.id}`}>{content}</Link>
+    ? <a className="bracket-match-link" href={`#match-${match.id}`}>{content}</a>
     : <div className="bracket-match-link">{content}</div>;
 }
 
@@ -151,7 +164,9 @@ function TournamentBracket({
   matchType,
   pendingLabel,
   labels,
-  locale
+  locale,
+  seedNumbers,
+  seedLabel
 }: {
   title: string;
   entries: TournamentDraw["drawEntries"];
@@ -160,6 +175,8 @@ function TournamentBracket({
   pendingLabel: string;
   labels: { final: string; semifinals: string; quarterfinals: string; roundOf: string; champion: string; finished: string; thirdPlace: string };
   locale: string;
+  seedNumbers: Map<string, number>;
+  seedLabel: string;
 }) {
   if (!entries.length) return null;
 
@@ -227,6 +244,8 @@ function TournamentBracket({
         pendingLabel={pendingLabel}
         finishedLabel={labels.finished}
         locale={locale}
+        seedNumbers={seedNumbers}
+        seedLabel={seedLabel}
       />
     );
   };
@@ -269,7 +288,7 @@ function TournamentBracket({
             {thirdPlaceMatch ? (
               <div className="bracket-third-place" style={{ top: thirdPlaceTop }}>
                 <h4>{labels.thirdPlace}</h4>
-                <BracketMatchBox match={thirdPlaceMatch} pendingLabel={pendingLabel} finishedLabel={labels.finished} locale={locale} />
+                <BracketMatchBox match={thirdPlaceMatch} pendingLabel={pendingLabel} finishedLabel={labels.finished} locale={locale} seedNumbers={seedNumbers} seedLabel={seedLabel} />
               </div>
             ) : null}
           </div>
@@ -283,12 +302,14 @@ export async function TournamentMatches({
   competitionId,
   competitionCategoryId,
   canEdit,
-  showHeading = true
+  showHeading = true,
+  collapseMatchList = false
 }: {
   competitionId: string;
   competitionCategoryId?: string;
   canEdit: boolean;
   showHeading?: boolean;
+  collapseMatchList?: boolean;
 }) {
   const [matches, draws, dictionary] = await Promise.all([
     getTournamentMatches(competitionId, competitionCategoryId),
@@ -296,39 +317,48 @@ export async function TournamentMatches({
     getDictionary()
   ]);
   const { locale, t } = dictionary;
+  const matchList = (
+    <div className="calendar-list">
+      {matches.map((match) => (
+        <article className="match-card" id={`match-${match.id}`} key={match.id}>
+          <div>
+            <strong>{match.matchType === "tournament_third_place" ? t.thirdPlaceMatch : `${t.round} ${match.roundNumber ?? "-"}`} · {dateTime(match.scheduledAt, locale, t.noDate)}</strong>
+            <p>{match.homePlayerNameAtMatchTime ?? "BYE"} vs {match.awayPlayerNameAtMatchTime ?? "BYE"}</p>
+            <p>{t.venue}: {tournamentVenueName(match, t.noVenue)}</p>
+            <p>{t.result}: <ScoreDisplay match={match} pendingLabel={t.pending} /></p>
+          </div>
+          {canEdit && match.status !== "bye" && match.homePlayerId && match.awayPlayerId ? (
+            <MatchResultForm match={match} labels={{ sets: t.sets, set: t.set, home: t.homeSide, away: t.awaySide, save: t.saveResult }} />
+          ) : null}
+        </article>
+      ))}
+    </div>
+  );
 
   return (
     <section className="tournament-matches-section">
       {showHeading ? <h2>{t.tournament} · {t.calendar}</h2> : null}
       {draws.some((draw) => draw.drawEntries.length) ? (
-        <div className="bracket-list">
+        <BracketLinks>
           {draws.flatMap((draw) => {
             const mainEntries = draw.drawEntries.filter((entry) => entry.bracketType === "main");
             const consolationEntries = draw.drawEntries.filter((entry) => entry.bracketType === "consolation");
             const categoryMatches = matches.filter((match) => match.competitionCategoryId === draw.id);
+            const seedNumbers = new Map(draw.seeds.map((seed) => [seed.playerId, seed.seedNumber]));
             return [
-              <TournamentBracket title={`${draw.category.name} · ${t.mainDraw}`} entries={mainEntries} matches={categoryMatches} matchType="tournament_knockout" pendingLabel={t.pending} labels={{ final: t.bracketFinal, semifinals: t.bracketSemifinals, quarterfinals: t.bracketQuarterfinals, roundOf: t.bracketRoundOf, champion: t.bracketChampion, finished: t.bracketFinished, thirdPlace: t.thirdPlaceMatch }} locale={locale} key={`${draw.id}-main`} />,
-              <TournamentBracket title={`${draw.category.name} · ${t.consolationDraw}`} entries={consolationEntries} matches={categoryMatches} matchType="tournament_consolation" pendingLabel={t.pending} labels={{ final: t.bracketFinal, semifinals: t.bracketSemifinals, quarterfinals: t.bracketQuarterfinals, roundOf: t.bracketRoundOf, champion: t.bracketChampion, finished: t.bracketFinished, thirdPlace: t.thirdPlaceMatch }} locale={locale} key={`${draw.id}-consolation`} />
+              <TournamentBracket title={`${draw.category.name} · ${t.mainDraw}`} entries={mainEntries} matches={categoryMatches} matchType="tournament_knockout" pendingLabel={t.pending} labels={{ final: t.bracketFinal, semifinals: t.bracketSemifinals, quarterfinals: t.bracketQuarterfinals, roundOf: t.bracketRoundOf, champion: t.bracketChampion, finished: t.bracketFinished, thirdPlace: t.thirdPlaceMatch }} locale={locale} seedNumbers={seedNumbers} seedLabel={t.seeds} key={`${draw.id}-main`} />,
+              <TournamentBracket title={`${draw.category.name} · ${t.consolationDraw}`} entries={consolationEntries} matches={categoryMatches} matchType="tournament_consolation" pendingLabel={t.pending} labels={{ final: t.bracketFinal, semifinals: t.bracketSemifinals, quarterfinals: t.bracketQuarterfinals, roundOf: t.bracketRoundOf, champion: t.bracketChampion, finished: t.bracketFinished, thirdPlace: t.thirdPlaceMatch }} locale={locale} seedNumbers={seedNumbers} seedLabel={t.seeds} key={`${draw.id}-consolation`} />
             ];
           })}
-        </div>
+        </BracketLinks>
       ) : null}
       {matches.length ? (
-        <div className="calendar-list">
-          {matches.map((match) => (
-            <article className="match-card" id={`match-${match.id}`} key={match.id}>
-              <div>
-                <strong>{match.matchType === "tournament_third_place" ? t.thirdPlaceMatch : `${t.round} ${match.roundNumber ?? "-"}`} · {dateTime(match.scheduledAt, locale, t.noDate)}</strong>
-                <p>{match.homePlayerNameAtMatchTime ?? "BYE"} vs {match.awayPlayerNameAtMatchTime ?? "BYE"}</p>
-                <p>{t.venue}: {tournamentVenueName(match, t.noVenue)}</p>
-                <p>{t.result}: <ScoreDisplay match={match} pendingLabel={t.pending} /></p>
-              </div>
-              {canEdit && match.status !== "bye" && match.homePlayerId && match.awayPlayerId ? (
-                <MatchResultForm match={match} labels={{ sets: t.sets, set: t.set, home: t.homeSide, away: t.awaySide, save: t.saveResult }} />
-              ) : null}
-            </article>
-          ))}
-        </div>
+        collapseMatchList ? (
+          <details className="tournament-match-details">
+            <summary>{t.tournamentMatchList} <span>({matches.length})</span></summary>
+            {matchList}
+          </details>
+        ) : matchList
       ) : (
         <p className="muted">{t.noMatches}</p>
       )}

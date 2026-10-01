@@ -129,10 +129,41 @@ export default async function TournamentDetailPage({ params }: { params: Promise
             currentPlayer &&
               canPlayerRegisterForCategory(currentPlayer, competitionCategory.category, tournament.startsAt ?? new Date())
           );
+          const hasDraw = competitionCategory.drawEntries.length > 0;
+          const participantSection = (
+            <section className="tournament-participants">
+              <h3>{t.participants} <span>({competitionCategory.registrations.length})</span></h3>
+              {competitionCategory.registrations.length ? (
+                <div className="tournament-participant-grid">
+                  {competitionCategory.registrations.map((registration) => {
+                    const seedNumber = seedsByCategory.get(`${competitionCategory.id}:${registration.playerId}`);
+                    return (
+                      <div className="tournament-participant" key={registration.id}>
+                        <div className="tournament-participant-main">
+                          <Link href={`/players/${registration.playerId}`}>{registration.playerNameAtRegistration}</Link>
+                          {seedNumber ? <span className="tournament-participant-seed" title={`${t.seeds} #${seedNumber}`}>#{seedNumber}</span> : null}
+                        </div>
+                        <span className="tournament-participant-club">{registration.clubNameAtRegistration ?? t.independent}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : <p className="muted">{t.noRegisteredPlayers}</p>}
+            </section>
+          );
+          const matchView = (
+            <TournamentMatches
+              competitionId={tournament.id}
+              competitionCategoryId={competitionCategory.id}
+              canEdit={canEdit}
+              showHeading={false}
+              collapseMatchList
+            />
+          );
 
           return (
             <section className="tournament-category-section" key={competitionCategory.id}>
-              <article className="list-panel full-width">
+              <div className="tournament-category-heading">
                 <h2>{competitionCategory.category.name}</h2>
                 <p className="muted">{t.restrictions}: {categoryRestrictionLabel(competitionCategory.category, {
                   male: t.male,
@@ -140,28 +171,15 @@ export default async function TournamentDetailPage({ params }: { params: Promise
                   other: t.other,
                   noRestrictions: t.noRestrictions
                 })}</p>
-                <h3>{t.participants}</h3>
-                {competitionCategory.registrations.length ? competitionCategory.registrations.map((registration) => (
-                  <div className="participant-line" key={registration.id}>
-                    <span><Link href={`/players/${registration.playerId}`}>{registration.playerNameAtRegistration}</Link> · {registration.clubNameAtRegistration ?? t.independent}</span>
-                    {seedsByCategory.has(`${competitionCategory.id}:${registration.playerId}`) ? (
-                      <span className="seed-badge">#{seedsByCategory.get(`${competitionCategory.id}:${registration.playerId}`)} {t.seeds}</span>
-                    ) : null}
-                  </div>
-                )) : <p className="muted">{t.noRegisteredPlayers}</p>}
                 {features.tournament_online_registration && currentPlayer && registrationOpen && !isRegistered && isEligible ? (
                   <form className="compact-form" action={registerSelfForTournamentAction}>
                     <input type="hidden" name="competitionCategoryId" value={competitionCategory.id} />
                     <button type="submit">{t.registerMyself}</button>
                   </form>
                 ) : null}
-              </article>
-              <TournamentMatches
-                competitionId={tournament.id}
-                competitionCategoryId={competitionCategory.id}
-                canEdit={canEdit}
-                showHeading={false}
-              />
+              </div>
+              {hasDraw ? matchView : participantSection}
+              {hasDraw ? participantSection : matchView}
             </section>
           );
         })}
