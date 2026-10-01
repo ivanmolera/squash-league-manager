@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { History, IdCard, ListChecks, Trophy } from "lucide-react";
+import { ArrowUpRight, Building2, ListOrdered, Trophy, UsersRound } from "lucide-react";
 import { HomeTournamentCarousel, type HomeTournamentSlide } from "@/app/home-tournament-carousel";
 import { Navigation } from "@/app/navigation";
 import { ClubCrest } from "@/src/components/club-crest";
@@ -67,7 +67,7 @@ function getHomeTournaments(now: Date) {
 
 export default async function Home() {
   const now = new Date();
-  const [user, { locale, t }, clubs, features] = await Promise.all([
+  const [user, { locale, t }, clubs, features, playerCount, clubCount, leagueCount, tournamentCount] = await Promise.all([
     getCurrentUser(),
     getDictionary(),
     prisma.club.findMany({
@@ -76,15 +76,18 @@ export default async function Home() {
       select: { id: true, name: true, logoUrl: true },
       take: 18
     }),
-    getFeatureSettings()
+    getFeatureSettings(),
+    prisma.player.count({ where: { mergedIntoPlayerId: null } }),
+    prisma.club.count(),
+    prisma.competition.count({ where: { type: { in: ["individual_league", "team_league"] } } }),
+    prisma.competition.count({ where: { type: "tournament" } })
   ]);
   const homeTournaments = features.tournaments ? await getHomeTournaments(now) : [];
-  const roles = user?.roles.map((role) => role.role).join(", ");
   const modules = [
-    { title: t.moduleCompetitions, text: t.moduleCompetitionsText, icon: Trophy },
-    { title: t.moduleResults, text: t.moduleResultsText, icon: ListChecks },
-    { title: t.moduleHistory, text: t.moduleHistoryText, icon: History },
-    { title: t.moduleProfiles, text: t.moduleProfilesText, icon: IdCard }
+    { title: t.players, count: playerCount, icon: UsersRound, href: "/admin/players" },
+    { title: t.clubs, count: clubCount, icon: Building2, href: "/admin/clubs" },
+    ...(features.leagues ? [{ title: t.leagues, count: leagueCount, icon: ListOrdered, href: "/admin/leagues" }] : []),
+    ...(features.tournaments ? [{ title: t.tournaments, count: tournamentCount, icon: Trophy, href: "/manager/tournaments" }] : [])
   ];
   const sponsors = ["DROPSHOT", "VIBORA", "RACQTECH", "COURTLY", "SQUASH TV", "AUREA"];
   const slides = tournamentSlides({ tournaments: homeTournaments, locale, labels: t });
@@ -93,20 +96,20 @@ export default async function Home() {
     <main className="app-shell">
       <Navigation />
       <section className="public-hero">
-        <p className="eyebrow">{t.app}</p>
-        <h1>{user ? `${t.hello}, ${user.displayName ?? user.email}` : t.homeTitle}</h1>
-        {user ? <p className="muted">{t.activeRole}: {roles}</p> : null}
+        <p className="eyebrow">{new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(now)}</p>
+        <h1>Squash<span>Flow</span><i aria-hidden="true">.</i></h1>
+        {user ? <p className="hero-greeting">{t.hello}, {user.displayName ?? user.email}</p> : null}
       </section>
 
       <section className="module-grid" aria-label={t.publicAccess}>
         {modules.map((module) => {
           const Icon = module.icon;
           return (
-            <article className="module" key={module.title}>
-              <Icon aria-hidden="true" size={24} />
-              <h2>{module.title}</h2>
-              <p>{module.text}</p>
-            </article>
+            <Link className="module" href={module.href} key={module.href}>
+              <div className="module-top"><Icon aria-hidden="true" size={22} /><ArrowUpRight aria-hidden="true" size={18} /></div>
+              <strong>{module.count.toLocaleString(locale)}</strong>
+              <span>{module.title}</span>
+            </Link>
           );
         })}
       </section>

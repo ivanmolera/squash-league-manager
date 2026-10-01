@@ -361,7 +361,7 @@ function PlayerRankingEvolutionChart({ series }: { series: RankingEvolutionSerie
   const right = 70;
   const top = 32;
   const rowHeight = (height - top - 42) / series.length;
-  const colors = ["#0f766e", "#2563eb", "#9333ea"];
+  const colors = ["#50df94", "#52d5e8", "#f48b78"];
 
   return (
     <div className="evolution-scroll">

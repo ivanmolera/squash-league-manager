@@ -69,7 +69,6 @@ export default async function PlayersPage() {
     <main className="app-shell">
       <Navigation />
       <section className="page-heading">
-        <p className="eyebrow">{t.admin}</p>
         <h1>{t.players}</h1>
         <p className="muted">{t.playerProfileIntro}</p>
         <div className="heading-actions">

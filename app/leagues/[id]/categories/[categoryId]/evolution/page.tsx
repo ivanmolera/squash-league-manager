@@ -31,7 +31,7 @@ type EvolutionPoint = {
   positions: Map<string, number>;
 };
 
-const colors = ["#0f766e", "#dc2626", "#2563eb", "#9333ea", "#ea580c", "#16a34a", "#be123c", "#4f46e5", "#0891b2", "#ca8a04"];
+const colors = ["#50df94", "#f48b78", "#52d5e8", "#f7c86a", "#bf9cf5", "#94c7ff", "#e7a2bd", "#b7d96e", "#efa6d3", "#8cd2c4"];
 
 function setWins(match: { sets: Array<{ homePoints: number; awayPoints: number }> }, side: "home" | "away") {
   return match.sets.filter((set) => side === "home" ? set.homePoints > set.awayPoints : set.awayPoints > set.homePoints).length;

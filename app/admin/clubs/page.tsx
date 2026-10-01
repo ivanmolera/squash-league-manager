@@ -57,7 +57,6 @@ export default async function ClubsPage({
     <main className="app-shell">
       <Navigation />
       <section className="page-heading">
-        <p className="eyebrow">{t.admin}</p>
         <h1>{t.clubs}</h1>
         {!isAdmin ? <p className="muted">{t.signInToEditClub}</p> : null}
         {isAdmin ? (

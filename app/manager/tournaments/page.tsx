@@ -148,7 +148,10 @@ export default async function TournamentsPage({
                       </Link>
                     ) : t.noVenue}
                   </span>
-                  <span>{tournament.registrationDeadline?.toLocaleDateString(locale) ?? t.noDeadline}</span>
+                  <span className="tournament-registration-cell">
+                    <small>{t.registration}</small>
+                    {tournament.registrationDeadline?.toLocaleDateString(locale) ?? t.noDeadline}
+                  </span>
                   <span><RankingCodeBadge code={tournament.rankingCode ?? rankingCodeForScope(tournament.rankingScope)} /></span>
                 </article>
               );

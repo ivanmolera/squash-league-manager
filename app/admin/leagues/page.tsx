@@ -28,7 +28,6 @@ export default async function LeaguesPage() {
     <main className="app-shell">
       <Navigation />
       <section className="page-heading">
-        <p className="eyebrow">{t.admin}</p>
         <h1>{t.leagues}</h1>
         <p className="muted">{t.loginAsAdminToEditLeagues}</p>
         {isAdmin ? (
@@ -60,7 +59,7 @@ function LeagueList({
   completed?: boolean;
 }) {
   return (
-    <section className="list-panel full-width">
+    <section className="league-list-section full-width">
       <h2>{title}</h2>
       <div className="table-list">
         {leagues.length ? leagues.map((league) => (
