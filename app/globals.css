@@ -1467,13 +1467,14 @@ h1 {
 .tournament-table-head,
 .tournament-table-row {
   display: grid;
-  grid-template-columns: minmax(88px, 0.65fr) minmax(180px, 1.8fr) minmax(112px, 0.9fr) minmax(128px, 1fr) minmax(98px, 0.75fr) minmax(120px, 0.95fr);
+  grid-template-columns: minmax(176px, 1.05fr) minmax(180px, 1.6fr) minmax(112px, 0.9fr) minmax(128px, 1fr) minmax(142px, 0.9fr) minmax(120px, 0.95fr);
 }
 
 .tournament-table-head {
   background: #0b2f3a;
   border-radius: 8px 8px 0 0;
   color: white;
+  font-size: 0.88rem;
   font-weight: 900;
   text-transform: uppercase;
 }
@@ -1520,6 +1521,7 @@ h1 {
 
 .tournament-date-cell span {
   color: inherit;
+  white-space: nowrap;
 }
 
 .tournament-category-cell {
@@ -2690,6 +2692,33 @@ h1 {
   background: var(--accent-strong);
 }
 
+@media (max-width: 900px) {
+  .tournament-table {
+    gap: 10px;
+  }
+
+  .tournament-table-head {
+    display: none;
+  }
+
+  .tournament-table-row {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    grid-template-columns: 1fr;
+  }
+
+  .tournament-table-row > * {
+    border-right: 0;
+    border-top: 1px solid var(--line);
+    padding: 10px 12px;
+  }
+
+  .tournament-table-row > *:first-child {
+    border-top: 0;
+  }
+}
+
 @media (max-width: 640px) {
   .tournament-match-list {
     --match-columns: minmax(0, 0.82fr) minmax(0, 1.3fr) minmax(0, 1.05fr);
@@ -2757,31 +2786,6 @@ h1 {
   .season-filter {
     display: grid;
     grid-template-columns: 1fr;
-  }
-
-  .tournament-table {
-    gap: 10px;
-  }
-
-  .tournament-table-head {
-    display: none;
-  }
-
-  .tournament-table-row {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    grid-template-columns: 1fr;
-  }
-
-  .tournament-table-row > * {
-    border-right: 0;
-    border-top: 1px solid var(--line);
-    padding: 10px 12px;
-  }
-
-  .tournament-table-row > *:first-child {
-    border-top: 0;
   }
 
   .matchday-card header {

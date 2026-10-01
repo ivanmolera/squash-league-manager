@@ -49,13 +49,24 @@ export default async function TournamentsPage({
   ]);
   const { locale, t } = dictionary;
   const today = new Date();
-  const selectedSeason = seasons.find((season) => season.id === query?.seasonId) ??
-    seasons.find((season) => season.startsAt <= today && season.endsAt >= today) ??
-    seasons[0];
+  const season2025 = seasons.find((season) => season.name === "2025/26" || season.name === "2025/2026");
+  const legacySeason2026 = seasons.find((season) => season.name === "2026");
+  const visibleSeasons = season2025 && legacySeason2026
+    ? seasons.filter((season) => season.id !== legacySeason2026.id)
+    : seasons;
+  const requestedSeasonId = query?.seasonId === legacySeason2026?.id && season2025
+    ? season2025.id
+    : query?.seasonId;
+  const selectedSeason = visibleSeasons.find((season) => season.id === requestedSeasonId) ??
+    visibleSeasons.find((season) => season.startsAt <= today && season.endsAt >= today) ??
+    visibleSeasons[0];
+  const selectedSeasonIds = selectedSeason
+    ? [selectedSeason.id, ...(selectedSeason.id === season2025?.id && legacySeason2026 ? [legacySeason2026.id] : [])]
+    : [];
   const tournaments = selectedSeason ? await prisma.competition.findMany({
     where: {
       type: "tournament",
-      seasonId: selectedSeason.id,
+      seasonId: { in: selectedSeasonIds },
       ...(tab === "completed" ? { endsAt: { lt: today } } : { OR: [{ endsAt: null }, { endsAt: { gte: today } }] })
     },
     include: {
@@ -81,7 +92,6 @@ export default async function TournamentsPage({
     <main className="app-shell">
       <Navigation />
       <section className="page-heading">
-        <p className="eyebrow">{t.manager}</p>
         <h1>{t.tournaments}</h1>
         {canEdit ? (
           <div className="heading-actions">
@@ -97,7 +107,7 @@ export default async function TournamentsPage({
               <Link className={tab === "upcoming" ? "is-active" : ""} href={tabHref("upcoming")}>{t.upcoming}</Link>
               <Link className={tab === "completed" ? "is-active" : ""} href={tabHref("completed")}>{t.completed}</Link>
             </nav>
-            <SeasonFilter seasons={seasons} selectedSeasonId={selectedSeason?.id} tab={tab} label={t.seasonSelector} />
+            <SeasonFilter seasons={visibleSeasons} selectedSeasonId={selectedSeason?.id} tab={tab} label={t.seasonSelector} />
           </div>
           <div className="tournament-table">
             <div className="tournament-table-head">
