@@ -879,6 +879,67 @@ h1 {
   margin: 0;
 }
 
+.league-overview .list-panel {
+  gap: 12px;
+}
+
+.league-description {
+  color: var(--muted);
+  margin: 0;
+}
+
+.league-facts {
+  display: grid;
+  gap: 12px 0;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  margin: 0;
+}
+
+.league-facts > div {
+  border-left: 1px solid var(--line);
+  min-width: 0;
+  padding: 0 14px;
+}
+
+.league-facts dt {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.league-facts dd {
+  font-size: 0.9rem;
+  font-weight: 650;
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.league-restrictions {
+  align-items: baseline;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+  gap: 8px 16px;
+  padding-top: 10px;
+}
+
+.league-restrictions > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.league-restriction {
+  background: var(--surface-muted);
+  border-radius: 4px;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 3px 8px;
+}
+
 .wide-form {
   grid-column: span 1;
 }
@@ -902,6 +963,15 @@ h1 {
 .standing-block h3 {
   font-size: 1rem;
   margin: 0;
+}
+
+.standings-table-scroll {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.standings-table-scroll .data-table {
+  min-width: 580px;
 }
 
 .data-table {
@@ -2575,6 +2645,22 @@ h1 {
 .evolution-scroll {
   overflow-x: auto;
   padding: 10px 0;
+}
+
+.league-inline-evolution {
+  border-top: 1px solid var(--line);
+  min-width: 0;
+  padding-top: 12px;
+}
+
+.league-inline-evolution h4 {
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.league-inline-evolution .evolution-chart {
+  margin-inline: auto;
+  max-width: 900px;
 }
 
 .evolution-chart {

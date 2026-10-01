@@ -5,6 +5,7 @@ import { expectedTeamRubberCount } from "@/src/lib/competition-rules";
 import { isFeatureEnabled } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
+import { LeagueEvolutionChart } from "./league-evolution";
 
 type CurrentUser = Awaited<ReturnType<typeof getCurrentUser>>;
 
@@ -216,29 +217,29 @@ export async function LeagueStandings({
         {groupByCategory(standings).map((group) => (
           <div className="standing-block" key={group.id}>
             <h3>{group.name}</h3>
-            <table className="data-table">
-              <thead>
-                <tr><th>#</th><th>{t.player}</th><th>G</th><th>P</th><th>{t.sets}</th><th>{t.points}</th></tr>
-              </thead>
-              <tbody>
-                {group.rows.map((row) => (
-                  <tr key={row.player_id}>
-                    <td>{row.position}</td>
-                    <td><Link href={`/players/${row.player_id}`}>{row.player_name}</Link></td>
-                    <td>{row.matches_won}</td>
-                    <td>{row.matches_lost}</td>
-                    <td>{row.sets_for}-{row.sets_against}</td>
-                    <td>{row.points_for}-{row.points_against}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="standings-table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr><th>#</th><th>{t.player}</th><th>G</th><th>P</th><th>{t.sets}</th><th>{t.points}</th></tr>
+                </thead>
+                <tbody>
+                  {group.rows.map((row) => (
+                    <tr key={row.player_id}>
+                      <td>{row.position}</td>
+                      <td><Link href={`/players/${row.player_id}`}>{row.player_name}</Link></td>
+                      <td>{row.matches_won}</td>
+                      <td>{row.matches_lost}</td>
+                      <td>{row.sets_for}-{row.sets_against}</td>
+                      <td>{row.points_for}-{row.points_against}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <LeagueEvolutionChart competitionId={competitionId} competitionCategoryId={group.id} type="individual_league" />
             <div className="form-actions">
               <Link className="secondary-link inline-link" href={`/leagues/${competitionId}/categories/${group.id}/calendar`}>
                 {t.viewCategoryCalendar}
-              </Link>
-              <Link className="secondary-link inline-link" href={`/leagues/${competitionId}/categories/${group.id}/evolution`}>
-                {t.evolution}
               </Link>
             </div>
           </div>
@@ -297,30 +298,30 @@ export async function LeagueStandings({
       {groupByCategory(standings).map((group) => (
         <div className="standing-block" key={group.id}>
           <h3>{group.name}</h3>
-          <table className="data-table">
-            <thead>
-              <tr><th>#</th><th>{t.team}</th><th>G</th><th>E</th><th>P</th><th>{t.players}</th><th>{t.points}</th></tr>
-            </thead>
-            <tbody>
-              {group.rows.map((row) => (
-                <tr key={row.team_id}>
-                  <td>{row.position}</td>
-                  <td><Link href={`/teams/${row.team_id}`}>{row.team_name}</Link></td>
-                  <td>{row.ties_won}</td>
-                  <td>{row.ties_drawn}</td>
-                  <td>{row.ties_lost}</td>
-                  <td>{row.rubbers_for}-{row.rubbers_against}</td>
-                  <td>{row.points_for}-{row.points_against}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="standings-table-scroll">
+            <table className="data-table">
+              <thead>
+                <tr><th>#</th><th>{t.team}</th><th>G</th><th>E</th><th>P</th><th>{t.players}</th><th>{t.points}</th></tr>
+              </thead>
+              <tbody>
+                {group.rows.map((row) => (
+                  <tr key={row.team_id}>
+                    <td>{row.position}</td>
+                    <td><Link href={`/teams/${row.team_id}`}>{row.team_name}</Link></td>
+                    <td>{row.ties_won}</td>
+                    <td>{row.ties_drawn}</td>
+                    <td>{row.ties_lost}</td>
+                    <td>{row.rubbers_for}-{row.rubbers_against}</td>
+                    <td>{row.points_for}-{row.points_against}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <LeagueEvolutionChart competitionId={competitionId} competitionCategoryId={group.id} type="team_league" />
           <div className="form-actions">
             <Link className="secondary-link inline-link" href={`/leagues/${competitionId}/categories/${group.id}/calendar`}>
               {t.viewCategoryCalendar}
-            </Link>
-            <Link className="secondary-link inline-link" href={`/leagues/${competitionId}/categories/${group.id}/evolution`}>
-              {t.evolution}
             </Link>
           </div>
         </div>

@@ -24,7 +24,7 @@ export default async function LeagueDetailPage({ params }: { params: Promise<{ i
     }),
     getCurrentUser()
   ]);
-  const { t } = await getDictionary();
+  const { locale, t } = await getDictionary();
 
   if (!league || !["individual_league", "team_league"].includes(league.type)) notFound();
 
@@ -40,28 +40,37 @@ export default async function LeagueDetailPage({ params }: { params: Promise<{ i
         </div>
         {isAdmin ? <Link className="primary-link" href={`/leagues/${league.id}/edit`}>{t.edit}</Link> : null}
       </section>
-      <section className="detail-grid">
-        <article className="list-panel full-width">
+      <section className="league-overview">
+        <article className="list-panel">
           <h2>{t.leagueDetails}</h2>
-          <p><strong>{t.type}:</strong> {t[league.type as keyof typeof t]}</p>
-          <p><strong>{t.matchFormat}:</strong> {league.bestOfSets === 3 ? t.bestOf3 : t.bestOf5}</p>
-          <p><strong>{t.description}:</strong> {league.description ?? t.notProvidedFemale}</p>
-          {league.hostClub ? <p><strong>{t.club}:</strong> <Link href={`/clubs/${league.hostClub.id}`}>{league.hostClub.name}</Link></p> : null}
-          <p><strong>{t.restrictions}:</strong></p>
-          {league.categories.map((competitionCategory) => (
-            <p key={competitionCategory.id}>
-              {competitionCategory.displayName}: {categoryRestrictionLabel(competitionCategory.category, {
-                male: t.male,
-                female: t.female,
-                other: t.other,
-                noRestrictions: t.noRestrictions
-              })}
-            </p>
-          ))}
-          <p><strong>{t.season}:</strong> {league.season.name}</p>
-          <p><strong>{t.registration}:</strong> {league.registrationDeadline?.toLocaleDateString("es-ES") ?? t.noDeadline}</p>
-          <p><strong>{t.start}:</strong> {league.startsAt?.toLocaleDateString("es-ES") ?? t.noDate}</p>
-          <p><strong>{t.end}:</strong> {league.endsAt?.toLocaleDateString("es-ES") ?? t.noDate}</p>
+          {league.description ? <p className="league-description">{league.description}</p> : null}
+          <dl className="league-facts">
+            <div><dt>{t.type}</dt><dd>{t[league.type as keyof typeof t]}</dd></div>
+            <div><dt>{t.matchFormat}</dt><dd>{league.bestOfSets === 3 ? t.bestOf3 : t.bestOf5}</dd></div>
+            <div><dt>{t.season}</dt><dd>{league.season.name}</dd></div>
+            {league.hostClub ? <div><dt>{t.club}</dt><dd><Link href={`/clubs/${league.hostClub.id}`}>{league.hostClub.name}</Link></dd></div> : null}
+            <div><dt>{t.registration}</dt><dd>{league.registrationDeadline?.toLocaleDateString(locale) ?? t.noDeadline}</dd></div>
+            <div><dt>{t.start}</dt><dd>{league.startsAt?.toLocaleDateString(locale) ?? t.noDate}</dd></div>
+            <div><dt>{t.end}</dt><dd>{league.endsAt?.toLocaleDateString(locale) ?? t.noDate}</dd></div>
+          </dl>
+          {league.categories.length ? (
+            <div className="league-restrictions">
+              <strong>{t.restrictions}</strong>
+              <div>
+                {league.categories.map((competitionCategory) => (
+                  <span className="league-restriction" key={competitionCategory.id}>
+                    <b>{competitionCategory.displayName}</b>
+                    {categoryRestrictionLabel(competitionCategory.category, {
+                      male: t.male,
+                      female: t.female,
+                      other: t.other,
+                      noRestrictions: t.noRestrictions
+                    })}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </article>
       </section>
       <LeagueStandings competitionId={league.id} type={league.type as "individual_league" | "team_league"} />
