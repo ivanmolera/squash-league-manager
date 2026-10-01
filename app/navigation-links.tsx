@@ -2,12 +2,34 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Settings2 } from "lucide-react";
+import {
+  Building2,
+  ChartNoAxesColumnIncreasing,
+  Flag,
+  House,
+  ListOrdered,
+  Settings2,
+  Trophy,
+  UserRound,
+  UsersRound,
+  type LucideIcon
+} from "lucide-react";
 
 type NavigationItem = {
   href: string;
   label: string;
-  section: "home" | "players" | "clubs" | "leagues" | "tournaments" | "rankings" | "federations" | "settings" | "profile";
+  section: "home" | "players" | "clubs" | "leagues" | "tournaments" | "rankings" | "federations" | "profile";
+};
+
+const navigationIcons: Record<NavigationItem["section"], LucideIcon> = {
+  home: House,
+  profile: UserRound,
+  players: UsersRound,
+  clubs: Building2,
+  leagues: ListOrdered,
+  tournaments: Trophy,
+  rankings: ChartNoAxesColumnIncreasing,
+  federations: Flag
 };
 
 function isCurrentSection(pathname: string, item: NavigationItem, profileHref?: string) {
@@ -20,7 +42,7 @@ function isCurrentSection(pathname: string, item: NavigationItem, profileHref?: 
   if (section === "tournaments") return pathname.startsWith("/manager/tournaments") || pathname.startsWith("/tournaments/");
   if (section === "rankings") return pathname.startsWith("/rankings");
   if (section === "federations") return pathname.startsWith("/admin/federations");
-  return pathname.startsWith("/admin/settings");
+  return false;
 }
 
 export function NavigationLinks({ items }: { items: NavigationItem[] }) {
@@ -29,15 +51,20 @@ export function NavigationLinks({ items }: { items: NavigationItem[] }) {
 
   return (
     <div className="nav-links">
-      {items.map((item) => (
-        <Link
-          aria-current={isCurrentSection(pathname, item, profileHref) ? "page" : undefined}
-          href={item.href}
-          key={`${item.section}-${item.href}`}
-        >
-          {item.label}
-        </Link>
-      ))}
+      {items.map((item) => {
+        const Icon = navigationIcons[item.section];
+        return (
+          <Link
+            aria-current={isCurrentSection(pathname, item, profileHref) ? "page" : undefined}
+            aria-label={item.label}
+            href={item.href}
+            key={`${item.section}-${item.href}`}
+            title={item.label}
+          >
+            <Icon aria-hidden="true" size={20} strokeWidth={2.1} />
+          </Link>
+        );
+      })}
     </div>
   );
 }
