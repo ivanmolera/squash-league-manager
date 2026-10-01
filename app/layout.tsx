@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { BackToTopButton } from "@/app/back-to-top-button";
 import { CookieConsent } from "@/app/cookie-consent";
 import { getDictionary } from "@/src/lib/i18n";
+import packageInfo from "@/package.json";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -23,6 +24,10 @@ export default async function RootLayout({
       <body>
         <div id="page-top" />
         {children}
+        <footer className="app-footer">
+          <span>SquashFlow</span>
+          <span>{t.version} {packageInfo.version}</span>
+        </footer>
         <BackToTopButton />
         <CookieConsent title={t.cookieTitle} text={t.cookieText} accept={t.acceptCookies} />
       </body>

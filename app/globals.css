@@ -105,6 +105,20 @@ a:hover {
   padding: 22px 24px 48px;
 }
 
+.app-footer {
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.75rem;
+  gap: 8px 20px;
+  justify-content: space-between;
+  margin: 0 auto;
+  max-width: 1192px;
+  padding: 16px 0 24px;
+  width: calc(100% - 48px);
+}
+
 .auth-panel {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -194,15 +208,27 @@ a:hover {
 .nav-actions {
   align-items: center;
   display: flex;
-  gap: 9px;
+  gap: 7px;
   justify-self: end;
 }
 
-.app-version {
-  color: #9eb4a9;
-  font-size: 0.74rem;
-  font-weight: 750;
-  white-space: nowrap;
+.nav-settings-link {
+  align-items: center;
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--foreground);
+  display: inline-flex;
+  height: 38px;
+  justify-content: center;
+  width: 38px;
+}
+
+.nav-settings-link:hover,
+.nav-settings-link[aria-current="page"] {
+  background: var(--nav-active);
+  border-color: var(--accent);
+  color: var(--foreground);
 }
 
 .nav-actions form {
@@ -210,19 +236,24 @@ a:hover {
 }
 
 .nav-auth-button {
+  align-items: center;
   background: #ecf5ef;
   border: 1px solid #ecf5ef;
   border-radius: 6px;
   color: #17382e;
   cursor: pointer;
+  display: inline-flex;
   font: inherit;
   font-size: 0.83rem;
   font-weight: 780;
+  justify-content: center;
   min-height: 38px;
-  padding: 8px 13px;
+  padding: 0;
+  width: 38px;
 }
 
 .nav-auth-link {
+  align-items: center;
   background: #ecf5ef;
   border: 1px solid #ecf5ef;
   border-radius: 6px;
@@ -230,9 +261,11 @@ a:hover {
   display: inline-flex;
   font-size: 0.83rem;
   font-weight: 780;
+  justify-content: center;
   min-height: 38px;
-  padding: 8px 13px;
+  padding: 0;
   white-space: nowrap;
+  width: 38px;
 }
 
 .nav-auth-link:hover,
@@ -259,7 +292,7 @@ a:hover {
 .flag-switcher {
   align-items: center;
   display: flex;
-  gap: 6px;
+  gap: 4px;
 }
 
 .flag-button {
@@ -271,12 +304,12 @@ a:hover {
   cursor: pointer;
   display: inline-flex;
   flex: 0 0 auto;
-  height: 30px;
+  height: 24px;
   justify-content: center;
   overflow: hidden;
   padding: 0;
   position: relative;
-  width: 30px;
+  width: 24px;
 }
 
 .flag-button span {
@@ -289,7 +322,7 @@ a:hover {
 }
 
 .flag-ca {
-  background: repeating-linear-gradient(to bottom, #f6c343 0 4px, #c91f2f 4px 8px);
+  background: repeating-linear-gradient(to bottom, #f6c343 0 3px, #c91f2f 3px 6px);
 }
 
 .flag-es {
@@ -3697,10 +3730,6 @@ textarea::placeholder {
     width: auto;
   }
 
-  .app-version {
-    display: none;
-  }
-
   .nav {
     margin-bottom: 22px;
     padding: 9px 10px;
@@ -3716,15 +3745,16 @@ textarea::placeholder {
   }
 
   .nav-auth-button,
-  .nav-auth-link {
-    font-size: 0.78rem;
-    min-height: 33px;
-    padding: 6px 8px;
+  .nav-auth-link,
+  .nav-settings-link {
+    height: 36px;
+    min-height: 36px;
+    width: 36px;
   }
 
   .flag-button {
-    height: 26px;
-    width: 26px;
+    height: 22px;
+    width: 22px;
   }
 
   .app-shell,
@@ -3777,10 +3807,6 @@ textarea::placeholder {
     justify-content: flex-start;
   }
 
-  .app-version {
-    align-self: center;
-  }
-
   .locale-warning {
     left: 0;
     right: auto;
@@ -3788,7 +3814,6 @@ textarea::placeholder {
 
   .nav-auth-button,
   .nav-auth-link {
-    min-height: 40px;
     white-space: nowrap;
   }
 
@@ -3828,8 +3853,7 @@ textarea::placeholder {
   color: var(--accent-strong);
 }
 
-.nav-links a,
-.app-version {
+.nav-links a {
   color: var(--nav-muted);
 }
 
@@ -4189,6 +4213,18 @@ html[data-theme="light"] .club-directory-map-canvas .leaflet-tile-pane {
 }
 
 @media (max-width: 640px) {
+  .nav {
+    column-gap: 8px;
+  }
+
+  .nav-brand {
+    font-size: 0.93rem;
+  }
+
+  .nav-actions {
+    gap: 4px;
+  }
+
   .theme-options {
     gap: 0;
     padding: 2px;
@@ -4216,6 +4252,15 @@ html[data-theme="light"] .club-directory-map-canvas .leaflet-tile-pane {
 }
 
 @media (max-width: 360px) {
+  .nav-has-settings .nav-actions {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .nav-has-settings .nav-links {
+    grid-row: 3;
+  }
+
   .nav {
     column-gap: 4px;
     padding: 8px;
@@ -4239,15 +4284,16 @@ html[data-theme="light"] .club-directory-map-canvas .leaflet-tile-pane {
   }
 
   .flag-button {
-    height: 22px;
-    width: 22px;
+    height: 20px;
+    width: 20px;
   }
 
   .nav-auth-button,
-  .nav-auth-link {
-    font-size: 0.72rem;
-    min-height: 30px;
-    padding: 5px 6px;
+  .nav-auth-link,
+  .nav-settings-link {
+    height: 34px;
+    min-height: 34px;
+    width: 34px;
   }
 
   .tournament-filters {

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Settings2 } from "lucide-react";
 
 type NavigationItem = {
   href: string;
@@ -38,5 +39,21 @@ export function NavigationLinks({ items }: { items: NavigationItem[] }) {
         </Link>
       ))}
     </div>
+  );
+}
+
+export function NavigationSettingsLink({ label }: { label: string }) {
+  const pathname = usePathname();
+
+  return (
+    <Link
+      aria-current={pathname.startsWith("/admin/settings") ? "page" : undefined}
+      aria-label={label}
+      className="nav-settings-link"
+      href="/admin/settings"
+      title={label}
+    >
+      <Settings2 aria-hidden="true" size={18} />
+    </Link>
   );
 }
