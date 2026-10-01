@@ -141,7 +141,7 @@ export default async function TournamentDetailPage({ params }: { params: Promise
                       <div className="tournament-participant" key={registration.id}>
                         <div className="tournament-participant-main">
                           <Link href={`/players/${registration.playerId}`}>{registration.playerNameAtRegistration}</Link>
-                          {seedNumber ? <span className="tournament-participant-seed" title={`${t.seeds} #${seedNumber}`}>#{seedNumber}</span> : null}
+                          {seedNumber ? <span className="tournament-participant-seed" title={`${t.seedSingle} #${seedNumber}`}>#{seedNumber}</span> : null}
                         </div>
                         <span className="tournament-participant-club">{registration.clubNameAtRegistration ?? t.independent}</span>
                       </div>

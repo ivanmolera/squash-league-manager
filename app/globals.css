@@ -1335,6 +1335,66 @@ h1 {
   margin-top: 6px;
 }
 
+.tournament-match-list {
+  --match-columns: minmax(150px, 0.7fr) minmax(0, 1.2fr) minmax(0, 1.1fr);
+  border-top: 1px solid var(--line);
+  gap: 0;
+}
+
+.tournament-match-header {
+  background: #e9edf0;
+  color: #465562;
+  display: grid;
+  font-size: 0.76rem;
+  font-weight: 800;
+  gap: 12px;
+  grid-template-columns: var(--match-columns);
+  padding: 8px 4px;
+}
+
+.tournament-match-header span:last-child {
+  text-align: right;
+}
+
+.match-card.tournament-match-row {
+  align-items: baseline;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  gap: 8px 12px;
+  grid-template-columns: var(--match-columns);
+  padding: 8px 4px;
+}
+
+.tournament-match-meta {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  gap: 2px 8px;
+}
+
+.tournament-match-meta strong {
+  color: var(--foreground);
+}
+
+.tournament-match-players {
+  font-size: 0.9rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.tournament-match-score {
+  font-size: 0.84rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.tournament-match-row .result-form {
+  grid-column: 1 / -1;
+}
+
 .tournament-page-stack {
   display: grid;
   gap: 22px;
@@ -2631,6 +2691,23 @@ h1 {
 }
 
 @media (max-width: 640px) {
+  .tournament-match-list {
+    --match-columns: minmax(0, 0.82fr) minmax(0, 1.3fr) minmax(0, 1.05fr);
+  }
+
+  .tournament-match-header,
+  .match-card.tournament-match-row {
+    gap: 6px;
+  }
+
+  .tournament-match-header {
+    font-size: 0.7rem;
+  }
+
+  .tournament-match-meta strong {
+    display: block;
+  }
+
   .tournament-category-heading {
     grid-template-columns: minmax(0, 1fr);
   }

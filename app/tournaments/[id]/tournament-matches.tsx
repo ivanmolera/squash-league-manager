@@ -20,7 +20,7 @@ async function getTournamentMatches(competitionId: string, competitionCategoryId
   return prisma.match.findMany({
     where: { competitionId, ...(competitionCategoryId ? { competitionCategoryId } : {}) },
     include: {
-      competition: { select: { bestOfSets: true, hostClub: { select: { name: true } } } },
+      competition: { select: { bestOfSets: true } },
       sets: { orderBy: { setNumber: "asc" } }
     },
     orderBy: [{ roundNumber: "asc" }, { matchOrder: "asc" }, { bracketPosition: "asc" }]
@@ -43,14 +43,8 @@ function dateTime(value: Date | null, locale: string, noDateLabel: string) {
   return value ? value.toLocaleString(locale, { dateStyle: "short", timeStyle: "short" }) : noDateLabel;
 }
 
-function scoreText(match: TournamentMatch, pendingLabel: string) {
-  const score = scoreParts(match, pendingLabel);
-  if (typeof score === "string") return score;
-  return score.partials ? `${score.main} (${score.partials})` : score.main;
-}
-
 function scoreParts(match: TournamentMatch, pendingLabel: string) {
-  if (match.status === "bye") return "BYE";
+  if (match.status === "bye") return "W.O.";
   if (match.status === "walkover") return "WO";
   if (!match.sets.length) return { main: pendingLabel, partials: "" };
 
@@ -70,10 +64,6 @@ function ScoreDisplay({ match, pendingLabel }: { match: TournamentMatch; pending
       {score.partials ? <span> ({score.partials})</span> : null}
     </>
   );
-}
-
-function tournamentVenueName(match: TournamentMatch, noVenueLabel: string) {
-  return match.homeClubNameAtMatchTime ?? match.competition.hostClub?.name ?? noVenueLabel;
 }
 
 function playerName(name: string | null | undefined, isBye: boolean | undefined, pendingLabel: string) {
@@ -318,15 +308,20 @@ export async function TournamentMatches({
   ]);
   const { locale, t } = dictionary;
   const matchList = (
-    <div className="calendar-list">
+    <div className="calendar-list tournament-match-list">
+      <div className="tournament-match-header">
+        <span>{t.matchColumn}</span>
+        <span>{t.players}</span>
+        <span>{t.result}</span>
+      </div>
       {matches.map((match) => (
-        <article className="match-card" id={`match-${match.id}`} key={match.id}>
-          <div>
-            <strong>{match.matchType === "tournament_third_place" ? t.thirdPlaceMatch : `${t.round} ${match.roundNumber ?? "-"}`} · {dateTime(match.scheduledAt, locale, t.noDate)}</strong>
-            <p>{match.homePlayerNameAtMatchTime ?? "BYE"} vs {match.awayPlayerNameAtMatchTime ?? "BYE"}</p>
-            <p>{t.venue}: {tournamentVenueName(match, t.noVenue)}</p>
-            <p>{t.result}: <ScoreDisplay match={match} pendingLabel={t.pending} /></p>
+        <article className="match-card tournament-match-row" id={`match-${match.id}`} key={match.id}>
+          <div className="tournament-match-meta">
+            <strong>{match.matchType === "tournament_third_place" ? t.thirdPlaceMatch : `${t.round} ${match.roundNumber ?? "-"}`}</strong>
+            <span>{dateTime(match.scheduledAt, locale, t.noDate)}</span>
           </div>
+          <span className="tournament-match-players">{match.homePlayerNameAtMatchTime ?? "BYE"} vs {match.awayPlayerNameAtMatchTime ?? "BYE"}</span>
+          <span className="tournament-match-score"><span className="sr-only">{t.result}: </span><ScoreDisplay match={match} pendingLabel={t.pending} /></span>
           {canEdit && match.status !== "bye" && match.homePlayerId && match.awayPlayerId ? (
             <MatchResultForm match={match} labels={{ sets: t.sets, set: t.set, home: t.homeSide, away: t.awaySide, save: t.saveResult }} />
           ) : null}
@@ -346,8 +341,8 @@ export async function TournamentMatches({
             const categoryMatches = matches.filter((match) => match.competitionCategoryId === draw.id);
             const seedNumbers = new Map(draw.seeds.map((seed) => [seed.playerId, seed.seedNumber]));
             return [
-              <TournamentBracket title={`${draw.category.name} · ${t.mainDraw}`} entries={mainEntries} matches={categoryMatches} matchType="tournament_knockout" pendingLabel={t.pending} labels={{ final: t.bracketFinal, semifinals: t.bracketSemifinals, quarterfinals: t.bracketQuarterfinals, roundOf: t.bracketRoundOf, champion: t.bracketChampion, finished: t.bracketFinished, thirdPlace: t.thirdPlaceMatch }} locale={locale} seedNumbers={seedNumbers} seedLabel={t.seeds} key={`${draw.id}-main`} />,
-              <TournamentBracket title={`${draw.category.name} · ${t.consolationDraw}`} entries={consolationEntries} matches={categoryMatches} matchType="tournament_consolation" pendingLabel={t.pending} labels={{ final: t.bracketFinal, semifinals: t.bracketSemifinals, quarterfinals: t.bracketQuarterfinals, roundOf: t.bracketRoundOf, champion: t.bracketChampion, finished: t.bracketFinished, thirdPlace: t.thirdPlaceMatch }} locale={locale} seedNumbers={seedNumbers} seedLabel={t.seeds} key={`${draw.id}-consolation`} />
+              <TournamentBracket title={`${draw.category.name} · ${t.mainDraw}`} entries={mainEntries} matches={categoryMatches} matchType="tournament_knockout" pendingLabel={t.pending} labels={{ final: t.bracketFinal, semifinals: t.bracketSemifinals, quarterfinals: t.bracketQuarterfinals, roundOf: t.bracketRoundOf, champion: t.bracketChampion, finished: t.bracketFinished, thirdPlace: t.thirdPlaceMatch }} locale={locale} seedNumbers={seedNumbers} seedLabel={t.seedSingle} key={`${draw.id}-main`} />,
+              <TournamentBracket title={`${draw.category.name} · ${t.consolationDraw}`} entries={consolationEntries} matches={categoryMatches} matchType="tournament_consolation" pendingLabel={t.pending} labels={{ final: t.bracketFinal, semifinals: t.bracketSemifinals, quarterfinals: t.bracketQuarterfinals, roundOf: t.bracketRoundOf, champion: t.bracketChampion, finished: t.bracketFinished, thirdPlace: t.thirdPlaceMatch }} locale={locale} seedNumbers={seedNumbers} seedLabel={t.seedSingle} key={`${draw.id}-consolation`} />
             ];
           })}
         </BracketLinks>
