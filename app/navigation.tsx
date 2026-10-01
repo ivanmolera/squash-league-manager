@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { logoutAction } from "@/app/actions";
 import { LanguageSelector } from "@/app/language-selector";
+import { ThemeSelector } from "@/app/theme-selector";
 import { NavigationLinks } from "@/app/navigation-links";
 import { getCurrentUser } from "@/src/lib/auth";
 import { getFeatureSettings } from "@/src/lib/features";
@@ -9,6 +11,7 @@ import packageInfo from "@/package.json";
 
 export async function Navigation() {
   const [{ locale, t }, currentUser, features] = await Promise.all([getDictionary(), getCurrentUser(), getFeatureSettings()]);
+  const theme = (await cookies()).get("slm_theme")?.value === "light" ? "light" : "dark";
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
   const links = [
     { href: "/", label: t.home, section: "home" as const },
@@ -28,6 +31,7 @@ export async function Navigation() {
       <NavigationLinks items={links} />
       <div className="nav-actions">
         <span className="app-version" title={t.version}>{t.versionShort} {packageInfo.version}</span>
+        <ThemeSelector initialTheme={theme} lightLabel={t.lightTheme} darkLabel={t.darkTheme} consentMessage={t.acceptCookiesToSaveTheme} />
         <LanguageSelector
           locale={locale}
           label={t.language}

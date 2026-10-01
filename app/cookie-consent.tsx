@@ -39,6 +39,8 @@ export function CookieConsent({
         type="button"
         onClick={() => {
           setCookie("slm_cookies_accepted", "true");
+          setCookie("slm_theme", document.documentElement.dataset.theme === "light" ? "light" : "dark");
+          window.dispatchEvent(new Event("slm-cookie-consent"));
           setVisible(false);
         }}
       >

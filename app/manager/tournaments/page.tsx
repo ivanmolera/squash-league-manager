@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { SeasonFilter } from "@/app/manager/tournaments/season-filter";
+import { TournamentFilters } from "@/app/manager/tournaments/tournament-filters";
 import { Navigation } from "@/app/navigation";
 import { ClubCrest } from "@/src/components/club-crest";
 import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
@@ -35,15 +35,20 @@ function tournamentDateLabels(tournament: { startsAt: Date | null; endsAt: Date 
 export default async function TournamentsPage({
   searchParams
 }: {
-  searchParams?: Promise<{ tab?: string; seasonId?: string }>;
+  searchParams?: Promise<{ tab?: string; seasonId?: string; categoryId?: string }>;
 }) {
   await requireFeature("tournaments");
   const query = await searchParams;
   const tab = selectedTab(query?.tab);
-  const [clubs, federations, seasons, currentUser, dictionary] = await Promise.all([
+  const [clubs, federations, seasons, categories, currentUser, dictionary] = await Promise.all([
     prisma.club.findMany({ include: { federation: true }, orderBy: [{ province: "asc" }, { name: "asc" }] }),
     prisma.federation.findMany({ include: { ranking: true }, orderBy: [{ name: "asc" }] }),
     prisma.season.findMany({ orderBy: [{ startsAt: "desc" }] }),
+    prisma.category.findMany({
+      where: { competitions: { some: { competition: { type: "tournament" } } } },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      select: { id: true, name: true }
+    }),
     getCurrentUser(),
     getDictionary()
   ]);
@@ -60,10 +65,12 @@ export default async function TournamentsPage({
   const selectedSeason = visibleSeasons.find((season) => season.id === requestedSeasonId) ??
     visibleSeasons.find((season) => season.startsAt <= today && season.endsAt >= today) ??
     visibleSeasons[0];
+  const selectedCategoryId = categories.some((category) => category.id === query?.categoryId) ? query?.categoryId : undefined;
   const tournaments = selectedSeason ? await prisma.competition.findMany({
     where: {
       type: "tournament",
       seasonId: selectedSeason.id,
+      ...(selectedCategoryId ? { categories: { some: { categoryId: selectedCategoryId } } } : {}),
       ...(tab === "completed" ? { endsAt: { lt: today } } : { OR: [{ endsAt: null }, { endsAt: { gte: today } }] })
     },
     include: {
@@ -83,7 +90,12 @@ export default async function TournamentsPage({
     ? clubs
     : clubs.filter((club) => club.managerUserId === currentUser?.id || (club.federationId && editableFederationIds.has(club.federationId)));
   const canEdit = isAdmin || isManager || isFederationManager;
-  const tabHref = (nextTab: TournamentTab) => `/manager/tournaments?tab=${nextTab}${selectedSeason ? `&seasonId=${selectedSeason.id}` : ""}`;
+  const tabHref = (nextTab: TournamentTab) => {
+    const params = new URLSearchParams({ tab: nextTab });
+    if (selectedSeason) params.set("seasonId", selectedSeason.id);
+    if (selectedCategoryId) params.set("categoryId", selectedCategoryId);
+    return `/manager/tournaments?${params}`;
+  };
 
   return (
     <main className="app-shell">
@@ -104,7 +116,16 @@ export default async function TournamentsPage({
               <Link className={tab === "upcoming" ? "is-active" : ""} href={tabHref("upcoming")}>{t.upcoming}</Link>
               <Link className={tab === "completed" ? "is-active" : ""} href={tabHref("completed")}>{t.completed}</Link>
             </nav>
-            <SeasonFilter seasons={visibleSeasons} selectedSeasonId={selectedSeason?.id} tab={tab} label={t.seasonSelector} />
+            <TournamentFilters
+              seasons={visibleSeasons}
+              selectedSeasonId={selectedSeason?.id}
+              categories={categories}
+              selectedCategoryId={selectedCategoryId}
+              tab={tab}
+              seasonLabelText={t.seasonSelector}
+              categoryLabelText={t.categories}
+              allCategoriesLabel={t.allTournamentCategories}
+            />
           </div>
           <div className="tournament-table">
             <div className="tournament-table-head">
