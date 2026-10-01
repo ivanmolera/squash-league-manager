@@ -40,12 +40,12 @@ export async function Navigation() {
         {currentUser ? (
           <form action={logoutAction}>
             <button aria-label={t.logout} className="nav-auth-button" title={t.logout} type="submit">
-              <LogOut aria-hidden="true" size={19} />
+              <LogOut aria-hidden="true" size={18} />
             </button>
           </form>
         ) : (
           <Link aria-label={t.signIn} className="nav-auth-link" href="/login" title={t.signIn}>
-            <LogIn aria-hidden="true" size={19} />
+            <LogIn aria-hidden="true" size={18} />
           </Link>
         )}
       </div>

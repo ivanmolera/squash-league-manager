@@ -224,6 +224,16 @@ a:hover {
   width: 38px;
 }
 
+.nav-settings-link,
+.nav-auth-button,
+.nav-auth-link {
+  box-sizing: border-box;
+  height: 38px;
+  min-height: 38px;
+  padding: 0;
+  width: 38px;
+}
+
 .nav-settings-link:hover,
 .nav-settings-link[aria-current="page"] {
   background: var(--nav-active);
