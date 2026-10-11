@@ -115,7 +115,6 @@ export default async function EntityActivityPage({
 
   const tabHref = (nextKind: EntityKind) => {
     const params = new URLSearchParams({ kind: nextKind, status });
-    if (search) params.set("q", search);
     return `/admin/visibility?${params}`;
   };
 
@@ -140,7 +139,7 @@ export default async function EntityActivityPage({
         </nav>
       ) : null}
 
-      <form className="activity-filters" method="get">
+      <form className="activity-filters" key={kind} method="get">
         <input name="kind" type="hidden" value={kind} />
         <label>
           {t.searchEntities}
