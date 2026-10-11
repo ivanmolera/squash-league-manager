@@ -56,6 +56,7 @@ const provinceToCommunityCode: Record<string, string> = {
   teruel: "ARA",
   toledo: "CLM",
   valencia: "VAL",
+  vizcaya: "PVA",
   valladolid: "CYL",
   zamora: "CYL",
   zaragoza: "ARA"
@@ -83,4 +84,17 @@ export function autonomousCommunityForLocation(location: {
     code,
     name: option.name
   };
+}
+
+export function autonomousCommunityForClub(club: {
+  province?: string | null;
+  city?: string | null;
+  federation?: { code?: string | null; ranking?: { code: string } | null } | null;
+}) {
+  const federationCode = club.federation?.ranking?.code ?? club.federation?.code;
+  const federationRanking = rankingOptionForCode(federationCode);
+
+  return federationRanking.scope === "autonomic"
+    ? { code: federationRanking.code, name: federationRanking.name }
+    : autonomousCommunityForLocation(club);
 }

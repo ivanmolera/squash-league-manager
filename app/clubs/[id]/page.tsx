@@ -12,7 +12,7 @@ import {
 import { Navigation } from "@/app/navigation";
 import { ClubCrest } from "@/src/components/club-crest";
 import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
-import { autonomousCommunityForLocation } from "@/src/lib/autonomous-communities";
+import { autonomousCommunityForClub } from "@/src/lib/autonomous-communities";
 import { getCurrentUser } from "@/src/lib/auth";
 import { clubMapUrl } from "@/src/lib/club-map";
 import { isClubEffectivelyActive } from "@/src/lib/entity-activity";
@@ -40,7 +40,7 @@ async function getClub(id: string) {
   return prisma.club.findUnique({
     where: { id },
     include: {
-      federation: { select: { active: true } },
+      federation: { select: { active: true, code: true, ranking: { select: { code: true } } } },
       manager: true,
       managerPlayer: true,
       teams: {
@@ -224,7 +224,7 @@ export default async function ClubDetailPage({
   const canSeeContact = canEdit || club.showContactPublic;
   const membershipsBySeason = groupMembershipsBySeason(club.memberships);
   const mapUrl = features.club_maps && canSeeContact ? clubMapUrl(club) : null;
-  const community = autonomousCommunityForLocation(club);
+  const community = autonomousCommunityForClub(club);
   const showBookings = features.court_bookings && club.managesCourtBookings && club.availableCourts > 0;
   const showMatchProposals = showBookings && features.match_proposals;
   const currentPlayer = currentUser

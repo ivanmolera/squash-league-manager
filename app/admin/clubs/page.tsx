@@ -1,9 +1,10 @@
+import type { Prisma } from "@prisma/client";
 import Link from "next/link";
 import { ClubDirectoryMap } from "@/app/admin/clubs/club-directory-map";
 import { Navigation } from "@/app/navigation";
 import { ClubCrest } from "@/src/components/club-crest";
 import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
-import { autonomousCommunityForLocation } from "@/src/lib/autonomous-communities";
+import { autonomousCommunityForClub } from "@/src/lib/autonomous-communities";
 import { getCurrentUser } from "@/src/lib/auth";
 import { activeClubWhere } from "@/src/lib/entity-activity";
 import { getFeatureSettings } from "@/src/lib/features";
@@ -12,13 +13,15 @@ import { prisma } from "@/src/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-type ClubListItem = Awaited<ReturnType<typeof prisma.club.findMany>>[number];
+type ClubListItem = Prisma.ClubGetPayload<{
+  include: { manager: true; federation: { include: { ranking: true } } };
+}>;
 
 function groupClubsByCommunity(clubs: ClubListItem[], unknownLabel: string) {
   const groups = new Map<string, { code: string | null; name: string; clubs: ClubListItem[] }>();
 
   for (const club of clubs) {
-    const community = autonomousCommunityForLocation(club);
+    const community = autonomousCommunityForClub(club);
     const key = community?.code ?? "unknown";
     const group = groups.get(key) ?? {
       code: community?.code ?? null,
@@ -39,7 +42,11 @@ export default async function ClubsPage({
 }) {
   const query = await searchParams;
   const [clubs, currentUser, dictionary, features] = await Promise.all([
-    prisma.club.findMany({ where: activeClubWhere, include: { manager: true }, orderBy: [{ province: "asc" }, { name: "asc" }] }),
+    prisma.club.findMany({
+      where: activeClubWhere,
+      include: { manager: true, federation: { include: { ranking: true } } },
+      orderBy: [{ province: "asc" }, { name: "asc" }]
+    }),
     getCurrentUser(),
     getDictionary(),
     getFeatureSettings()
