@@ -35,6 +35,18 @@ export const rankingOptions: RankingOption[] = [
 
 export const rankingCodeValues = rankingOptions.map((option) => option.code) as [string, ...string[]];
 
+export function rankingCodesForActiveFederations(
+  federations: Array<{ code: string; ranking: { code: string; active: boolean } | null }>,
+  psaActive: boolean
+) {
+  const codes = new Set<string>(["none"]);
+  for (const federation of federations) {
+    if (federation.ranking?.active) codes.add(federation.ranking.code);
+    if (federation.code === "RFES" && psaActive) codes.add("PSA");
+  }
+  return rankingOptions.filter((option) => codes.has(option.code)).map((option) => option.code);
+}
+
 export function rankingOptionForCode(code?: string | null) {
   return rankingOptions.find((option) => option.code === code) ?? rankingOptions[0];
 }

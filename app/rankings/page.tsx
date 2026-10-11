@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Navigation } from "@/app/navigation";
 import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
+import { localizeCategoryName } from "@/src/lib/category-names";
 import { requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { rankingOptions } from "@/src/lib/ranking-codes";
@@ -16,7 +17,7 @@ export default async function RankingsPage({
   await requireFeature("rankings_statistics");
   const scoreableRankings = rankingOptions.filter((option) => option.code !== "none");
   const searchParamsPromise: Promise<{ ranking?: string }> = searchParams ?? Promise.resolve({});
-  const [{ t }, rankings, resolvedSearchParams] = await Promise.all([
+  const [{ locale, t }, rankings, resolvedSearchParams] = await Promise.all([
     getDictionary(),
     Promise.all(scoreableRankings.map(async (option) => ({ ...option, groups: await getTournamentRankingCategoryGroups(option.code) }))),
     searchParamsPromise
@@ -58,7 +59,7 @@ export default async function RankingsPage({
             <div className="ranking-category-list">
               {selectedRanking.groups.map((group) => (
                 <section className="ranking-category-section" key={group.categoryId}>
-                  <h3>{group.categoryName}</h3>
+                  <h3>{localizeCategoryName(group.categoryName, locale)}</h3>
                   <table className="data-table">
                     <thead>
                       <tr><th>#</th><th>{t.player}</th><th>{t.points}</th><th>{t.tournaments}</th><th>{t.average}</th><th title={t.won} aria-label={t.won}>G</th></tr>

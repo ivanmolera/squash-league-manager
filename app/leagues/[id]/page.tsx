@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
+import { localizeCategoryName } from "@/src/lib/category-names";
 import { categoryRestrictionLabel } from "@/src/lib/category-restrictions";
 import { requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
@@ -59,7 +60,7 @@ export default async function LeagueDetailPage({ params }: { params: Promise<{ i
               <div>
                 {league.categories.map((competitionCategory) => (
                   <span className="league-restriction" key={competitionCategory.id}>
-                    <b>{competitionCategory.displayName}</b>
+                    <b>{localizeCategoryName(competitionCategory.displayName, locale)}</b>
                     {categoryRestrictionLabel(competitionCategory.category, {
                       male: t.male,
                       female: t.female,

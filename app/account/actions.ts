@@ -98,9 +98,9 @@ export async function requestPasswordResetAction(_state: AccountActionState, for
   }
 
   const email = parsed.data.email.toLowerCase();
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await prisma.user.findUnique({ where: { email }, include: { credential: true } });
 
-  if (!user || !user.emailVerified || user.suspendedAt) {
+  if (!user || (!user.emailVerified && user.credential) || user.suspendedAt) {
     return { success: t.resetPasswordSent };
   }
 
@@ -158,6 +158,7 @@ export async function resetPasswordAction(_state: AccountActionState, formData: 
   }
 
   const passwordHash = await bcrypt.hash(parsed.data.newPassword, 12);
+  const isInvitation = !resetToken.user.emailVerified;
 
   await prisma.$transaction([
     prisma.authCredential.upsert({
@@ -175,8 +176,12 @@ export async function resetPasswordAction(_state: AccountActionState, formData: 
       where: { id: resetToken.id },
       data: { usedAt: new Date() }
     }),
+    prisma.user.update({
+      where: { id: resetToken.userId },
+      data: { emailVerified: true }
+    }),
     prisma.authSession.deleteMany({ where: { userId: resetToken.userId } })
   ]);
 
-  return { success: t.passwordResetDone };
+  return { success: isInvitation ? t.accountActivated : t.passwordResetDone };
 }

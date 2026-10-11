@@ -6,6 +6,7 @@ export function TournamentForm({
   editableClubs,
   editableFederations,
   isAdmin,
+  activeRankingCodes,
   labels,
   returnTo
 }: {
@@ -13,6 +14,7 @@ export function TournamentForm({
   editableClubs: Array<{ id: string; name: string }>;
   editableFederations: Array<{ id: string; name: string; ranking: { code: string } | null }>;
   isAdmin: boolean;
+  activeRankingCodes: string[];
   labels: Record<string, string>;
   returnTo?: string;
 }) {
@@ -37,7 +39,7 @@ export function TournamentForm({
           </select>
         </label>
       ) : null}
-      <RankingCodePicker defaultCode="none" label={labels.scoreable} />
+      <RankingCodePicker defaultCode="none" label={labels.scoreable} activeCodes={activeRankingCodes} inactiveCurrentLabel={labels.inactiveCurrentRanking} />
       <label>{labels.matchFormat}
         <select name="bestOfSets" defaultValue="5">
           <option value="5">{labels.bestOf5}</option>

@@ -21,3 +21,17 @@ export function formatUserManagerName(user: {
     ? formatDisplayNameAsListName(user.displayName)
     : user.email;
 }
+
+export function formatClubManagerName(
+  player: { firstName: string; lastName: string } | null,
+  account: { displayName: string | null; email: string } | null
+) {
+  if (player) return `${player.firstName} ${player.lastName}`.trim();
+  if (!account) return null;
+  const displayName = account.displayName?.trim();
+  if (!displayName) return account.email;
+  const separator = displayName.indexOf(",");
+  return separator < 0
+    ? displayName
+    : `${displayName.slice(separator + 1).trim()} ${displayName.slice(0, separator).trim()}`.trim();
+}

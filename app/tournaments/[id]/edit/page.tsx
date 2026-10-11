@@ -4,8 +4,9 @@ import { Navigation } from "@/app/navigation";
 import { GenerateDrawButton } from "@/app/tournaments/generate-draw-button";
 import { TournamentMatches } from "@/app/tournaments/[id]/tournament-matches";
 import { RankingCodePicker } from "@/src/components/ranking-code-picker";
+import { getActiveRankingCodes } from "@/src/lib/active-ranking-codes";
 import { getCurrentUser } from "@/src/lib/auth";
-import { categoryRestrictionLabel } from "@/src/lib/category-restrictions";
+import { localizeCategoryName } from "@/src/lib/category-names";
 import { getFeatureSettings, requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
@@ -51,7 +52,7 @@ function playerMeetsCategoryRestrictions(
 export default async function EditTournamentPage({ params }: { params: Promise<{ id: string }> }) {
   await requireFeature("tournaments");
   const { id } = await params;
-  const [tournament, players, clubs, federations, categories, currentUser, dictionary, features] = await Promise.all([
+  const [tournament, players, clubs, federations, categories, currentUser, dictionary, features, activeRankingCodes] = await Promise.all([
     prisma.competition.findUnique({
       where: { id },
       include: {
@@ -92,11 +93,10 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
     prisma.category.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     getCurrentUser(),
     getDictionary(),
-    getFeatureSettings()
+    getFeatureSettings(),
+    getActiveRankingCodes()
   ]);
-  const { t } = dictionary;
-  const restrictionText = (category: { genderScope: string; minAge: number | null; maxAge: number | null }) =>
-    categoryRestrictionLabel(category, { male: t.male, female: t.female, other: t.other, noRestrictions: t.noRestrictions });
+  const { locale, t } = dictionary;
 
   if (!tournament || tournament.type !== "tournament") notFound();
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
@@ -150,7 +150,7 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
             </select>
           </label>
         ) : null}
-        <RankingCodePicker defaultCode={tournament.rankingCode ?? rankingCodeForScope(tournament.rankingScope)} label={t.scoreable} />
+        <RankingCodePicker defaultCode={tournament.rankingCode ?? rankingCodeForScope(tournament.rankingScope)} label={t.scoreable} activeCodes={activeRankingCodes} inactiveCurrentLabel={t.inactiveCurrentRanking} />
         <label>{t.matchFormat}
           <select name="bestOfSets" defaultValue={tournament.bestOfSets}>
             <option value="5">{t.bestOf5}</option>
@@ -172,7 +172,7 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
           {categories.map((category) => (
             <label key={category.id}>
               <input type="checkbox" name="categoryIds" value={category.id} defaultChecked={selectedCategoryIds.has(category.id)} />
-              {category.name} · {restrictionText(category)}
+              {localizeCategoryName(category.name, locale)}
             </label>
           ))}
         </fieldset>
@@ -201,8 +201,7 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
 
           return (
             <div className="category-config-card" key={competitionCategory.id}>
-              <h3>{competitionCategory.category.name}</h3>
-              <p className="muted">{t.restrictions}: {restrictionText(competitionCategory.category)}</p>
+              <h3>{localizeCategoryName(competitionCategory.category.name, locale)}</h3>
               <div className="category-config-grid">
                 <form className="compact-form" action={saveTournamentSeedsAction}>
                   <input type="hidden" name="competitionCategoryId" value={competitionCategory.id} />

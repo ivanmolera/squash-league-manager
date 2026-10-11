@@ -10,7 +10,7 @@ import { getCurrentUser } from "@/src/lib/auth";
 import { activeClubWhere } from "@/src/lib/entity-activity";
 import { getFeatureSettings } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
-import { formatPlayerListName } from "@/src/lib/names";
+import { formatClubManagerName } from "@/src/lib/names";
 import { prisma } from "@/src/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -88,9 +88,7 @@ export default async function ClubsPage({
               {group.clubs.map((club) => {
                 const address = club.address ?? t.noAddress;
                 const city = club.city ?? t.noCity;
-                const managerName = club.managerPlayer
-                  ? formatPlayerListName(club.managerPlayer)
-                  : club.manager?.displayName;
+                const managerName = formatClubManagerName(club.managerPlayer, club.manager);
                 const canEdit = isAdmin || club.managerUserId === currentUser?.id;
 
                 return (

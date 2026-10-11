@@ -56,6 +56,13 @@ export default async function PlayersPage() {
   ]);
   const { t } = dictionary;
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
+  const accountOnlyUsers = isAdmin
+    ? await prisma.user.findMany({
+        where: { player: { is: null } },
+        include: { roles: true },
+        orderBy: [{ displayName: "asc" }, { email: "asc" }]
+      })
+    : [];
   const ownPlayerId = currentUser?.player?.id;
   const canCreateOwnProfile = Boolean(currentUser && !ownPlayerId);
   const groupedPlayers = players.reduce<Array<{ initial: string; players: typeof players }>>((groups, player) => {
@@ -163,6 +170,48 @@ export default async function PlayersPage() {
           ))}
         </div>
       </section>
+      {isAdmin && accountOnlyUsers.length > 0 ? (
+        <details className="account-only-list">
+          <summary>{t.accountOnlyList} ({accountOnlyUsers.length})</summary>
+          {accountOnlyUsers.map((user) => {
+            const role = user.roles.some((entry) => entry.role === "manager_fed")
+              ? "manager_fed"
+              : user.roles.some((entry) => entry.role === "manager")
+                ? "manager"
+                : "player";
+            const isSuspended = Boolean(user.suspendedAt);
+            return (
+              <article className={`row-card player-list-row${isSuspended ? " is-suspended" : ""}`} key={user.id}>
+                <div className="player-list-text">
+                  <strong>{user.displayName ?? user.email}</strong>
+                  <span>{user.email} · {user.emailVerified ? t.emailVerified : t.accountPendingActivation}{isSuspended ? ` · ${t.suspendedAccount}` : ""}</span>
+                </div>
+                <div className="row-actions">
+                  <form action={updateUserOperationalRoleAction} className="role-switch-form">
+                    <input type="hidden" name="userId" value={user.id} />
+                    <label><span>{t.activeRole}</span>
+                      <select name="role" defaultValue={role} disabled={isSuspended}>
+                        <option value="player">{t.player}</option>
+                        <option value="manager">{t.manager}</option>
+                        <option value="manager_fed">{t.federationManager}</option>
+                      </select>
+                    </label>
+                    <button type="submit" disabled={isSuspended}>{t.save}</button>
+                  </form>
+                  <form action={updateUserSuspensionAction} className="account-suspension-form">
+                    <input type="hidden" name="userId" value={user.id} />
+                    <input type="hidden" name="action" value={isSuspended ? "reactivate" : "suspend"} />
+                    {!isSuspended ? <input aria-label={t.suspensionReason} name="reason" placeholder={t.suspensionReason} /> : null}
+                    <button className={isSuspended ? "secondary-button" : "danger-button"} disabled={user.id === currentUser?.id} type="submit">
+                      {isSuspended ? t.reactivateAccount : t.suspendAccount}
+                    </button>
+                  </form>
+                </div>
+              </article>
+            );
+          })}
+        </details>
+      ) : null}
     </main>
   );
 }

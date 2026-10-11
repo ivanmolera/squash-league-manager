@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
+import { localizeCategoryName } from "@/src/lib/category-names";
 import { requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
@@ -23,7 +24,7 @@ export default async function LeagueCategoryCalendarPage({
     }),
     getCurrentUser()
   ]);
-  const { t } = await getDictionary();
+  const { locale, t } = await getDictionary();
 
   if (!competitionCategory || !["individual_league", "team_league"].includes(competitionCategory.competition.type)) {
     notFound();
@@ -35,7 +36,7 @@ export default async function LeagueCategoryCalendarPage({
       <section className="detail-header">
         <div>
           <p className="eyebrow">{t.calendar}</p>
-          <h1>{competitionCategory.displayName}</h1>
+          <h1>{localizeCategoryName(competitionCategory.displayName, locale)}</h1>
           <p className="muted">{competitionCategory.competition.name}</p>
         </div>
         <Link className="primary-link" href={`/leagues/${competitionCategory.competition.id}`}>{t.backToLeague}</Link>

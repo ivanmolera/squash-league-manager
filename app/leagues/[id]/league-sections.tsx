@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { MatchResultForm } from "@/app/match-result-form";
+import { localizeCategoryName } from "@/src/lib/category-names";
 import { getCurrentUser } from "@/src/lib/auth";
 import { expectedTeamRubberCount } from "@/src/lib/competition-rules";
 import { isFeatureEnabled } from "@/src/lib/features";
@@ -170,7 +171,7 @@ export async function LeagueStandings({
   competitionId: string;
   type: "individual_league" | "team_league";
 }) {
-  const { t } = await getDictionary();
+  const { locale, t } = await getDictionary();
 
   if (type === "individual_league") {
     const standings = await prisma.$queryRaw<IndividualStanding[]>`
@@ -216,7 +217,7 @@ export async function LeagueStandings({
         <h2>{t.standingsToDate}</h2>
         {groupByCategory(standings).map((group) => (
           <div className="standing-block" key={group.id}>
-            <h3>{group.name}</h3>
+            <h3>{localizeCategoryName(group.name, locale)}</h3>
             <div className="standings-table-scroll">
               <table className="data-table">
                 <thead>
@@ -297,7 +298,7 @@ export async function LeagueStandings({
       <h2>{t.standingsToDate}</h2>
       {groupByCategory(standings).map((group) => (
         <div className="standing-block" key={group.id}>
-          <h3>{group.name}</h3>
+          <h3>{localizeCategoryName(group.name, locale)}</h3>
           <div className="standings-table-scroll">
             <table className="data-table">
               <thead>

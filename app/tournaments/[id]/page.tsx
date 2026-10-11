@@ -7,7 +7,7 @@ import { ClubCrest } from "@/src/components/club-crest";
 import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
 import { getCurrentUser } from "@/src/lib/auth";
 import { isClubEffectivelyActive } from "@/src/lib/entity-activity";
-import { categoryRestrictionLabel } from "@/src/lib/category-restrictions";
+import { localizeCategoryName } from "@/src/lib/category-names";
 import { getFeatureSettings, requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
@@ -108,17 +108,7 @@ export default async function TournamentDetailPage({ params }: { params: Promise
           </p>
           <p><strong>{t.matchFormat}:</strong> {tournament.bestOfSets === 3 ? t.bestOf3 : t.bestOf5}</p>
           <p><strong>{t.description}:</strong> {tournament.description ?? t.notProvidedFemale}</p>
-          <p><strong>{t.restrictions}:</strong></p>
-          {tournament.categories.map((competitionCategory) => (
-            <p key={competitionCategory.id}>
-              {competitionCategory.category.name}: {categoryRestrictionLabel(competitionCategory.category, {
-                male: t.male,
-                female: t.female,
-                other: t.other,
-                noRestrictions: t.noRestrictions
-              })}
-            </p>
-          ))}
+          <p><strong>{t.categories}:</strong> {tournament.categories.map((item) => localizeCategoryName(item.category.name, locale)).join(", ")}</p>
           <p className="date-row">
             <span><strong>{t.registration}:</strong> {tournament.registrationDeadline?.toLocaleDateString(locale) ?? t.noDeadline}</span>
             <span><strong>{t.start}:</strong> {tournament.startsAt?.toLocaleDateString(locale) ?? t.noDate}</span>
@@ -168,13 +158,7 @@ export default async function TournamentDetailPage({ params }: { params: Promise
           return (
             <section className="tournament-category-section" key={competitionCategory.id}>
               <div className="tournament-category-heading">
-                <h2>{competitionCategory.category.name}</h2>
-                <p className="muted">{t.restrictions}: {categoryRestrictionLabel(competitionCategory.category, {
-                  male: t.male,
-                  female: t.female,
-                  other: t.other,
-                  noRestrictions: t.noRestrictions
-                })}</p>
+                <h2>{localizeCategoryName(competitionCategory.category.name, locale)}</h2>
                 {features.tournament_online_registration && currentPlayer && registrationOpen && !isRegistered && isEligible ? (
                   <form className="compact-form" action={registerSelfForTournamentAction}>
                     <input type="hidden" name="competitionCategoryId" value={competitionCategory.id} />

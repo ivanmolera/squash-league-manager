@@ -39,7 +39,7 @@ export function PlayerFields({
       <input type="hidden" name="profilePhotoUrl" value={player?.profilePhotoUrl ?? ""} />
       <label>{labels.photo}<input name="profilePhoto" type="file" accept="image/*" /></label>
       <div className="form-row">
-        <label>{labels.email}<input name="email" type="email" defaultValue={player?.email ?? currentUserEmail ?? ""} readOnly={!isAdmin} required={!isAdmin} /></label>
+        <label>{labels.email}<input name="email" type="email" defaultValue={player?.email ?? (isAdmin ? "" : currentUserEmail ?? "")} readOnly={!isAdmin} required={!isAdmin} /></label>
         <label>{labels.phone}<input name="phone" defaultValue={player?.phone ?? ""} /></label>
       </div>
       <div className="form-row">

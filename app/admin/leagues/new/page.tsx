@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LeagueForm } from "@/app/admin/leagues/league-form";
+import { getActiveRankingCodes } from "@/src/lib/active-ranking-codes";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
 import { activeClubWhere, activePlayerWhere } from "@/src/lib/entity-activity";
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function NewLeaguePage() {
   await requireFeature("leagues");
-  const [players, clubs, currentUser, dictionary] = await Promise.all([
+  const [players, clubs, currentUser, dictionary, activeRankingCodes] = await Promise.all([
     prisma.player.findMany({
       where: activePlayerWhere,
       include: {
@@ -28,7 +29,8 @@ export default async function NewLeaguePage() {
     }),
     prisma.club.findMany({ where: activeClubWhere, orderBy: [{ province: "asc" }, { name: "asc" }] }),
     getCurrentUser(),
-    getDictionary()
+    getDictionary(),
+    getActiveRankingCodes()
   ]);
   const { t } = dictionary;
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
@@ -50,6 +52,7 @@ export default async function NewLeaguePage() {
           type="individual_league"
           clubs={clubs}
           labels={t}
+          activeRankingCodes={activeRankingCodes}
           returnTo="/admin/leagues"
           participants={players.map((player) => ({
             id: player.id,
@@ -62,6 +65,7 @@ export default async function NewLeaguePage() {
           type="team_league"
           clubs={clubs}
           labels={t}
+          activeRankingCodes={activeRankingCodes}
           returnTo="/admin/leagues"
           participants={clubs.map((club) => ({
             id: club.id,

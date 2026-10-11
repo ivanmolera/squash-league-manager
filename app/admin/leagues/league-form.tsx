@@ -6,6 +6,7 @@ export function LeagueForm({
   title,
   type,
   clubs,
+  activeRankingCodes,
   labels,
   participants,
   returnTo
@@ -13,6 +14,7 @@ export function LeagueForm({
   title: string;
   type: "individual_league" | "team_league";
   clubs: Array<{ id: string; name: string }>;
+  activeRankingCodes: string[];
   labels: Record<string, string>;
   participants: Array<{ id: string; label: string; clubId?: string }>;
   returnTo?: string;
@@ -34,7 +36,7 @@ export function LeagueForm({
       <input type="hidden" name="type" value={type} />
       <label>{labels.name}<input name="name" required /></label>
       <label>{labels.description}<textarea name="description" rows={3} /></label>
-      <RankingCodePicker defaultCode="none" label={labels.scoreable} />
+      <RankingCodePicker defaultCode="none" label={labels.scoreable} activeCodes={activeRankingCodes} inactiveCurrentLabel={labels.inactiveCurrentRanking} />
       <label>{labels.matchFormat}
         <select name="bestOfSets" defaultValue="5">
           <option value="5">{labels.bestOf5}</option>

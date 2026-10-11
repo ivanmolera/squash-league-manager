@@ -24,6 +24,7 @@ import { appBaseUrl, sendTransactionalEmail } from "@/src/lib/email";
 import { assertPlayerEligibleForCompetitionCategory } from "@/src/lib/player-eligibility";
 import { prisma } from "@/src/lib/prisma";
 import { rankingCodeValues, rankingScopeForCode } from "@/src/lib/ranking-codes";
+import { assertSelectableRankingCode } from "@/src/lib/active-ranking-codes";
 import { generateRoundRobin, nextPowerOfTwo, shuffle } from "@/src/lib/schedule";
 import { getTournamentRankingRows } from "@/src/lib/tournament-rankings";
 import { tournamentSeasonForDate } from "@/src/lib/tournament-season";
@@ -2694,6 +2695,8 @@ export async function saveLeagueAction(formData: FormData) {
     participantIds: toArray(formData, "participantIds")
   });
 
+  await assertSelectableRankingCode(parsed.rankingCode, parsed.competitionId);
+
   if (!parsed.competitionId) {
     if (parsed.hostClubId && !(await prisma.club.count({ where: { ...activeClubWhere, id: parsed.hostClubId } }))) {
       throw new Error("El club no está activo para nuevas ligas.");
@@ -2981,6 +2984,8 @@ export async function saveTournamentAction(formData: FormData) {
     seedPlayerIds: toArray(formData, "seedPlayerIds"),
     seedEntries: toArray(formData, "seedEntries")
   });
+
+  await assertSelectableRankingCode(parsed.rankingCode, parsed.competitionId);
 
   let organizerFederationId = parsed.organizerFederationId || null;
   if (!organizerFederationId && parsed.rankingCode !== "none") {

@@ -6,6 +6,7 @@ import { requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 import { RankingCodePicker } from "@/src/components/ranking-code-picker";
+import { getActiveRankingCodes } from "@/src/lib/active-ranking-codes";
 import { LeagueParticipantFields } from "@/app/admin/leagues/league-participant-fields";
 import { LeagueStandings } from "../league-sections";
 import { RegenerateLeagueButton } from "./regenerate-league-button";
@@ -27,7 +28,7 @@ export default async function EditLeaguePage({
   await requireFeature("leagues");
   const { id } = await params;
   const query = await searchParams;
-  const [league, players, clubs, currentUser, dictionary] = await Promise.all([
+  const [league, players, clubs, currentUser, dictionary, activeRankingCodes] = await Promise.all([
     prisma.competition.findUnique({
       where: { id },
       include: { participants: true }
@@ -46,7 +47,8 @@ export default async function EditLeaguePage({
     }),
     prisma.club.findMany({ orderBy: [{ province: "asc" }, { name: "asc" }] }),
     getCurrentUser(),
-    getDictionary()
+    getDictionary(),
+    getActiveRankingCodes()
   ]);
   const { t } = dictionary;
 
@@ -85,7 +87,7 @@ export default async function EditLeaguePage({
         <input type="hidden" name="type" value={league.type} />
         <label>{t.name}<input name="name" defaultValue={league.name} required /></label>
         <label>{t.description}<textarea name="description" rows={3} defaultValue={league.description ?? ""} /></label>
-        <RankingCodePicker defaultCode={league.rankingCode} label={t.scoreable} />
+        <RankingCodePicker defaultCode={league.rankingCode} label={t.scoreable} activeCodes={activeRankingCodes} inactiveCurrentLabel={t.inactiveCurrentRanking} />
         <label>{t.matchFormat}
           <select name="bestOfSets" defaultValue={league.bestOfSets}>
             <option value="5">{t.bestOf5}</option>

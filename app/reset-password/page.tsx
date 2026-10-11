@@ -6,7 +6,7 @@ import { getDictionary } from "@/src/lib/i18n";
 export default async function ResetPasswordPage({
   searchParams
 }: {
-  searchParams?: Promise<{ token?: string }>;
+  searchParams?: Promise<{ token?: string; invite?: string }>;
 }) {
   const [{ t }, params] = await Promise.all([getDictionary(), searchParams]);
   const token = params?.token ?? "";
@@ -16,14 +16,14 @@ export default async function ResetPasswordPage({
       <Navigation />
       <section className="auth-panel">
         <p className="eyebrow">{t.app}</p>
-        <h1>{t.resetPasswordTitle}</h1>
+        <h1>{params?.invite === "1" ? t.activateAccount : t.resetPasswordTitle}</h1>
         {token ? (
           <ResetPasswordForm
             token={token}
             labels={{
               password: t.password,
               repeatPassword: t.repeatNewPassword,
-              submit: t.resetPassword,
+              submit: params?.invite === "1" ? t.activateAccount : t.resetPassword,
               submitting: t.creatingAccount
             }}
           />

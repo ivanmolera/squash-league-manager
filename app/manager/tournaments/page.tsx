@@ -4,6 +4,7 @@ import { Navigation } from "@/app/navigation";
 import { ClubCrest } from "@/src/components/club-crest";
 import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
 import { getCurrentUser } from "@/src/lib/auth";
+import { localizeCategoryName } from "@/src/lib/category-names";
 import { requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
@@ -119,7 +120,7 @@ export default async function TournamentsPage({
             <TournamentFilters
               seasons={visibleSeasons}
               selectedSeasonId={selectedSeason?.id}
-              categories={categories}
+              categories={categories.map((category) => ({ ...category, name: localizeCategoryName(category.name, locale) }))}
               selectedCategoryId={selectedCategoryId}
               tab={tab}
               seasonLabelText={t.seasonSelector}
@@ -155,7 +156,7 @@ export default async function TournamentsPage({
                   </div>
                   <div className="tournament-category-cell">
                     {tournament.categories.length
-                      ? tournament.categories.map((category) => <span key={category.id}>{category.category.name}</span>)
+                      ? tournament.categories.map((category) => <span key={category.id}>{localizeCategoryName(category.category.name, locale)}</span>)
                       : <span>{t.notProvidedFemale}</span>}
                   </div>
                   <span>

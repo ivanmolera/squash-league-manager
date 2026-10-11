@@ -1,6 +1,7 @@
 import { Trophy } from "lucide-react";
 import { MatchResultForm } from "@/app/match-result-form";
 import { BracketLinks } from "@/app/tournaments/[id]/bracket-links";
+import { localizeCategoryName } from "@/src/lib/category-names";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 
@@ -341,8 +342,8 @@ export async function TournamentMatches({
             const categoryMatches = matches.filter((match) => match.competitionCategoryId === draw.id);
             const seedNumbers = new Map(draw.seeds.map((seed) => [seed.playerId, seed.seedNumber]));
             return [
-              <TournamentBracket title={`${draw.category.name} · ${t.mainDraw}`} entries={mainEntries} matches={categoryMatches} matchType="tournament_knockout" pendingLabel={t.pending} labels={{ final: t.bracketFinal, semifinals: t.bracketSemifinals, quarterfinals: t.bracketQuarterfinals, roundOf: t.bracketRoundOf, champion: t.bracketChampion, finished: t.bracketFinished, thirdPlace: t.thirdPlaceMatch }} locale={locale} seedNumbers={seedNumbers} seedLabel={t.seedSingle} key={`${draw.id}-main`} />,
-              <TournamentBracket title={`${draw.category.name} · ${t.consolationDraw}`} entries={consolationEntries} matches={categoryMatches} matchType="tournament_consolation" pendingLabel={t.pending} labels={{ final: t.bracketFinal, semifinals: t.bracketSemifinals, quarterfinals: t.bracketQuarterfinals, roundOf: t.bracketRoundOf, champion: t.bracketChampion, finished: t.bracketFinished, thirdPlace: t.thirdPlaceMatch }} locale={locale} seedNumbers={seedNumbers} seedLabel={t.seedSingle} key={`${draw.id}-consolation`} />
+              <TournamentBracket title={`${localizeCategoryName(draw.category.name, locale)} · ${t.mainDraw}`} entries={mainEntries} matches={categoryMatches} matchType="tournament_knockout" pendingLabel={t.pending} labels={{ final: t.bracketFinal, semifinals: t.bracketSemifinals, quarterfinals: t.bracketQuarterfinals, roundOf: t.bracketRoundOf, champion: t.bracketChampion, finished: t.bracketFinished, thirdPlace: t.thirdPlaceMatch }} locale={locale} seedNumbers={seedNumbers} seedLabel={t.seedSingle} key={`${draw.id}-main`} />,
+              <TournamentBracket title={`${localizeCategoryName(draw.category.name, locale)} · ${t.consolationDraw}`} entries={consolationEntries} matches={categoryMatches} matchType="tournament_consolation" pendingLabel={t.pending} labels={{ final: t.bracketFinal, semifinals: t.bracketSemifinals, quarterfinals: t.bracketQuarterfinals, roundOf: t.bracketRoundOf, champion: t.bracketChampion, finished: t.bracketFinished, thirdPlace: t.thirdPlaceMatch }} locale={locale} seedNumbers={seedNumbers} seedLabel={t.seedSingle} key={`${draw.id}-consolation`} />
             ];
           })}
         </BracketLinks>
