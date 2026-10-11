@@ -20,6 +20,10 @@ export function ResetPasswordForm({
 }) {
   const [state, formAction, isPending] = useActionState(resetPasswordAction, initialState);
 
+  if (state.success) {
+    return <p className="success-message" role="status">{state.success}</p>;
+  }
+
   return (
     <form className="auth-form" action={formAction}>
       <input name="token" type="hidden" value={token} />
@@ -32,7 +36,6 @@ export function ResetPasswordForm({
         <input name="confirmPassword" type="password" autoComplete="new-password" minLength={8} required />
       </label>
       {state.error ? <p className="form-error">{state.error}</p> : null}
-      {state.success ? <p className="success-message">{state.success}</p> : null}
       <button type="submit" disabled={isPending}>{isPending ? labels.submitting : labels.submit}</button>
     </form>
   );
