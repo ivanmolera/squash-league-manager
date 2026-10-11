@@ -28,6 +28,10 @@ export function googleRedirectUri(origin: string) {
   return `${origin}/api/auth/google/callback`;
 }
 
+export function googleStartUrl() {
+  return `${new URL(appBaseUrl()).origin}/api/auth/google/start`;
+}
+
 export function googleOAuthClient(origin: string) {
   return new OAuth2Client(
     process.env.GOOGLE_OAUTH_CLIENT_ID,

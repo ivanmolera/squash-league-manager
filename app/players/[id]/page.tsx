@@ -6,7 +6,7 @@ import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
 import { getCurrentUser } from "@/src/lib/auth";
 import { getFeatureSettings } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
-import { googleOAuthConfigured } from "@/src/lib/google-oauth";
+import { googleOAuthConfigured, googleStartUrl } from "@/src/lib/google-oauth";
 import { prisma } from "@/src/lib/prisma";
 import { getTournamentRankingRows, type RankingScope } from "@/src/lib/tournament-rankings";
 import { SaveConfirmation } from "./edit/save-confirmation";
@@ -504,7 +504,7 @@ export default async function PlayerDetailPage({
         </div>
         <div className="profile-actions">
           {isOwnProfile && !hasGoogleLogin && googleOAuthConfigured() ? (
-            <Link className="google-auth-link" href="/api/auth/google/start">
+            <Link className="google-auth-link" href={googleStartUrl()}>
               <span className="google-mark" aria-hidden="true">G</span>{t.linkGoogleAccount}
             </Link>
           ) : null}

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Navigation } from "@/app/navigation";
 import { getDictionary } from "@/src/lib/i18n";
-import { googleOAuthConfigured } from "@/src/lib/google-oauth";
+import { googleOAuthConfigured, googleStartUrl } from "@/src/lib/google-oauth";
 import { LoginForm } from "./login-form";
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ google_error?: string }> }) {
@@ -24,7 +24,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <LoginForm labels={{ email: t.email, password: t.password, signingIn: t.signingIn, signIn: t.signIn }} />
         {googleErrorMessage ? <p className="form-error" role="alert">{googleErrorMessage}</p> : null}
         {googleOAuthConfigured() ? (
-          <Link className="google-auth-link" href="/api/auth/google/start">
+          <Link className="google-auth-link" href={googleStartUrl()}>
             <span className="google-mark" aria-hidden="true">G</span>{t.signInWithGoogle}
           </Link>
         ) : null}

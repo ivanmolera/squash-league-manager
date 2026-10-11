@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
   if (!attempt || typeof attempt.state !== "string" || typeof attempt.nonce !== "string" ||
       typeof attempt.verifier !== "string" || typeof attempt.origin !== "string" ||
       !googleOAuthConfigured() || !allowedGoogleOrigin(attempt.origin) ||
-      attempt.origin !== request.nextUrl.origin ||
+      attempt.origin !== new URL(appBaseUrl()).origin ||
       !validState(attempt.state, request.nextUrl.searchParams.get("state"))) {
     return loginRedirect("failed");
   }

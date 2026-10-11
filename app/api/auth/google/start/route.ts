@@ -1,24 +1,20 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/src/lib/auth";
 import { appBaseUrl } from "@/src/lib/email";
 import {
   googleAuthorizationUrl,
-  allowedGoogleOrigin,
   googleOAuthConfigured,
   googleOAuthCookieMaxAge,
   googleOAuthCookieName,
   newGoogleOAuthAttempt
 } from "@/src/lib/google-oauth";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   if (!googleOAuthConfigured()) {
     return NextResponse.redirect(`${appBaseUrl()}/login?google_error=unavailable`);
   }
 
-  const origin = request.nextUrl.origin;
-  if (!allowedGoogleOrigin(origin)) {
-    return NextResponse.redirect(`${appBaseUrl()}/api/auth/google/start`);
-  }
+  const origin = new URL(appBaseUrl()).origin;
 
   const currentUser = await getCurrentUser();
   const attempt = newGoogleOAuthAttempt(currentUser?.id ?? null, origin);
