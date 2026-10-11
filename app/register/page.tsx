@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Navigation } from "@/app/navigation";
 import { requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
+import { googleOAuthConfigured } from "@/src/lib/google-oauth";
 import { RegisterForm } from "./register-form";
 
 export default async function RegisterPage() {
@@ -28,6 +29,11 @@ export default async function RegisterPage() {
             goToVerification: t.goToVerification
           }}
         />
+        {googleOAuthConfigured() ? (
+          <Link className="google-auth-link" href="/api/auth/google/start">
+            <span className="google-mark" aria-hidden="true">G</span>{t.signUpWithGoogle}
+          </Link>
+        ) : null}
         <Link className="back-link" href="/login">
           {t.alreadyHaveAccount}
         </Link>

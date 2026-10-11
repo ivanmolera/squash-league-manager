@@ -167,6 +167,7 @@ model User {
   managedClub Club?
   managedFederation Federation?
   credential  AuthCredential?
+  externalIdentities ExternalIdentity[]
   sessions    AuthSession[]
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens PasswordResetToken[]
@@ -196,6 +197,19 @@ model AuthCredential {
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("auth_credentials")
+}
+
+model ExternalIdentity {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  provider    String
+  subject     String
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, subject])
+  @@unique([userId, provider])
+  @@map("external_identities")
 }
 
 model AuthSession {

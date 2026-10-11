@@ -6,6 +6,7 @@ import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
 import { getCurrentUser } from "@/src/lib/auth";
 import { getFeatureSettings } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
+import { googleOAuthConfigured } from "@/src/lib/google-oauth";
 import { prisma } from "@/src/lib/prisma";
 import { getTournamentRankingRows, type RankingScope } from "@/src/lib/tournament-rankings";
 import { SaveConfirmation } from "./edit/save-confirmation";
@@ -407,7 +408,7 @@ export default async function PlayerDetailPage({
   searchParams
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ saved?: string }>;
+  searchParams?: Promise<{ saved?: string; google_linked?: string }>;
 }) {
   const { id } = await params;
   const query = await searchParams;
@@ -439,6 +440,10 @@ export default async function PlayerDetailPage({
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
   const isFederationManager = Boolean(currentUser?.roles.some((role) => role.role === "manager_fed"));
   const isOwnProfile = player.userId === currentUser?.id;
+  const hasGoogleLogin = isOwnProfile && currentUser ? Boolean(await prisma.externalIdentity.findUnique({
+    where: { userId_provider: { userId: currentUser.id, provider: "google" } },
+    select: { id: true }
+  })) : false;
   const canEdit = isAdmin || player.userId === currentUser?.id;
   const canSeeContact = canEdit || player.showContactPublic;
   const canSeePhysical = canEdit || player.showPhysicalPublic;
@@ -490,13 +495,21 @@ export default async function PlayerDetailPage({
     <main className="app-shell">
       <Navigation />
       {query?.saved === "1" ? <SaveConfirmation message={t.savedChanges} /> : null}
+      {query?.google_linked === "1" && isOwnProfile ? <SaveConfirmation message={t.googleLinked} /> : null}
       <section className="detail-header">
         <div>
           <p className="eyebrow">{t.player}</p>
           <h1>{player.firstName} {player.lastName}</h1>
           {canSeeAccountStatus ? <span className="management-status-badge">{t.playerWithoutUserAccount}</span> : null}
         </div>
-        {canEdit ? <Link className="primary-link" href={`/players/${player.id}/edit`}>{t.edit}</Link> : null}
+        <div className="profile-actions">
+          {isOwnProfile && !hasGoogleLogin && googleOAuthConfigured() ? (
+            <Link className="google-auth-link" href="/api/auth/google/start">
+              <span className="google-mark" aria-hidden="true">G</span>{t.linkGoogleAccount}
+            </Link>
+          ) : null}
+          {canEdit ? <Link className="primary-link" href={`/players/${player.id}/edit`}>{t.edit}</Link> : null}
+        </div>
       </section>
       <section className="detail-grid">
         <article className="list-panel player-photo-card">

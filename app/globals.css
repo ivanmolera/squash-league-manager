@@ -441,6 +441,39 @@ h1 {
   opacity: 0.72;
 }
 
+.google-auth-link {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--foreground);
+  display: inline-flex;
+  font-weight: 700;
+  gap: 10px;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 14px;
+  text-decoration: none;
+}
+
+.auth-panel > .google-auth-link {
+  margin-top: 14px;
+  width: 100%;
+}
+
+.google-auth-link:hover { background: var(--surface-muted); }
+
+.google-mark {
+  background: conic-gradient(#4285f4 0 90deg, #34a853 90deg 180deg, #fbbc05 180deg 270deg, #ea4335 270deg);
+  background-clip: text;
+  color: transparent;
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.profile-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
 .form-error {
   color: #b42318;
   font-size: 0.95rem;

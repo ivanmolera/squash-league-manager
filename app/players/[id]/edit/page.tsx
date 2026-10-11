@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { changePlayerPasswordAction, reopenPlayerSkillQuestionnaireAction, requestJoinClubAction, savePlayerAction, savePlayerSkillQuestionnaireAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
@@ -23,7 +24,7 @@ export default async function EditPlayerPage({
     prisma.player.findUnique({
       where: { id },
       include: {
-        user: true,
+        user: { include: { credential: true } },
         memberships: {
           include: { club: true, season: true },
           orderBy: [{ season: { startsAt: "desc" } }, { fromDate: "desc" }]
@@ -169,7 +170,7 @@ export default async function EditPlayerPage({
           </form>
           )
         ) : null}
-        {player.userId ? (
+        {player.userId && (isAdmin || player.user?.credential) ? (
           <form className="admin-form" action={changePlayerPasswordAction}>
             <h2>{t.changePassword}</h2>
             <input type="hidden" name="playerId" value={player.id} />
@@ -178,6 +179,9 @@ export default async function EditPlayerPage({
             <label>{t.repeatNewPassword}<input name="confirmPassword" type="password" autoComplete="new-password" minLength={8} required /></label>
             <button type="submit">{isAdmin ? t.updatePassword : t.changePassword}</button>
           </form>
+        ) : null}
+        {isOwnProfile && !player.user?.credential ? (
+          <Link className="back-link" href="/forgot-password">{t.setPasswordByEmail}</Link>
         ) : null}
         {isOwnProfile ? (
           <form className="admin-form" action={requestJoinClubAction}>

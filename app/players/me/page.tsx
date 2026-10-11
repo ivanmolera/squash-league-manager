@@ -38,6 +38,23 @@ export default async function MyPlayerProfilePage() {
     redirect(`/players/${existingPlayer.id}`);
   }
 
+  const pendingLink = await prisma.playerLinkRequest.findFirst({
+    where: { userId: currentUser.id, status: "pending" },
+    select: { id: true }
+  });
+
+  if (pendingLink) {
+    return (
+      <main className="app-shell">
+        <Navigation />
+        <section className="edit-stack">
+          <h1>{t.profileLinkPendingTitle}</h1>
+          <p className="muted">{t.profileLinkPendingText}</p>
+        </section>
+      </main>
+    );
+  }
+
   const name = splitDisplayName(currentUser.displayName);
   const isAdmin = currentUser.roles.some((role) => role.role === "admin");
 

@@ -8,7 +8,7 @@ Web app para gestionar ligas individuales, ligas por equipos, torneos, jugadores
 - PostgreSQL en Cloud SQL
 - Prisma como cliente tipado
 - Flyway para versionar migraciones SQL
-- Firebase Auth para login email/password
+- Sesiones propias para email/password y Google OpenID Connect
 - Cloud Run para despliegue
 - Cloud Storage para fotos de perfil y logos
 
@@ -33,6 +33,25 @@ npm run prisma:generate
 ```bash
 npm run dev
 ```
+
+## Acceso con Google
+
+El acceso con Google es opcional y se activa al configurar `GOOGLE_OAUTH_CLIENT_ID` y
+`GOOGLE_OAUTH_CLIENT_SECRET` en el servidor. Crea un cliente OAuth de tipo **Aplicación web**
+en Google Auth Platform del proyecto `squash-league-ivan`. Añade
+`https://squashflow.com/api/auth/google/callback` y
+`https://www.squashflow.com/api/auth/google/callback` como URI de redirección autorizada,
+y ambos orígenes como autorizados. Para desarrollo local, añade
+`http://localhost:3000/api/auth/google/callback` y `http://localhost:3000`.
+El valor de `APP_BASE_URL` debe coincidir con el dominio utilizado para iniciar el flujo.
+Guarda el secreto del cliente en Secret Manager; no lo incluyas en Git ni en variables
+`NEXT_PUBLIC_`.
+
+Las cuentas existentes con Gmail/Google Workspace verificado se vinculan por email al
+primer acceso. Las demás cuentas deben iniciar sesión con contraseña y vincular Google
+desde su propia ficha. Las cuentas nuevas reciben el rol `player`; si existe una ficha
+de jugador parecida, se genera una solicitud de vinculación para revisión administrativa.
+Las cuentas suspendidas siguen sin poder acceder.
 
 ## Modelo de datos
 
