@@ -42,6 +42,7 @@ async function getClub(id: string) {
     include: {
       federation: { select: { active: true } },
       manager: true,
+      managerPlayer: true,
       teams: {
         include: { rosters: { include: { player: true }, orderBy: [{ rosterOrder: "asc" }, { playerNameAtThatTime: "asc" }] } },
         orderBy: [{ name: "asc" }]
@@ -344,7 +345,9 @@ export default async function ClubDetailPage({
                   : t.privateFemaleValue}
               </p>
               <p><strong>{t.clubPhone}:</strong> {canSeeContact ? club.phone ?? t.notProvided : t.privateValue}</p>
-              <p><strong>{t.assignedManager}:</strong> {club.manager?.displayName ?? club.manager?.email ?? t.noManager}</p>
+              <p><strong>{t.assignedManager}:</strong> {club.managerPlayer
+                ? `${club.managerPlayer.firstName} ${club.managerPlayer.lastName}`
+                : club.manager?.displayName ?? club.manager?.email ?? t.noManager}</p>
               <p><strong>{t.availableCourts}:</strong> {club.availableCourts}</p>
               <p><strong>{t.courtAccess}:</strong> {club.publicCourtAccess ? t.publicCourtAccess : t.membersOnlyCourtAccess}</p>
             </div>

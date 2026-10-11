@@ -1,5 +1,4 @@
 import { ClubCrest } from "@/src/components/club-crest";
-import { formatUserManagerName } from "@/src/lib/names";
 
 export function ClubFields({
   club,
@@ -8,8 +7,8 @@ export function ClubFields({
   isAdmin,
   labels
 }: {
-  club?: { name?: string; city?: string | null; province?: string | null; address?: string | null; postalCode?: string | null; availableCourts?: number; phone?: string | null; managesCourtBookings?: boolean; publicCourtAccess?: boolean; websiteUrl?: string | null; logoUrl?: string | null; managerUserId?: string | null; federationId?: string | null; showContactPublic?: boolean; closedDays?: Array<{ closedOn: Date }> };
-  managers: Array<{ id: string; email: string; displayName: string | null; player?: { firstName: string; lastName: string } | null }>;
+  club?: { name?: string; city?: string | null; province?: string | null; address?: string | null; postalCode?: string | null; availableCourts?: number; phone?: string | null; managesCourtBookings?: boolean; publicCourtAccess?: boolean; websiteUrl?: string | null; logoUrl?: string | null; managerUserId?: string | null; managerPlayerId?: string | null; federationId?: string | null; showContactPublic?: boolean; closedDays?: Array<{ closedOn: Date }> };
+  managers: Array<{ value: string; name: string; note: string }>;
   federations: Array<{ id: string; name: string; code: string }>;
   isAdmin: boolean;
   labels: Record<string, string>;
@@ -44,11 +43,11 @@ export function ClubFields({
         <label>{labels.closedDays}<textarea name="closedDays" defaultValue={club?.closedDays?.map((day) => day.closedOn.toISOString().slice(0, 10)).join("\n") ?? ""} placeholder="2026-01-01" /></label>
       </div>
       <label>{labels.assignedManager}
-        <select name="managerUserId" defaultValue={club?.managerUserId ?? ""} disabled={!isAdmin}>
+        <select name="managerSelection" defaultValue={club?.managerPlayerId ? `player:${club.managerPlayerId}` : club?.managerUserId ? `user:${club.managerUserId}` : ""} disabled={!isAdmin}>
           <option value="">{labels.noManager}</option>
           {managers.map((manager) => (
-            <option key={manager.id} value={manager.id}>
-              {formatUserManagerName(manager)}
+            <option key={manager.value} value={manager.value}>
+              {manager.name}{manager.note ? ` · ${manager.note}` : ""}
             </option>
           ))}
         </select>

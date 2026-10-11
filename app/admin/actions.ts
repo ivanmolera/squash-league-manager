@@ -15,6 +15,8 @@ import {
   courtWeekStart
 } from "@/src/lib/court-booking-time";
 import { featureKeys, isFeatureEnabled } from "@/src/lib/features";
+import { syncClubManagerAccount, syncFederationManagerAccount } from "@/src/lib/manager-access";
+import { parseManagerSelection } from "@/src/lib/manager-selection";
 import { activeClubWhere, activePlayerWhere } from "@/src/lib/entity-activity";
 import { clubGeocodingQuery, geocodeClubAddress } from "@/src/lib/geocoding";
 import { getDictionary } from "@/src/lib/i18n";
@@ -79,7 +81,7 @@ const userOperationalRoleSchema = z.object({
 
 const federationManagerSchema = z.object({
   federationId: z.string().uuid(),
-  managerUserId: z.string().uuid().optional().or(z.literal(""))
+  managerSelection: z.string()
 });
 
 const entityActivitySchema = z.object({
@@ -128,7 +130,7 @@ const clubSchema = z.object({
   closedDays: z.string().optional(),
   websiteUrl: z.string().url().optional().or(z.literal("")),
   showContactPublic: z.coerce.boolean().default(false),
-  managerUserId: z.string().uuid().optional().or(z.literal("")),
+  managerSelection: z.string(),
   federationId: z.string().uuid().optional().or(z.literal(""))
 });
 
@@ -1421,6 +1423,11 @@ export async function savePlayerAction(formData: FormData) {
         }
       });
 
+  await prisma.$transaction(async (tx) => {
+    await syncFederationManagerAccount(tx, player.id, player.userId);
+    await syncClubManagerAccount(tx, player.id, player.userId);
+  });
+
   if (isAdmin && parsed.clubId) {
     const season = await getDefaultSeason();
     const club = await prisma.club.findUniqueOrThrow({ where: { id: parsed.clubId } });
@@ -1624,21 +1631,45 @@ export async function saveFederationManagerAction(formData: FormData) {
 
   const parsed = federationManagerSchema.parse({
     federationId: textValue(formData.get("federationId")),
-    managerUserId: textValue(formData.get("managerUserId")) ?? ""
+    managerSelection: textValue(formData.get("managerSelection")) ?? ""
   });
+  const selection = parseManagerSelection(parsed.managerSelection);
+  let managerPlayerId: string | null = null;
+  let managerUserId: string | null = null;
 
-  await prisma.federation.update({
-    where: { id: parsed.federationId },
-    data: { managerUserId: parsed.managerUserId || null }
-  });
-
-  if (parsed.managerUserId) {
-    await prisma.userRoleAssignment.upsert({
-      where: { userId_role: { userId: parsed.managerUserId, role: "manager_fed" } },
-      update: {},
-      create: { userId: parsed.managerUserId, role: "manager_fed" }
+  if (selection?.kind === "player") {
+    const player = await prisma.player.findUnique({
+      where: { id: selection.id },
+      select: { id: true, userId: true, mergedIntoPlayerId: true }
     });
+    if (!player || player.mergedIntoPlayerId) {
+      throw new Error("No se ha encontrado una ficha de jugador vigente.");
+    }
+    managerPlayerId = player.id;
+    managerUserId = player.userId;
+  } else if (selection?.kind === "user") {
+    const user = await prisma.user.findUnique({
+      where: { id: selection.id },
+      select: { id: true, player: { select: { id: true } } }
+    });
+    if (!user) throw new Error("No se ha encontrado la cuenta seleccionada.");
+    managerUserId = user.id;
+    managerPlayerId = user.player?.id ?? null;
   }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.federation.update({
+      where: { id: parsed.federationId },
+      data: { managerPlayerId, managerUserId, updatedAt: new Date() }
+    });
+    if (managerUserId) {
+      await tx.userRoleAssignment.upsert({
+        where: { userId_role: { userId: managerUserId, role: "manager_fed" } },
+        update: {},
+        create: { userId: managerUserId, role: "manager_fed" }
+      });
+    }
+  });
 
   revalidatePath("/admin/federations");
   revalidatePath("/manager/tournaments");
@@ -1827,26 +1858,28 @@ export async function reviewPlayerLinkRequestAction(formData: FormData) {
       throw new Error("La ficha candidata ya está fusionada con otra ficha principal.");
     }
 
-    await prisma.$transaction([
-      prisma.player.update({
+    await prisma.$transaction(async (tx) => {
+      await tx.player.update({
         where: { id: request.candidatePlayerId },
         data: { userId: request.userId }
-      }),
-      prisma.user.update({
+      });
+      await tx.user.update({
         where: { id: request.userId },
         data: {
           displayName: `${request.candidatePlayer.firstName} ${request.candidatePlayer.lastName}`
         }
-      }),
-      prisma.playerLinkRequest.update({
+      });
+      await tx.playerLinkRequest.update({
         where: { id: request.id },
         data: {
           status: "approved",
           reviewedByUserId: currentUser.id,
           reviewedAt: new Date()
         }
-      })
-    ]);
+      });
+      await syncFederationManagerAccount(tx, request.candidatePlayerId, request.userId);
+      await syncClubManagerAccount(tx, request.candidatePlayerId, request.userId);
+    });
   }
 
   revalidatePath("/admin/players");
@@ -1905,6 +1938,44 @@ export async function mergePlayerProfilesAction(formData: FormData) {
         data: { userId: duplicate.userId }
       });
     }
+
+    const duplicateFederation = await tx.federation.findUnique({
+      where: { managerPlayerId: duplicate.id },
+      select: { id: true }
+    });
+    if (duplicateFederation) {
+      const primaryFederation = await tx.federation.findUnique({
+        where: { managerPlayerId: primary.id },
+        select: { id: true }
+      });
+      if (primaryFederation) {
+        throw new Error("Las dos fichas son responsables de federaciones distintas.");
+      }
+      await tx.federation.update({
+        where: { id: duplicateFederation.id },
+        data: { managerPlayerId: primary.id, updatedAt: new Date() }
+      });
+    }
+    await syncFederationManagerAccount(tx, primary.id, primary.userId ?? duplicate.userId);
+
+    const duplicateClub = await tx.club.findUnique({
+      where: { managerPlayerId: duplicate.id },
+      select: { id: true }
+    });
+    if (duplicateClub) {
+      const primaryClub = await tx.club.findUnique({
+        where: { managerPlayerId: primary.id },
+        select: { id: true }
+      });
+      if (primaryClub) {
+        throw new Error("Las dos fichas son responsables de clubes distintos.");
+      }
+      await tx.club.update({
+        where: { id: duplicateClub.id },
+        data: { managerPlayerId: primary.id, updatedAt: new Date() }
+      });
+    }
+    await syncClubManagerAccount(tx, primary.id, primary.userId ?? duplicate.userId);
 
     await tx.$executeRaw`
       DELETE FROM player_club_memberships duplicate_membership
@@ -2313,7 +2384,7 @@ export async function saveClubAction(formData: FormData) {
     closedDays: formData.get("closedDays")?.toString(),
     websiteUrl: textValue(formData.get("websiteUrl")) ?? "",
     showContactPublic: formData.get("showContactPublic") === "on",
-    managerUserId: textValue(formData.get("managerUserId")) ?? "",
+    managerSelection: textValue(formData.get("managerSelection")) ?? "",
     federationId: textValue(formData.get("federationId")) ?? ""
   });
   if (!parsedResult.success) {
@@ -2362,6 +2433,31 @@ export async function saveClubAction(formData: FormData) {
     }
   }
 
+  let managerPlayerId: string | null = null;
+  let managerUserId: string | null = null;
+  if (isAdmin) {
+    const selection = parseManagerSelection(parsed.managerSelection);
+    if (selection?.kind === "player") {
+      const player = await prisma.player.findUnique({
+        where: { id: selection.id },
+        select: { id: true, userId: true, mergedIntoPlayerId: true }
+      });
+      if (!player || player.mergedIntoPlayerId) {
+        throw new Error("No se ha encontrado una ficha de jugador vigente.");
+      }
+      managerPlayerId = player.id;
+      managerUserId = player.userId;
+    } else if (selection?.kind === "user") {
+      const user = await prisma.user.findUnique({
+        where: { id: selection.id },
+        select: { id: true, player: { select: { id: true } } }
+      });
+      if (!user) throw new Error("No se ha encontrado la cuenta seleccionada.");
+      managerUserId = user.id;
+      managerPlayerId = user.player?.id ?? null;
+    }
+  }
+
   const club = parsed.clubId
     ? await prisma.club.update({
         where: { id: parsed.clubId },
@@ -2379,7 +2475,8 @@ export async function saveClubAction(formData: FormData) {
           websiteUrl: parsed.websiteUrl || null,
           logoUrl,
           showContactPublic: parsed.showContactPublic,
-          managerUserId: isAdmin ? parsed.managerUserId || null : undefined,
+          managerUserId: isAdmin ? managerUserId : undefined,
+          managerPlayerId: isAdmin ? managerPlayerId : undefined,
           federationId: isAdmin ? parsed.federationId || null : undefined
         }
       })
@@ -2398,16 +2495,17 @@ export async function saveClubAction(formData: FormData) {
           websiteUrl: parsed.websiteUrl || null,
           logoUrl: logoUrl ?? null,
           showContactPublic: parsed.showContactPublic,
-          managerUserId: parsed.managerUserId || null,
+          managerUserId,
+          managerPlayerId,
           federationId: parsed.federationId || null
         }
       });
 
-  if (isAdmin && parsed.managerUserId) {
+  if (isAdmin && managerUserId) {
     await prisma.userRoleAssignment.upsert({
-      where: { userId_role: { userId: parsed.managerUserId, role: "manager" } },
+      where: { userId_role: { userId: managerUserId, role: "manager" } },
       update: {},
-      create: { userId: parsed.managerUserId, role: "manager" }
+      create: { userId: managerUserId, role: "manager" }
     });
   }
 

@@ -285,6 +285,8 @@ model Player {
   user                  User?                     @relation(fields: [userId], references: [id], onDelete: SetNull)
   mergedInto            Player?                   @relation("PlayerProfileMerges", fields: [mergedIntoPlayerId], references: [id], onDelete: SetNull)
   mergedPlayers         Player[]                  @relation("PlayerProfileMerges")
+  managedFederation     Federation?               @relation("FederationManagerPlayer")
+  managedClub           Club?                     @relation("ClubManagerPlayer")
   linkRequests          PlayerLinkRequest[]       @relation("PlayerLinkRequestCandidate")
   primaryMergeLogs      PlayerMergeLog[]          @relation("PlayerMergePrimary")
   duplicateMergeLogs    PlayerMergeLog[]          @relation("PlayerMergeDuplicate")
@@ -361,10 +363,12 @@ model Club {
   logoUrl       String?                @map("logo_url")
   showContactPublic Boolean            @default(true) @map("show_contact_public")
   managerUserId String?                @unique @map("manager_user_id") @db.Uuid
+  managerPlayerId String?              @unique @map("manager_player_id") @db.Uuid
   federationId  String?                @map("federation_id") @db.Uuid
   createdAt     DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime               @default(now()) @map("updated_at") @db.Timestamptz(6)
   manager       User?                  @relation(fields: [managerUserId], references: [id], onDelete: SetNull)
+  managerPlayer Player?                @relation("ClubManagerPlayer", fields: [managerPlayerId], references: [id], onDelete: SetNull)
   federation    Federation?            @relation(fields: [federationId], references: [id], onDelete: SetNull)
   teams         Team[]
   memberships   PlayerClubMembership[]
@@ -426,10 +430,12 @@ model Federation {
   logoUrl       String?       @map("logo_url")
   rankingId     String?       @map("ranking_id") @db.Uuid
   managerUserId String?       @unique @map("manager_user_id") @db.Uuid
+  managerPlayerId String?     @unique @map("manager_player_id") @db.Uuid
   createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime      @default(now()) @map("updated_at") @db.Timestamptz(6)
   ranking       Ranking?      @relation(fields: [rankingId], references: [id], onDelete: SetNull)
   manager       User?         @relation(fields: [managerUserId], references: [id], onDelete: SetNull)
+  managerPlayer Player?       @relation("FederationManagerPlayer", fields: [managerPlayerId], references: [id], onDelete: SetNull)
   clubs         Club[]
   competitions  Competition[]
 

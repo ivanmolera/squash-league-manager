@@ -4,7 +4,7 @@ import { Navigation } from "@/app/navigation";
 import { ClubCrest } from "@/src/components/club-crest";
 import { getCurrentUser } from "@/src/lib/auth";
 import { getDictionary } from "@/src/lib/i18n";
-import { formatUserManagerName } from "@/src/lib/names";
+import { getManagerOptions } from "@/src/lib/manager-options";
 import { prisma } from "@/src/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -31,10 +31,9 @@ export default async function EditClubPage({ params }: { params: Promise<{ id: s
   if (!club) notFound();
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
   if (!isAdmin && club.managerUserId !== currentUser?.id) notFound();
-  const managers = club.memberships
-    .map((membership) => membership.player.user ? { ...membership.player.user, player: membership.player } : null)
-    .filter(Boolean)
-    .filter((user, index, users) => users.findIndex((item) => item?.id === user?.id) === index);
+  const managers = isAdmin
+    ? await getManagerOptions(dictionary.locale, t.federationManagerNoAccount, t.federationManagerAccountOnly)
+    : [];
 
   return (
     <main className="app-shell">
@@ -60,13 +59,18 @@ export default async function EditClubPage({ params }: { params: Promise<{ id: s
           <label>{t.closedDays}<textarea name="closedDays" defaultValue={club.closedDays.map((day) => day.closedOn.toISOString().slice(0, 10)).join("\n")} placeholder="2026-01-01" /></label>
           <label className="check-line"><input name="showContactPublic" type="checkbox" defaultChecked={club.showContactPublic} /> {t.showClubContactPublic}</label>
           <label>{t.assignedManager}
-            <select name="managerUserId" defaultValue={club.managerUserId ?? ""} disabled={!isAdmin}>
+            <select name="managerSelection" defaultValue={club.managerPlayerId
+              ? `player:${club.managerPlayerId}`
+              : club.managerUserId ? `user:${club.managerUserId}` : ""} disabled={!isAdmin}>
               <option value="">{t.noManager}</option>
               {managers.map((manager) => (
-                manager ? <option key={manager.id} value={manager.id}>{formatUserManagerName(manager)}</option> : null
+                <option key={manager.value} value={manager.value}>
+                  {manager.name}{manager.note ? ` · ${manager.note}` : ""}
+                </option>
               ))}
             </select>
           </label>
+          {isAdmin ? <p className="muted">{t.clubManagerSelectionHelp}</p> : null}
           <label>{t.federation}
             <select name="federationId" defaultValue={club.federationId ?? ""} disabled={!isAdmin}>
               <option value="">{t.noFederation}</option>

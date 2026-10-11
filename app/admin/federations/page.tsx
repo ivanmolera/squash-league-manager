@@ -4,14 +4,14 @@ import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
 import { activeFederationWhere } from "@/src/lib/entity-activity";
 import { getDictionary } from "@/src/lib/i18n";
-import { formatUserManagerName } from "@/src/lib/names";
+import { getManagerOptions } from "@/src/lib/manager-options";
 import { prisma } from "@/src/lib/prisma";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function FederationsPage() {
-  const [currentUser, dictionary, federations, users] = await Promise.all([
+  const [currentUser, dictionary, federations] = await Promise.all([
     getCurrentUser(),
     getDictionary(),
     prisma.federation.findMany({
@@ -22,18 +22,15 @@ export default async function FederationsPage() {
         _count: { select: { clubs: true, competitions: true } }
       },
       orderBy: [{ name: "asc" }]
-    }),
-    prisma.user.findMany({ include: { player: true }, orderBy: { email: "asc" } })
+    })
   ]);
   const { t } = dictionary;
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
-  const sortedUsers = [...users].sort((left, right) =>
-    formatUserManagerName(left).localeCompare(formatUserManagerName(right), dictionary.locale, { sensitivity: "base" })
-  );
 
   if (!isAdmin) {
     redirect("/");
   }
+  const managerOptions = await getManagerOptions(dictionary.locale, t.federationManagerNoAccount, t.federationManagerAccountOnly);
 
   return (
     <main className="app-shell">
@@ -41,6 +38,7 @@ export default async function FederationsPage() {
       <section className="page-heading">
         <p className="eyebrow">{t.admin}</p>
         <h1>{t.federations}</h1>
+        <p className="muted">{t.federationManagerSelectionHelp}</p>
         <Link className="secondary-link" href="/admin/visibility?kind=federations">{t.entityActivity}</Link>
       </section>
       <section className="list-panel">
@@ -56,11 +54,13 @@ export default async function FederationsPage() {
               <input type="hidden" name="federationId" value={federation.id} />
               <label>
                 {t.federationManager}
-                <select name="managerUserId" defaultValue={federation.managerUserId ?? ""}>
+                <select name="managerSelection" defaultValue={federation.managerPlayerId
+                  ? `player:${federation.managerPlayerId}`
+                  : federation.managerUserId ? `user:${federation.managerUserId}` : ""}>
                   <option value="">{t.noManager}</option>
-                  {sortedUsers.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {formatUserManagerName(user)}
+                  {managerOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.name}{option.note ? ` · ${option.note}` : ""}
                     </option>
                   ))}
                 </select>
