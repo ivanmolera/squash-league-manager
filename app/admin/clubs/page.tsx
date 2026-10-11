@@ -3,18 +3,20 @@ import Link from "next/link";
 import { ClubDirectoryMap } from "@/app/admin/clubs/club-directory-map";
 import { Navigation } from "@/app/navigation";
 import { ClubCrest } from "@/src/components/club-crest";
+import { SaveConfirmation } from "@/app/leagues/[id]/edit/save-confirmation";
 import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
 import { autonomousCommunityForClub } from "@/src/lib/autonomous-communities";
 import { getCurrentUser } from "@/src/lib/auth";
 import { activeClubWhere } from "@/src/lib/entity-activity";
 import { getFeatureSettings } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
+import { formatPlayerListName } from "@/src/lib/names";
 import { prisma } from "@/src/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 type ClubListItem = Prisma.ClubGetPayload<{
-  include: { manager: true; federation: { include: { ranking: true } } };
+  include: { manager: true; managerPlayer: true; federation: { include: { ranking: true } } };
 }>;
 
 function groupClubsByCommunity(clubs: ClubListItem[], unknownLabel: string) {
@@ -38,13 +40,13 @@ function groupClubsByCommunity(clubs: ClubListItem[], unknownLabel: string) {
 export default async function ClubsPage({
   searchParams
 }: {
-  searchParams?: Promise<{ clubError?: string }>;
+  searchParams?: Promise<{ clubError?: string; saved?: string }>;
 }) {
   const query = await searchParams;
   const [clubs, currentUser, dictionary, features] = await Promise.all([
     prisma.club.findMany({
       where: activeClubWhere,
-      include: { manager: true, federation: { include: { ranking: true } } },
+      include: { manager: true, managerPlayer: true, federation: { include: { ranking: true } } },
       orderBy: [{ province: "asc" }, { name: "asc" }]
     }),
     getCurrentUser(),
@@ -66,6 +68,7 @@ export default async function ClubsPage({
       <Navigation />
       <section className="page-heading">
         <h1>{t.clubs}</h1>
+        {query?.saved ? <SaveConfirmation key={query.saved} message={t.savedChanges} /> : null}
         {!isAdmin ? <p className="muted">{t.signInToEditClub}</p> : null}
         {isAdmin ? (
           <div className="heading-actions">
@@ -85,8 +88,12 @@ export default async function ClubsPage({
               {group.clubs.map((club) => {
                 const address = club.address ?? t.noAddress;
                 const city = club.city ?? t.noCity;
+                const managerName = club.managerPlayer
+                  ? formatPlayerListName(club.managerPlayer)
+                  : club.manager?.displayName;
+                const canEdit = isAdmin || club.managerUserId === currentUser?.id;
 
-                return isAdmin || club.managerUserId === currentUser?.id ? (
+                return (
                   <article className="club-list-row" key={club.id}>
                     <div>
                       <strong>
@@ -97,21 +104,9 @@ export default async function ClubsPage({
                       </strong>
                       <span className="club-list-address">{address}</span>
                       <span className="club-list-city">{city}</span>
+                      {managerName ? <span className="club-list-manager">{t.assignedManager}: {managerName}</span> : null}
                     </div>
-                    <Link className="secondary-link" href={`/clubs/${club.id}/edit`}>{t.edit}</Link>
-                  </article>
-                ) : (
-                  <article className="club-list-row" key={club.id}>
-                    <div>
-                      <strong>
-                        <Link className="club-list-name" href={`/clubs/${club.id}`}>
-                          <ClubCrest logoUrl={club.logoUrl} clubName={club.name} size="tiny" />
-                          {club.name}
-                        </Link>
-                      </strong>
-                      <span className="club-list-address">{address}</span>
-                      <span className="club-list-city">{city}</span>
-                    </div>
+                    {canEdit ? <Link className="secondary-link" href={`/clubs/${club.id}/edit`}>{t.edit}</Link> : null}
                   </article>
                 );
               })}

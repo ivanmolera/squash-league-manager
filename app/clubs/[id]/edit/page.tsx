@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { removePlayerFromClubAction, saveClubAction } from "@/app/admin/actions";
+import { SaveConfirmation } from "@/app/leagues/[id]/edit/save-confirmation";
 import { Navigation } from "@/app/navigation";
 import { ClubCrest } from "@/src/components/club-crest";
 import { getCurrentUser } from "@/src/lib/auth";
@@ -9,8 +10,15 @@ import { prisma } from "@/src/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-export default async function EditClubPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EditClubPage({
+  params,
+  searchParams
+}: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ saved?: string }>;
+}) {
   const { id } = await params;
+  const query = await searchParams;
   const [club, federations, currentUser, dictionary] = await Promise.all([
     prisma.club.findUnique({
       where: { id },
@@ -39,8 +47,9 @@ export default async function EditClubPage({ params }: { params: Promise<{ id: s
     <main className="app-shell">
       <Navigation />
       <section className="work-grid">
-        <form className="admin-form" action={saveClubAction}>
+        <form className="admin-form" action={saveClubAction} key={query?.saved ?? club.id}>
           <h1>{t.editClub}</h1>
+          {query?.saved ? <SaveConfirmation key={query.saved} message={t.savedChanges} /> : null}
           <input type="hidden" name="clubId" value={club.id} />
           <div className="club-logo-edit-row">
             <ClubCrest logoUrl={club.logoUrl} clubName={club.name} size="small" />

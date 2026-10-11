@@ -1,4 +1,5 @@
 import { saveFederationManagerAction } from "@/app/admin/actions";
+import { SaveConfirmation } from "@/app/leagues/[id]/edit/save-confirmation";
 import Link from "next/link";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
@@ -10,7 +11,12 @@ import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function FederationsPage() {
+export default async function FederationsPage({
+  searchParams
+}: {
+  searchParams?: Promise<{ saved?: string }>;
+}) {
+  const query = await searchParams;
   const [currentUser, dictionary, federations] = await Promise.all([
     getCurrentUser(),
     getDictionary(),
@@ -39,9 +45,10 @@ export default async function FederationsPage() {
         <p className="eyebrow">{t.admin}</p>
         <h1>{t.federations}</h1>
         <p className="muted">{t.federationManagerSelectionHelp}</p>
+        {query?.saved ? <SaveConfirmation key={query.saved} message={t.savedChanges} /> : null}
         <Link className="secondary-link" href="/admin/visibility?kind=federations">{t.entityActivity}</Link>
       </section>
-      <section className="list-panel">
+      <section className="list-panel" key={query?.saved ?? "initial"}>
         {federations.map((federation) => (
           <article className="row-card" key={federation.id}>
             <div className="federation-row-details">

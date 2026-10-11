@@ -1673,6 +1673,7 @@ export async function saveFederationManagerAction(formData: FormData) {
 
   revalidatePath("/admin/federations");
   revalidatePath("/manager/tournaments");
+  redirect(`/admin/federations?saved=${Date.now()}`);
 }
 
 export async function updateEntityActivityAction(formData: FormData) {
@@ -2626,7 +2627,8 @@ export async function saveClubAction(formData: FormData) {
   new Set([...membershipPlayerIds, ...rosterPlayerIds].map((row) => row.playerId)).forEach((playerId) => {
     revalidatePath(`/players/${playerId}`);
   });
-  if (returnTo) redirect(returnTo);
+  if (returnTo) redirect(`${returnTo}?saved=${Date.now()}`);
+  redirect(`/clubs/${club.id}/edit?saved=${Date.now()}`);
 }
 
 async function upsertCompetitionCategoryByDisplayName({
