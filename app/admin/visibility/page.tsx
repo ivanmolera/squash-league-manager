@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import { updateEntityActivityAction } from "@/app/admin/actions";
+import { AdminSectionTabs } from "@/app/admin/admin-section-tabs";
 import { SaveConfirmation } from "@/app/leagues/[id]/edit/save-confirmation";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
@@ -125,9 +126,10 @@ export default async function EntityActivityPage({
         <p className="eyebrow">{t.admin}</p>
         <h1>{t.entityActivity}</h1>
         <p className="muted">{t.entityActivityIntro}</p>
-        {isAdmin ? <Link className="secondary-link" href="/admin/settings">{t.applicationSettings}</Link> : null}
         {query?.saved === "1" ? <SaveConfirmation message={t.activitySaved} /> : null}
       </section>
+
+      {isAdmin ? <AdminSectionTabs active="visibility" labels={{ settings: t.applicationSettings, visibility: t.entityActivity, admin: t.admin }} /> : null}
 
       {isAdmin ? (
         <nav className="activity-tabs" aria-label={t.entityActivity}>

@@ -4377,6 +4377,10 @@ html[data-theme="light"] .club-directory-map-canvas .leaflet-tile-pane {
   color: var(--foreground);
 }
 
+.admin-section-tabs {
+  margin-bottom: 20px;
+}
+
 .activity-filters {
   align-items: end;
   display: flex;
