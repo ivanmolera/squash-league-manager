@@ -2344,14 +2344,12 @@ export async function saveClubAction(formData: FormData) {
           geocodedAt: geocoding.geocodedAt,
           geocodingQuery: geocoding.geocodingQuery
         }
-      : !existingClub || !clubGeocodingQuery(parsed)
-      ? {
+      : {
           latitude: null,
           longitude: null,
           geocodedAt: null,
           geocodingQuery: clubGeocodingQuery(parsed) || null
         }
-      : {}
     : {};
 
   if (!isAdmin) {

@@ -14,6 +14,7 @@ import { ClubCrest } from "@/src/components/club-crest";
 import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
 import { autonomousCommunityForLocation } from "@/src/lib/autonomous-communities";
 import { getCurrentUser } from "@/src/lib/auth";
+import { clubMapUrl } from "@/src/lib/club-map";
 import { isClubEffectivelyActive } from "@/src/lib/entity-activity";
 import {
   addDaysToCourtDateKey,
@@ -185,11 +186,6 @@ function groupMembershipsBySeason(memberships: ClubMembership[]) {
     }
     return groups;
   }, []);
-}
-
-function clubMapUrl(club: { name: string; address: string | null; postalCode: string | null; city: string | null; province: string | null }) {
-  const query = [club.address, club.postalCode, club.city, club.province, club.name].filter(Boolean).join(", ");
-  return query ? `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed` : null;
 }
 
 function websiteHref(value: string) {

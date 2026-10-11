@@ -43,7 +43,7 @@ function clubGeocodingQueries(club: ClubAddress) {
     [address, city, "España"].filter(Boolean).join(", "),
     [name, city, province, "España"].filter(Boolean).join(", "),
     [name, city, "España"].filter(Boolean).join(", "),
-    [postalCode, city, province, "España"].filter(Boolean).join(", ")
+    ...(!address ? [[postalCode, city, province, "España"].filter(Boolean).join(", ")] : [])
   ]);
 }
 
