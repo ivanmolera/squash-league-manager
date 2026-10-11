@@ -2,16 +2,17 @@ import { saveFeatureSettingsAction } from "@/app/admin/actions";
 import { AdminSectionTabs } from "@/app/admin/admin-section-tabs";
 import { SaveConfirmation } from "@/app/leagues/[id]/edit/save-confirmation";
 import { Navigation } from "@/app/navigation";
-import { featureKeys, getFeatureSettings, type FeatureKey } from "@/src/lib/features";
+import { featureKeys, getFeatureSettings, isFeatureAvailable, type FeatureKey } from "@/src/lib/features";
 import { getCurrentUser } from "@/src/lib/auth";
 import { getDictionary } from "@/src/lib/i18n";
-import { BarChart3, CalendarCheck, CalendarDays, ClipboardCheck, MapPin, MessageSquare, PencilLine, Swords, Trophy, UserPlus, Users, type LucideIcon } from "lucide-react";
+import { BarChart3, CalendarCheck, CalendarDays, ClipboardCheck, CreditCard, MapPin, MessageSquare, PencilLine, Swords, Trophy, UserPlus, Users, type LucideIcon } from "lucide-react";
 import { notFound } from "next/navigation";
 
 const featureLabelKeys: Record<FeatureKey, string> = {
   leagues: "featureLeagues",
   tournaments: "featureTournaments",
   court_bookings: "featureCourtBookings",
+  court_payments: "featureCourtPayments",
   match_proposals: "featureMatchProposals",
   rankings_statistics: "featureRankingsStatistics",
   public_registration: "featurePublicRegistration",
@@ -22,10 +23,26 @@ const featureLabelKeys: Record<FeatureKey, string> = {
   teams: "featureTeams"
 };
 
+const featureDescriptionKeys: Record<FeatureKey, string> = {
+  leagues: "featureLeaguesDescription",
+  tournaments: "featureTournamentsDescription",
+  court_bookings: "featureCourtBookingsDescription",
+  court_payments: "featureCourtPaymentsDescription",
+  match_proposals: "featureMatchProposalsDescription",
+  rankings_statistics: "featureRankingsStatisticsDescription",
+  public_registration: "featurePublicRegistrationDescription",
+  tournament_online_registration: "featureTournamentOnlineRegistrationDescription",
+  player_result_entry: "featurePlayerResultEntryDescription",
+  club_maps: "featureClubMapsDescription",
+  player_communications: "featurePlayerCommunicationsDescription",
+  teams: "featureTeamsDescription"
+};
+
 const featureIcons: Record<FeatureKey, LucideIcon> = {
   leagues: Trophy,
   tournaments: CalendarDays,
   court_bookings: CalendarCheck,
+  court_payments: CreditCard,
   match_proposals: Swords,
   rankings_statistics: BarChart3,
   public_registration: UserPlus,
@@ -67,16 +84,24 @@ export default async function AdminSettingsPage({
           <legend>{t.featureToggles}</legend>
           {featureKeys.map((featureKey) => {
             const Icon = featureIcons[featureKey];
+            const available = isFeatureAvailable(featureKey);
             return (
-              <label className="check-line feature-toggle-line" key={featureKey}>
+              <label className={`feature-toggle-line${available ? "" : " is-unavailable"}`} key={featureKey}>
+                <Icon aria-hidden="true" size={18} strokeWidth={2.2} />
+                <span className="feature-toggle-copy">
+                  <span className="feature-toggle-title">
+                    {t[featureLabelKeys[featureKey] as keyof typeof t]}
+                    {!available ? <span className="feature-coming-soon">{t.comingSoon}</span> : null}
+                  </span>
+                  <small>{t[featureDescriptionKeys[featureKey] as keyof typeof t]}</small>
+                </span>
                 <input
                   name="enabledFeatures"
                   type="checkbox"
                   value={featureKey}
-                  defaultChecked={features[featureKey]}
+                  defaultChecked={available && features[featureKey]}
+                  disabled={!available}
                 />
-                <Icon aria-hidden="true" size={18} strokeWidth={2.4} />
-                {t[featureLabelKeys[featureKey] as keyof typeof t]}
               </label>
             );
           })}

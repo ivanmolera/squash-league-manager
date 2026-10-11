@@ -14,7 +14,7 @@ import {
   courtLocalDateTimeToUtc,
   courtWeekStart
 } from "@/src/lib/court-booking-time";
-import { featureKeys, isFeatureEnabled } from "@/src/lib/features";
+import { featureKeys, isFeatureAvailable, isFeatureEnabled } from "@/src/lib/features";
 import { syncClubManagerAccount, syncFederationManagerAccount } from "@/src/lib/manager-access";
 import { parseManagerSelection } from "@/src/lib/manager-selection";
 import { activeClubWhere, activePlayerWhere } from "@/src/lib/entity-activity";
@@ -3505,12 +3505,12 @@ export async function saveFeatureSettingsAction(formData: FormData) {
       prisma.appFeatureSetting.upsert({
         where: { featureKey },
         update: {
-          enabled: enabled.has(featureKey),
+          enabled: isFeatureAvailable(featureKey) && enabled.has(featureKey),
           updatedByUserId: currentUser.id
         },
         create: {
           featureKey,
-          enabled: enabled.has(featureKey),
+          enabled: isFeatureAvailable(featureKey) && enabled.has(featureKey),
           updatedByUserId: currentUser.id
         }
       })

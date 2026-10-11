@@ -8,6 +8,7 @@ export const featureKeys = [
   "leagues",
   "tournaments",
   "court_bookings",
+  "court_payments",
   "match_proposals",
   "rankings_statistics",
   "public_registration",
@@ -20,8 +21,12 @@ export const featureKeys = [
 
 export type FeatureKey = (typeof featureKeys)[number];
 
+export function isFeatureAvailable(key: FeatureKey) {
+  return key !== "court_payments";
+}
+
 export const featureDefaults = Object.fromEntries(
-  featureKeys.map((key) => [key, key !== "player_communications"])
+  featureKeys.map((key) => [key, isFeatureAvailable(key) && key !== "player_communications"])
 ) as Record<FeatureKey, boolean>;
 
 export const getFeatureSettings = cache(async () => {
@@ -30,7 +35,8 @@ export const getFeatureSettings = cache(async () => {
 
   for (const setting of settings) {
     if (featureKeys.includes(setting.featureKey as FeatureKey)) {
-      merged[setting.featureKey as FeatureKey] = setting.enabled;
+      const key = setting.featureKey as FeatureKey;
+      merged[key] = isFeatureAvailable(key) && setting.enabled;
     }
   }
 
