@@ -3,6 +3,7 @@ import { savePlayerAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { PlayerFields } from "@/app/admin/players/player-fields";
 import { getCurrentUser } from "@/src/lib/auth";
+import { activeClubWhere } from "@/src/lib/entity-activity";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default async function NewPlayerProfilePage() {
   const [clubs, currentUser, dictionary] = await Promise.all([
-    prisma.club.findMany({ orderBy: [{ province: "asc" }, { name: "asc" }] }),
+    prisma.club.findMany({ where: activeClubWhere, orderBy: [{ province: "asc" }, { name: "asc" }] }),
     getCurrentUser(),
     getDictionary()
   ]);

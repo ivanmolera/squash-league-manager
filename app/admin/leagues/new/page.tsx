@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { LeagueForm } from "@/app/admin/leagues/league-form";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
+import { activeClubWhere, activePlayerWhere } from "@/src/lib/entity-activity";
 import { requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
@@ -13,7 +14,7 @@ export default async function NewLeaguePage() {
   await requireFeature("leagues");
   const [players, clubs, currentUser, dictionary] = await Promise.all([
     prisma.player.findMany({
-      where: { mergedIntoPlayerId: null },
+      where: activePlayerWhere,
       include: {
         user: true,
         memberships: {
@@ -25,7 +26,7 @@ export default async function NewLeaguePage() {
       },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
     }),
-    prisma.club.findMany({ orderBy: [{ province: "asc" }, { name: "asc" }] }),
+    prisma.club.findMany({ where: activeClubWhere, orderBy: [{ province: "asc" }, { name: "asc" }] }),
     getCurrentUser(),
     getDictionary()
   ]);

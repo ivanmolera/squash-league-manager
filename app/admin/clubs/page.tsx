@@ -5,6 +5,7 @@ import { ClubCrest } from "@/src/components/club-crest";
 import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
 import { autonomousCommunityForLocation } from "@/src/lib/autonomous-communities";
 import { getCurrentUser } from "@/src/lib/auth";
+import { activeClubWhere } from "@/src/lib/entity-activity";
 import { getFeatureSettings } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
@@ -38,7 +39,7 @@ export default async function ClubsPage({
 }) {
   const query = await searchParams;
   const [clubs, currentUser, dictionary, features] = await Promise.all([
-    prisma.club.findMany({ include: { manager: true }, orderBy: [{ province: "asc" }, { name: "asc" }] }),
+    prisma.club.findMany({ where: activeClubWhere, include: { manager: true }, orderBy: [{ province: "asc" }, { name: "asc" }] }),
     getCurrentUser(),
     getDictionary(),
     getFeatureSettings()
@@ -62,6 +63,7 @@ export default async function ClubsPage({
         {isAdmin ? (
           <div className="heading-actions">
             <Link className="primary-link" href="/admin/clubs/new">{t.createNewClub}</Link>
+            <Link className="secondary-link" href="/admin/visibility?kind=clubs">{t.entityActivity}</Link>
           </div>
         ) : null}
       </section>

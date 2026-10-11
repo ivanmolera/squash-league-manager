@@ -13,6 +13,7 @@ export async function Navigation() {
   const [{ locale, t }, currentUser, features] = await Promise.all([getDictionary(), getCurrentUser(), getFeatureSettings()]);
   const theme = (await cookies()).get("slm_theme")?.value === "light" ? "light" : "dark";
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
+  const isFederationManager = Boolean(currentUser?.roles.some((role) => role.role === "manager_fed"));
   const links = [
     { href: "/", label: t.home, section: "home" as const },
     ...(currentUser ? [{ href: currentUser.player ? `/players/${currentUser.player.id}` : "/players/me", label: t.myProfile, section: "profile" as const }] : []),
@@ -25,11 +26,16 @@ export async function Navigation() {
   ];
 
   return (
-    <nav className={`nav${isAdmin ? " nav-has-settings" : ""}`}>
+    <nav className={`nav${isAdmin || isFederationManager ? " nav-has-settings" : ""}`}>
       <Link className="nav-brand" href="/" aria-label="SquashFlow">Squash<span>Flow</span><i aria-hidden="true" /></Link>
       <NavigationLinks items={links} />
       <div className="nav-actions">
-        {isAdmin ? <NavigationSettingsLink label={t.settings} /> : null}
+        {isAdmin || isFederationManager ? (
+          <NavigationSettingsLink
+            href={isAdmin ? "/admin/settings" : "/admin/visibility"}
+            label={isAdmin ? t.settings : t.entityActivity}
+          />
+        ) : null}
         <ThemeSelector initialTheme={theme} lightLabel={t.lightTheme} darkLabel={t.darkTheme} consentMessage={t.acceptCookiesToSaveTheme} />
         <LanguageSelector
           locale={locale}

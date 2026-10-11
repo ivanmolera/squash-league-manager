@@ -14,6 +14,7 @@ import { ClubCrest } from "@/src/components/club-crest";
 import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
 import { autonomousCommunityForLocation } from "@/src/lib/autonomous-communities";
 import { getCurrentUser } from "@/src/lib/auth";
+import { isClubEffectivelyActive } from "@/src/lib/entity-activity";
 import {
   addDaysToCourtDateKey,
   courtDateKey,
@@ -38,6 +39,7 @@ async function getClub(id: string) {
   return prisma.club.findUnique({
     where: { id },
     include: {
+      federation: { select: { active: true } },
       manager: true,
       teams: {
         include: { rosters: { include: { player: true }, orderBy: [{ rosterOrder: "asc" }, { playerNameAtThatTime: "asc" }] } },
@@ -239,7 +241,8 @@ export default async function ClubDetailPage({
         }
       })
     : null;
-  const canUseClubCourts = club.publicCourtAccess || Boolean(currentPlayer?.memberships.some((membership) => membership.clubId === club.id));
+  const canUseClubCourts = isClubEffectivelyActive(club) && (!currentPlayer || currentPlayer.active) &&
+    (club.publicCourtAccess || Boolean(currentPlayer?.memberships.some((membership) => membership.clubId === club.id)));
   const bookingStart = weekStart();
   const bookingEnd = addDays(bookingStart, 14);
   const requestedBookingDate = dateFromKey(query?.bookingDate);
@@ -400,7 +403,7 @@ export default async function ClubDetailPage({
                         const isClosed = closedDayKeys.has(selectedBookingDateKey);
                         const canBook = currentUser && canUseClubCourts && !reservation && !isPast && !isClosed && selectedDayUserReservationCount < 3;
                         const proposal = showMatchProposals ? reservation?.matchProposal : null;
-                        const canAcceptProposal = proposal?.status === "open" && currentPlayer && (canUseClubCourts || canEdit) && proposal.proposerPlayerId !== currentPlayer.id &&
+                        const canAcceptProposal = proposal?.status === "open" && isClubEffectivelyActive(club) && currentPlayer?.active && (canUseClubCourts || canEdit) && proposal.proposerPlayerId !== currentPlayer.id &&
                           (proposal.type !== "competitive" || (currentPlayer.skillLevelConfirmed && proposal.proposerPlayer.skillLevelConfirmed && Math.abs(Number(currentPlayer.skillLevel) - Number(proposal.proposerPlayer.skillLevel)) <= 2));
                         const canProposeCompetitive = currentPlayer?.skillLevelConfirmed;
                         const canReleaseSlot = reservation && (proposal

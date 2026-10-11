@@ -69,15 +69,15 @@ export function NavigationLinks({ items }: { items: NavigationItem[] }) {
   );
 }
 
-export function NavigationSettingsLink({ label }: { label: string }) {
+export function NavigationSettingsLink({ label, href = "/admin/settings" }: { label: string; href?: string }) {
   const pathname = usePathname();
 
   return (
     <Link
-      aria-current={pathname.startsWith("/admin/settings") ? "page" : undefined}
+      aria-current={pathname === href || (href === "/admin/settings" && pathname.startsWith("/admin/visibility")) ? "page" : undefined}
       aria-label={label}
       className="nav-settings-link"
-      href="/admin/settings"
+      href={href}
       title={label}
     >
       <Settings2 aria-hidden="true" size={18} />

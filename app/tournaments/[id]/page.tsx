@@ -6,6 +6,7 @@ import { TournamentMatches } from "@/app/tournaments/[id]/tournament-matches";
 import { ClubCrest } from "@/src/components/club-crest";
 import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
 import { getCurrentUser } from "@/src/lib/auth";
+import { isClubEffectivelyActive } from "@/src/lib/entity-activity";
 import { categoryRestrictionLabel } from "@/src/lib/category-restrictions";
 import { getFeatureSettings, requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
@@ -52,7 +53,7 @@ export default async function TournamentDetailPage({ params }: { params: Promise
     prisma.competition.findUnique({
       where: { id },
       include: {
-        hostClub: true,
+        hostClub: { include: { federation: { select: { active: true } } } },
         categories: { include: { category: true, seeds: true, drawEntries: true, registrations: { include: { player: true } } } }
       }
     }),
@@ -67,9 +68,12 @@ export default async function TournamentDetailPage({ params }: { params: Promise
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
   const canEdit = isAdmin || tournament.hostClub?.managerUserId === currentUser?.id;
   const currentPlayer = currentUser
-    ? await prisma.player.findUnique({ where: { userId: currentUser.id }, select: { id: true, gender: true, birthDate: true } })
+    ? await prisma.player.findUnique({ where: { userId: currentUser.id }, select: { id: true, active: true, gender: true, birthDate: true } })
     : null;
-  const registrationOpen = tournament.registrationDeadline ? tournament.registrationDeadline >= new Date() : false;
+  const registrationOpen = Boolean(
+    tournament.registrationDeadline && tournament.registrationDeadline >= new Date() &&
+    tournament.hostClub && isClubEffectivelyActive(tournament.hostClub)
+  );
   const seedsByCategory = new Map(
     tournament.categories.flatMap((category) =>
       category.seeds.map((seed) => [`${category.id}:${seed.playerId}`, seed.seedNumber] as const)
@@ -126,7 +130,7 @@ export default async function TournamentDetailPage({ params }: { params: Promise
         {tournament.categories.map((competitionCategory) => {
           const isRegistered = Boolean(currentPlayer && competitionCategory.registrations.some((registration) => registration.playerId === currentPlayer.id));
           const isEligible = Boolean(
-            currentPlayer &&
+            currentPlayer?.active &&
               canPlayerRegisterForCategory(currentPlayer, competitionCategory.category, tournament.startsAt ?? new Date())
           );
           const hasDraw = competitionCategory.drawEntries.length > 0;

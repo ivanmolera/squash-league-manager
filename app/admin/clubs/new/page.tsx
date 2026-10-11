@@ -4,6 +4,7 @@ import { saveClubAction } from "@/app/admin/actions";
 import { ClubFields } from "@/app/admin/clubs/club-fields";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
+import { activeFederationWhere } from "@/src/lib/entity-activity";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function NewClubPage() {
   const [managers, federations, currentUser, dictionary] = await Promise.all([
     prisma.user.findMany({ include: { player: true }, orderBy: { email: "asc" } }),
-    prisma.federation.findMany({ orderBy: { name: "asc" } }),
+    prisma.federation.findMany({ where: activeFederationWhere, orderBy: { name: "asc" } }),
     getCurrentUser(),
     getDictionary()
   ]);

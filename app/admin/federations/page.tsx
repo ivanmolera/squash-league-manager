@@ -1,6 +1,8 @@
 import { saveFederationManagerAction } from "@/app/admin/actions";
+import Link from "next/link";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
+import { activeFederationWhere } from "@/src/lib/entity-activity";
 import { getDictionary } from "@/src/lib/i18n";
 import { formatUserManagerName } from "@/src/lib/names";
 import { prisma } from "@/src/lib/prisma";
@@ -13,6 +15,7 @@ export default async function FederationsPage() {
     getCurrentUser(),
     getDictionary(),
     prisma.federation.findMany({
+      where: activeFederationWhere,
       include: {
         manager: { include: { player: true } },
         ranking: true,
@@ -38,6 +41,7 @@ export default async function FederationsPage() {
       <section className="page-heading">
         <p className="eyebrow">{t.admin}</p>
         <h1>{t.federations}</h1>
+        <Link className="secondary-link" href="/admin/visibility?kind=federations">{t.entityActivity}</Link>
       </section>
       <section className="list-panel">
         {federations.map((federation) => (

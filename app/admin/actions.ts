@@ -15,6 +15,7 @@ import {
   courtWeekStart
 } from "@/src/lib/court-booking-time";
 import { featureKeys, isFeatureEnabled } from "@/src/lib/features";
+import { activeClubWhere, activePlayerWhere } from "@/src/lib/entity-activity";
 import { clubGeocodingQuery, geocodeClubAddress } from "@/src/lib/geocoding";
 import { getDictionary } from "@/src/lib/i18n";
 import { appBaseUrl, sendTransactionalEmail } from "@/src/lib/email";
@@ -79,6 +80,12 @@ const userOperationalRoleSchema = z.object({
 const federationManagerSchema = z.object({
   federationId: z.string().uuid(),
   managerUserId: z.string().uuid().optional().or(z.literal(""))
+});
+
+const entityActivitySchema = z.object({
+  entityType: z.enum(["player", "club", "federation"]),
+  entityId: z.string().uuid(),
+  active: z.enum(["true", "false"])
 });
 
 const userSuspensionSchema = z.object({
@@ -371,6 +378,9 @@ async function assertCourtBookingAllowed({
   allowOverlap?: boolean;
 }) {
   const { player } = await getCourtBookingPlayer(currentUserId);
+  if (player && !player.active) {
+    throw new Error("La ficha de jugador no está activa para nuevas reservas.");
+  }
   if (!canPlayerUseClubCourts({ publicCourtAccess: club.publicCourtAccess, player, clubId: club.id })) {
     throw new Error("Solo los jugadores abonados a este club pueden reservar sus pistas.");
   }
@@ -1216,6 +1226,18 @@ async function registerTournamentPlayer(competitionCategoryId: string, playerId:
     throw new Error("La inscripción ya está cerrada.");
   }
 
+  if (competitionCategory.competition.hostClubId) {
+    const hostActive = await prisma.club.count({
+      where: { ...activeClubWhere, id: competitionCategory.competition.hostClubId }
+    });
+    if (!hostActive) throw new Error("El club organizador no está activo para nuevas inscripciones.");
+  }
+
+  const playerActive = await prisma.player.count({ where: { ...activePlayerWhere, id: playerId } });
+  if (!playerActive) {
+    throw new Error("El jugador no está activo para nuevas inscripciones.");
+  }
+
   await assertPlayerEligibleForCompetitionCategory(competitionCategoryId, playerId);
 
   const player = await prisma.player.findUniqueOrThrow({
@@ -1622,6 +1644,89 @@ export async function saveFederationManagerAction(formData: FormData) {
   revalidatePath("/manager/tournaments");
 }
 
+export async function updateEntityActivityAction(formData: FormData) {
+  const currentUser = await requireUser();
+  const isAdmin = hasRole(currentUser, "admin");
+  const isFederationManager = hasRole(currentUser, "manager_fed");
+  const parsed = entityActivitySchema.parse({
+    entityType: textValue(formData.get("entityType")),
+    entityId: textValue(formData.get("entityId")),
+    active: textValue(formData.get("active"))
+  });
+  const active = parsed.active === "true";
+
+  if (!isAdmin && !(isFederationManager && parsed.entityType === "club")) {
+    throw new Error("No tienes permiso para modificar el estado de esta entidad.");
+  }
+
+  if (!isAdmin && !(await prisma.club.count({
+    where: { id: parsed.entityId, federation: { is: { managerUserId: currentUser.id } } }
+  }))) {
+    throw new Error("Solo puedes gestionar clubes de tu federación.");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    let changed = 0;
+
+    if (parsed.entityType === "player") {
+      const result = await tx.player.updateMany({
+        where: { id: parsed.entityId, active: !active, mergedIntoPlayerId: null },
+        data: { active, updatedAt: new Date() }
+      });
+      changed = result.count;
+    } else if (parsed.entityType === "club") {
+      const result = await tx.club.updateMany({
+        where: {
+          id: parsed.entityId,
+          active: !active,
+          ...(!isAdmin ? { federation: { is: { managerUserId: currentUser.id } } } : {})
+        },
+        data: { active, updatedAt: new Date() }
+      });
+      changed = result.count;
+    } else {
+      const result = await tx.federation.updateMany({
+        where: { id: parsed.entityId, active: !active },
+        data: { active, updatedAt: new Date() }
+      });
+      changed = result.count;
+    }
+
+    if (changed) {
+      await tx.entityActivityChange.create({
+        data: {
+          entityType: parsed.entityType,
+          entityId: parsed.entityId,
+          previousActive: !active,
+          active,
+          actorUserId: currentUser.id
+        }
+      });
+    }
+  });
+
+  revalidatePath("/");
+  revalidatePath("/admin/visibility");
+  revalidatePath("/admin/players");
+  revalidatePath("/admin/clubs");
+  revalidatePath("/admin/federations");
+  revalidatePath("/admin/leagues/new");
+  revalidatePath("/manager/tournaments/new");
+  if (parsed.entityType === "club") revalidatePath(`/clubs/${parsed.entityId}`);
+  if (parsed.entityType === "player") revalidatePath(`/players/${parsed.entityId}`);
+
+  const kind = textValue(formData.get("returnKind"));
+  const status = textValue(formData.get("returnStatus"));
+  const search = textValue(formData.get("returnSearch"))?.slice(0, 100);
+  const query = new URLSearchParams({
+    kind: kind === "players" || kind === "federations" ? kind : "clubs",
+    status: status === "active" || status === "inactive" ? status : "all",
+    saved: "1"
+  });
+  if (search) query.set("q", search);
+  redirect(`/admin/visibility?${query}`);
+}
+
 export async function updateUserSuspensionAction(formData: FormData) {
   const currentUser = await requireUser();
   if (!hasRole(currentUser, "admin")) {
@@ -1991,8 +2096,8 @@ export async function requestJoinClubAction(formData: FormData) {
       where: { id: parsed.playerId },
       include: { user: true }
     }),
-    prisma.club.findUnique({
-      where: { id: parsed.clubId },
+    prisma.club.findFirst({
+      where: { ...activeClubWhere, id: parsed.clubId },
       include: { manager: true }
     }),
     getMembershipSeason()
@@ -2006,8 +2111,12 @@ export async function requestJoinClubAction(formData: FormData) {
     throw new Error("Esta ficha está fusionada con otra ficha principal.");
   }
 
+  if (!player.active) {
+    throw new Error("La ficha de jugador no está activa.");
+  }
+
   if (!club) {
-    throw new Error("Club no encontrado.");
+    throw new Error("El club no está activo para nuevas solicitudes.");
   }
 
   const currentMembership = await prisma.playerClubMembership.findFirst({
@@ -2487,6 +2596,19 @@ export async function saveLeagueAction(formData: FormData) {
     participantIds: toArray(formData, "participantIds")
   });
 
+  if (!parsed.competitionId) {
+    if (parsed.hostClubId && !(await prisma.club.count({ where: { ...activeClubWhere, id: parsed.hostClubId } }))) {
+      throw new Error("El club no está activo para nuevas ligas.");
+    }
+    const participantIds = [...new Set(parsed.participantIds)];
+    const activeParticipants = parsed.type === "individual_league"
+      ? await prisma.player.count({ where: { ...activePlayerWhere, id: { in: participantIds } } })
+      : await prisma.club.count({ where: { ...activeClubWhere, id: { in: participantIds } } });
+    if (activeParticipants !== participantIds.length) {
+      throw new Error("Hay participantes inactivos en la nueva liga.");
+    }
+  }
+
   const season = await getDefaultSeason();
   const category = await getDefaultCategory();
   const rankingScope = rankingScopeForCode(parsed.rankingCode);
@@ -2769,6 +2891,15 @@ export async function saveTournamentAction(formData: FormData) {
       select: { id: true }
     });
     organizerFederationId = matchingFederation?.id ?? null;
+  }
+
+  if (!parsed.competitionId) {
+    if (!(await prisma.club.count({ where: { ...activeClubWhere, id: parsed.hostClubId } }))) {
+      throw new Error("El club sede no está activo para nuevos torneos.");
+    }
+    if (organizerFederationId && !(await prisma.federation.count({ where: { id: organizerFederationId, active: true } }))) {
+      throw new Error("La federación no está activa para nuevos torneos.");
+    }
   }
 
   if (!isAdmin) {
@@ -3309,8 +3440,8 @@ export async function reserveCourtAction(formData: FormData) {
     throw new Error("La franja seleccionada no se puede reservar.");
   }
 
-  const club = await prisma.club.findUniqueOrThrow({
-    where: { id: parsed.clubId },
+  const club = await prisma.club.findFirstOrThrow({
+    where: { ...activeClubWhere, id: parsed.clubId },
     select: { id: true, availableCourts: true, managesCourtBookings: true, publicCourtAccess: true }
   });
 
@@ -3369,8 +3500,8 @@ export async function proposeMatchAction(formData: FormData) {
     throw new Error("La franja seleccionada no se puede reservar.");
   }
 
-  const club = await prisma.club.findUniqueOrThrow({
-    where: { id: parsed.clubId },
+  const club = await prisma.club.findFirstOrThrow({
+    where: { ...activeClubWhere, id: parsed.clubId },
     select: { id: true, availableCourts: true, managesCourtBookings: true, publicCourtAccess: true }
   });
 
@@ -3446,7 +3577,7 @@ export async function acceptMatchProposalAction(formData: FormData) {
   const proposal = await prisma.matchProposal.findUniqueOrThrow({
     where: { id: parsed.proposalId },
     include: {
-      club: { select: { id: true, managerUserId: true, publicCourtAccess: true } },
+      club: { select: { id: true, active: true, federation: { select: { active: true } }, managerUserId: true, publicCourtAccess: true } },
       courtReservation: true
     }
   });
@@ -3455,9 +3586,17 @@ export async function acceptMatchProposalAction(formData: FormData) {
     throw new Error("La propuesta ya no está disponible.");
   }
 
+  if (!proposal.club.active || proposal.club.federation?.active === false) {
+    throw new Error("El club ya no está activo para aceptar partidos.");
+  }
+
   const { player } = await getCourtBookingPlayer(currentUser.id);
   if (!player) {
     throw new Error("Necesitas tener una ficha de jugador para aceptar partidos.");
+  }
+
+  if (!player.active) {
+    throw new Error("La ficha de jugador no está activa para aceptar partidos.");
   }
 
   if (player.id === proposal.proposerPlayerId) {

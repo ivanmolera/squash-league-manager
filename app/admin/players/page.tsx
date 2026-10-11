@@ -2,6 +2,7 @@ import Link from "next/link";
 import { updateUserOperationalRoleAction, updateUserSuspensionAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
+import { activePlayerWhere } from "@/src/lib/entity-activity";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 
@@ -38,7 +39,7 @@ function PlayerListThumbnail({
 export default async function PlayersPage() {
   const [players, currentUser, dictionary] = await Promise.all([
     prisma.player.findMany({
-      where: { mergedIntoPlayerId: null },
+      where: activePlayerWhere,
       include: {
         user: { include: { roles: true } },
         memberships: {
@@ -55,7 +56,7 @@ export default async function PlayersPage() {
   ]);
   const { t } = dictionary;
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
-  const ownPlayerId = players.find((player) => player.userId === currentUser?.id)?.id;
+  const ownPlayerId = currentUser?.player?.id;
   const canCreateOwnProfile = Boolean(currentUser && !ownPlayerId);
   const groupedPlayers = players.reduce<Array<{ initial: string; players: typeof players }>>((groups, player) => {
     const initial = playerInitial(player.lastName);
@@ -75,6 +76,7 @@ export default async function PlayersPage() {
           {isAdmin ? <Link className="primary-link" href="/admin/players/new">{t.createNewProfile}</Link> : null}
           {!isAdmin && canCreateOwnProfile ? <Link className="primary-link" href="/players/me">{t.createNewProfile}</Link> : null}
           {isAdmin ? <Link className="secondary-link" href="/admin/players/duplicates">{t.duplicateManagement}</Link> : null}
+          {isAdmin ? <Link className="secondary-link" href="/admin/visibility?kind=players">{t.entityActivity}</Link> : null}
         </div>
       </section>
 

@@ -4,6 +4,7 @@ import { HomeTournamentCarousel, type HomeTournamentSlide } from "@/app/home-tou
 import { Navigation } from "@/app/navigation";
 import { ClubCrest } from "@/src/components/club-crest";
 import { getCurrentUser } from "@/src/lib/auth";
+import { activeClubWhere, activePlayerWhere } from "@/src/lib/entity-activity";
 import { getFeatureSettings } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
@@ -71,14 +72,14 @@ export default async function Home() {
     getCurrentUser(),
     getDictionary(),
     prisma.club.findMany({
-      where: { logoUrl: { not: null } },
+      where: { ...activeClubWhere, logoUrl: { not: null } },
       orderBy: [{ province: "asc" }, { name: "asc" }],
       select: { id: true, name: true, logoUrl: true },
       take: 18
     }),
     getFeatureSettings(),
-    prisma.player.count({ where: { mergedIntoPlayerId: null } }),
-    prisma.club.count(),
+    prisma.player.count({ where: activePlayerWhere }),
+    prisma.club.count({ where: activeClubWhere }),
     prisma.competition.count({ where: { type: { in: ["individual_league", "team_league"] } } }),
     prisma.competition.count({ where: { type: "tournament" } })
   ]);

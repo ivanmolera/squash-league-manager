@@ -180,6 +180,7 @@ model User {
   completedMatchProposals MatchProposal[] @relation("MatchProposalCompletedBy")
   cancelledMatchProposals MatchProposal[] @relation("MatchProposalCancelledBy")
   createdFeatureSettings AppFeatureSetting[]
+  entityActivityChanges EntityActivityChange[]
   suspendedBy User?                 @relation("UserSuspensions", fields: [suspendedByUserId], references: [id], onDelete: SetNull)
   suspendedUsers User[]             @relation("UserSuspensions")
 
@@ -244,6 +245,7 @@ model UserRoleAssignment {
 
 model Player {
   id                    String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  active                Boolean                   @default(true)
   userId                String?                   @unique @map("user_id") @db.Uuid
   firstName             String                    @map("first_name")
   lastName              String                    @map("last_name")
@@ -284,6 +286,7 @@ model Player {
   acceptedMatchProposals MatchProposal[] @relation("MatchProposalAcceptorPlayer")
   wonMatchProposals MatchProposal[] @relation("MatchProposalWinnerPlayer")
 
+  @@index([active])
   @@map("players")
 }
 
@@ -326,6 +329,7 @@ model PlayerMergeLog {
 
 model Club {
   id            String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  active        Boolean                @default(true)
   name          String                 @unique
   city          String?
   province      String?
@@ -357,6 +361,7 @@ model Club {
   matchProposals MatchProposal[]
   closedDays CourtClosedDay[]
 
+  @@index([active])
   @@map("clubs")
 }
 
@@ -392,6 +397,7 @@ model Ranking {
 
 model Federation {
   id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  active        Boolean       @default(true)
   code          String        @unique @db.VarChar(12)
   name          String
   contactName   String?       @map("contact_name")
@@ -413,7 +419,22 @@ model Federation {
   clubs         Club[]
   competitions  Competition[]
 
+  @@index([active])
   @@map("federations")
+}
+
+model EntityActivityChange {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityType    String   @map("entity_type") @db.VarChar(16)
+  entityId      String   @map("entity_id") @db.Uuid
+  previousActive Boolean @map("previous_active")
+  active        Boolean
+  actorUserId   String   @map("actor_user_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  actor         User     @relation(fields: [actorUserId], references: [id])
+
+  @@index([entityType, entityId, createdAt])
+  @@map("entity_activity_changes")
 }
 
 model CourtReservation {

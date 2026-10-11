@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/src/lib/auth";
 import { getDictionary } from "@/src/lib/i18n";
 import { BarChart3, CalendarCheck, CalendarDays, ClipboardCheck, MapPin, MessageSquare, PencilLine, Swords, Trophy, UserPlus, Users, type LucideIcon } from "lucide-react";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 
 const featureLabelKeys: Record<FeatureKey, string> = {
   leagues: "featureLeagues",
@@ -58,6 +59,7 @@ export default async function AdminSettingsPage({
         <p className="eyebrow">{t.admin}</p>
         <h1>{t.applicationSettings}</h1>
         <p className="muted">{t.applicationSettingsIntro}</p>
+        <div className="heading-actions"><Link className="secondary-link" href="/admin/visibility">{t.entityActivity}</Link></div>
         {query?.saved === "1" ? <SaveConfirmation message={t.savedSettings} /> : null}
       </section>
       <form className="admin-form" action={saveFeatureSettingsAction}>

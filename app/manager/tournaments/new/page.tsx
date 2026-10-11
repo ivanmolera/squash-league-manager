@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { TournamentForm } from "@/app/manager/tournaments/tournament-form";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
+import { activeClubWhere, activeFederationWhere } from "@/src/lib/entity-activity";
 import { requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
@@ -13,8 +14,8 @@ export default async function NewTournamentPage() {
   await requireFeature("tournaments");
   const [categories, clubs, federations, currentUser, dictionary] = await Promise.all([
     prisma.category.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
-    prisma.club.findMany({ include: { federation: true }, orderBy: [{ province: "asc" }, { name: "asc" }] }),
-    prisma.federation.findMany({ include: { ranking: true }, orderBy: [{ name: "asc" }] }),
+    prisma.club.findMany({ where: activeClubWhere, include: { federation: true }, orderBy: [{ province: "asc" }, { name: "asc" }] }),
+    prisma.federation.findMany({ where: activeFederationWhere, include: { ranking: true }, orderBy: [{ name: "asc" }] }),
     getCurrentUser(),
     getDictionary()
   ]);

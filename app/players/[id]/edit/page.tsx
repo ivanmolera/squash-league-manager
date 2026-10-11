@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { changePlayerPasswordAction, reopenPlayerSkillQuestionnaireAction, requestJoinClubAction, savePlayerAction, savePlayerSkillQuestionnaireAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
+import { activeClubWhere } from "@/src/lib/entity-activity";
 import { getFeatureSettings } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
@@ -46,7 +47,7 @@ export default async function EditPlayerPage({
       },
       orderBy: { startsAt: "desc" }
     }),
-    prisma.club.findMany({ include: { manager: true }, orderBy: [{ province: "asc" }, { name: "asc" }] })
+    prisma.club.findMany({ where: activeClubWhere, include: { manager: true }, orderBy: [{ province: "asc" }, { name: "asc" }] })
   ]);
   const { t } = dictionary;
   if (!player) notFound();
