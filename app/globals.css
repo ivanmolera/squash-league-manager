@@ -4968,27 +4968,30 @@ body:has(.mobile-view-shell) > .back-to-top {
   }
 
   .ranking-category-section .data-table {
+    display: block;
     min-width: 0;
     width: 100%;
   }
 
-  .ranking-results-table .ranking-position-column {
-    width: 52px;
+  .ranking-results-table colgroup {
+    display: none;
   }
 
-  .ranking-results-table .ranking-player-column {
+  .ranking-results-table thead,
+  .ranking-results-table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .ranking-results-table tr {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr) 90px;
+    width: 100%;
+  }
+
+  .ranking-results-table th,
+  .ranking-results-table td {
     width: auto;
-  }
-
-  .ranking-results-table .ranking-points-column {
-    width: 90px;
-  }
-
-  .ranking-results-table .ranking-tournaments-column,
-  .ranking-results-table .ranking-average-column,
-  .ranking-results-table .ranking-wins-column {
-    visibility: collapse;
-    width: 0;
   }
 
   .mobile-draw-link {
