@@ -4446,6 +4446,12 @@ html[data-theme="light"] .club-directory-map-canvas .leaflet-tile-pane {
     grid-row: 2;
   }
 
+  .nav-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: 100%;
+  }
+
   .nav-has-settings .nav-links {
     grid-row: 3;
   }
