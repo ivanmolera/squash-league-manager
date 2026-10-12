@@ -608,7 +608,7 @@ h1 {
   display: grid;
   gap: 14px;
   margin-top: 24px;
-  min-height: 148px;
+  min-height: 296px;
   padding: 22px 26px;
 }
 
@@ -4896,6 +4896,10 @@ body:has(.mobile-view-shell) > .back-to-top {
 }
 
 @media (max-width: 640px) {
+  .home-carousel {
+    min-height: 255px;
+  }
+
   .home-carousel.has-poster {
     gap: 12px;
     grid-template-columns: minmax(0, 1fr) 110px;
