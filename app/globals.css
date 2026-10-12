@@ -2232,24 +2232,24 @@ h1 {
   table-layout: fixed;
 }
 
-.ranking-results-table th:nth-child(1) {
+.ranking-results-table .ranking-position-column {
   width: 7%;
 }
 
-.ranking-results-table th:nth-child(2) {
+.ranking-results-table .ranking-player-column {
   width: 43%;
 }
 
-.ranking-results-table th:nth-child(3),
-.ranking-results-table th:nth-child(4) {
+.ranking-results-table .ranking-points-column,
+.ranking-results-table .ranking-tournaments-column {
   width: 13%;
 }
 
-.ranking-results-table th:nth-child(5) {
+.ranking-results-table .ranking-average-column {
   width: 15%;
 }
 
-.ranking-results-table th:nth-child(6) {
+.ranking-results-table .ranking-wins-column {
   width: 9%;
 }
 
@@ -4972,16 +4972,23 @@ body:has(.mobile-view-shell) > .back-to-top {
     width: 100%;
   }
 
-  .ranking-results-table th:nth-child(1) {
+  .ranking-results-table .ranking-position-column {
     width: 14%;
   }
 
-  .ranking-results-table th:nth-child(2) {
+  .ranking-results-table .ranking-player-column {
     width: 58%;
   }
 
-  .ranking-results-table th:nth-child(3) {
+  .ranking-results-table .ranking-points-column {
     width: 28%;
+  }
+
+  .ranking-results-table .ranking-tournaments-column,
+  .ranking-results-table .ranking-average-column,
+  .ranking-results-table .ranking-wins-column {
+    visibility: collapse;
+    width: 0;
   }
 
   .mobile-draw-link {

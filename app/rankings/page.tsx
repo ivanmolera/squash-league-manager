@@ -61,6 +61,14 @@ export default async function RankingsPage({
                 <section className="ranking-category-section" key={group.categoryId}>
                   <h3>{localizeCategoryName(group.categoryName, locale)}</h3>
                   <table className="data-table ranking-results-table">
+                    <colgroup>
+                      <col className="ranking-position-column" />
+                      <col className="ranking-player-column" />
+                      <col className="ranking-points-column" />
+                      <col className="ranking-tournaments-column" />
+                      <col className="ranking-average-column" />
+                      <col className="ranking-wins-column" />
+                    </colgroup>
                     <thead>
                       <tr><th>#</th><th>{t.player}</th><th>{t.points}</th><th>{t.tournaments}</th><th>{t.average}</th><th title={t.won} aria-label={t.won}>G</th></tr>
                     </thead>
