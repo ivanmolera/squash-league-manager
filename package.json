@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "deploy:gcp": "gcloud builds submit --config=cloudbuild.yaml --project=squash-league-ivan .",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",

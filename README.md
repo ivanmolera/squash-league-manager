@@ -91,3 +91,11 @@ La app debe desplegarse en un proyecto de Google Cloud dedicado:
 - Secreto `DATABASE_URL`: `squash-database-url`
 
 No desplegar sobre `euclid-umap-app`, que pertenece a otra aplicacion y vive en otro proyecto.
+
+El pipeline de Cloud Build reutiliza una imagen de dependencias en Artifact Registry para
+evitar reinstalar paquetes y regenerar Prisma cuando no hayan cambiado. Para construir,
+publicar y desplegar una revision con el 100 % del trafico ejecuta:
+
+```bash
+npm run deploy:gcp
+```

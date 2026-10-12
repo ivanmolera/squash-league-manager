@@ -1,8 +1,12 @@
 .git
 .github
+.gcloudignore
+cloudbuild.yaml
 .next
 node_modules
 npm-debug.log
 .env
 .env.*
 tsconfig.tsbuildinfo
+docs
+README.md

@@ -1,0 +1,80 @@
+substitutions:
+  _REGION: europe-west1
+  _REPOSITORY: cloud-run-source-deploy
+  _IMAGE: squash-league-manager
+  _SERVICE: squash-league-manager
+
+steps:
+  - id: pull-dependency-cache
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    args:
+      - -c
+      - >-
+        docker pull
+        ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:dependency-cache
+        || true
+
+  - id: build-dependencies
+    name: gcr.io/cloud-builders/docker
+    env:
+      - DOCKER_BUILDKIT=1
+    args:
+      - build
+      - --target
+      - dependencies
+      - --cache-from
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:dependency-cache
+      - --build-arg
+      - BUILDKIT_INLINE_CACHE=1
+      - --tag
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:dependency-cache
+      - .
+
+  - id: push-dependency-cache
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:dependency-cache
+
+  - id: build-release
+    name: gcr.io/cloud-builders/docker
+    env:
+      - DOCKER_BUILDKIT=1
+    args:
+      - build
+      - --cache-from
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:dependency-cache
+      - --tag
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$BUILD_ID
+      - .
+
+  - id: push-release
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$BUILD_ID
+
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    waitFor:
+      - push-release
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        gcloud run deploy "${_SERVICE}" \
+          --project="$PROJECT_ID" \
+          --region="${_REGION}" \
+          --platform=managed \
+          --image="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$BUILD_ID" \
+          --quiet
+        gcloud run services update-traffic "${_SERVICE}" \
+          --project="$PROJECT_ID" \
+          --region="${_REGION}" \
+          --platform=managed \
+          --to-latest \
+          --quiet
+
+timeout: 1200s
