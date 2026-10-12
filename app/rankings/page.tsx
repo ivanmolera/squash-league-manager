@@ -60,7 +60,7 @@ export default async function RankingsPage({
               {selectedRanking.groups.map((group) => (
                 <section className="ranking-category-section" key={group.categoryId}>
                   <h3>{localizeCategoryName(group.categoryName, locale)}</h3>
-                  <table className="data-table">
+                  <table className="data-table ranking-results-table">
                     <thead>
                       <tr><th>#</th><th>{t.player}</th><th>{t.points}</th><th>{t.tournaments}</th><th>{t.average}</th><th title={t.won} aria-label={t.won}>G</th></tr>
                     </thead>
