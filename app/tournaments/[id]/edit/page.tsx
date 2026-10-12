@@ -5,7 +5,7 @@ import { GenerateDrawButton } from "@/app/tournaments/generate-draw-button";
 import { TournamentMatches } from "@/app/tournaments/[id]/tournament-matches";
 import { RankingCodePicker } from "@/src/components/ranking-code-picker";
 import { getActiveRankingCodes } from "@/src/lib/active-ranking-codes";
-import { getCurrentUser } from "@/src/lib/auth";
+import { getCurrentUser, isManagerFor } from "@/src/lib/auth";
 import { localizeCategoryName } from "@/src/lib/category-names";
 import { getFeatureSettings, requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
@@ -101,16 +101,16 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
   if (!tournament || tournament.type !== "tournament") notFound();
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
   const isFederationManager = Boolean(currentUser?.roles.some((role) => role.role === "manager_fed"));
-  const editableFederations = isAdmin ? federations : federations.filter((federation) => federation.managerUserId === currentUser?.id);
+  const editableFederations = isAdmin ? federations : federations.filter((federation) => isManagerFor(currentUser, federation.managerUserId));
   const editableFederationIds = new Set(editableFederations.map((federation) => federation.id));
   const canEdit = isAdmin ||
-    tournament.hostClub?.managerUserId === currentUser?.id ||
+    isManagerFor(currentUser, tournament.hostClub?.managerUserId) ||
     Boolean(isFederationManager && tournament.organizerFederationId && editableFederationIds.has(tournament.organizerFederationId));
   if (!canEdit) notFound();
 
   const editableClubs = isAdmin
     ? clubs
-    : clubs.filter((club) => club.managerUserId === currentUser?.id || (club.federationId && editableFederationIds.has(club.federationId)));
+    : clubs.filter((club) => isManagerFor(currentUser, club.managerUserId) || (club.federationId && editableFederationIds.has(club.federationId)));
   const selectedCategoryIds = new Set(tournament.categories.map((category) => category.categoryId));
   const selectedSeeds = new Set(
     tournament.categories.flatMap((category) => category.seeds.map((seed) => `${category.id}:${seed.playerId}`))

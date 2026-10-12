@@ -14,7 +14,7 @@ import { ClubLeagueStandings } from "./club-league-standings";
 import { ClubCrest } from "@/src/components/club-crest";
 import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
 import { autonomousCommunityForClub } from "@/src/lib/autonomous-communities";
-import { getCurrentUser } from "@/src/lib/auth";
+import { getCurrentUser, isManagerFor } from "@/src/lib/auth";
 import { clubMapUrl } from "@/src/lib/club-map";
 import { isClubEffectivelyActive } from "@/src/lib/entity-activity";
 import {
@@ -221,7 +221,7 @@ export default async function ClubDetailPage({
   if (!club) notFound();
 
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
-  const canEdit = isAdmin || club.managerUserId === currentUser?.id;
+  const canEdit = isAdmin || isManagerFor(currentUser, club.managerUserId);
   const canSeeContact = canEdit || club.showContactPublic;
   const membershipsBySeason = groupMembershipsBySeason(club.memberships);
   const mapUrl = features.club_maps && canSeeContact ? clubMapUrl(club) : null;

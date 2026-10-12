@@ -93,7 +93,7 @@ export default async function PlayersPage({ searchParams }: { searchParams?: Pro
           {isAdmin ? <Link className="primary-link" href="/admin/players/new">{t.createNewProfile}</Link> : null}
           {!isAdmin && canCreateOwnProfile ? <Link className="primary-link" href="/players/me">{t.createNewProfile}</Link> : null}
           {isAdmin ? <Link className="secondary-link" href="/admin/players/duplicates">{t.duplicateManagement}</Link> : null}
-          {isAdmin ? <Link className="secondary-link" href="/admin/visibility?kind=players">{t.entityActivity}</Link> : null}
+          {isAdmin ? <Link className="secondary-link" href="/admin/visibility?kind=users">{t.entityActivity}</Link> : null}
         </div>
       </section>
 

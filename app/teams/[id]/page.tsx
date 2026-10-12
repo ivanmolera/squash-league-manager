@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Navigation } from "@/app/navigation";
-import { getCurrentUser } from "@/src/lib/auth";
+import { getCurrentUser, isManagerFor } from "@/src/lib/auth";
 import { requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { formatPlayerListName } from "@/src/lib/names";
@@ -30,7 +30,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
   if (!team) notFound();
 
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
-  const canEdit = isAdmin || team.club.managerUserId === currentUser?.id;
+  const canEdit = isAdmin || isManagerFor(currentUser, team.club.managerUserId);
   const canSeeRoster = canEdit || team.showRosterPublic;
 
   return (

@@ -6,7 +6,7 @@ import { ClubCrest } from "@/src/components/club-crest";
 import { SaveConfirmation } from "@/app/leagues/[id]/edit/save-confirmation";
 import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
 import { autonomousCommunityForClub } from "@/src/lib/autonomous-communities";
-import { getCurrentUser } from "@/src/lib/auth";
+import { getCurrentUser, isManagerFor } from "@/src/lib/auth";
 import { activeClubWhere } from "@/src/lib/entity-activity";
 import { getFeatureSettings } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
@@ -89,7 +89,7 @@ export default async function ClubsPage({
                 const address = club.address ?? t.noAddress;
                 const city = club.city ?? t.noCity;
                 const managerName = formatClubManagerName(club.managerPlayer, club.manager);
-                const canEdit = isAdmin || club.managerUserId === currentUser?.id;
+                const canEdit = isAdmin || isManagerFor(currentUser, club.managerUserId);
 
                 return (
                   <article className="club-list-row" key={club.id}>

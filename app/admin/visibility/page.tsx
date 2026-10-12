@@ -12,7 +12,7 @@ import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-type EntityKind = "players" | "clubs" | "federations";
+type EntityKind = "users" | "clubs" | "federations";
 type StatusFilter = "all" | "active" | "inactive";
 
 type ActivityRow = {
@@ -23,6 +23,7 @@ type ActivityRow = {
   effectiveActive: boolean;
   inheritedInactive: boolean;
   href: string | null;
+  entityType: "player" | "club" | "federation" | null;
 };
 
 export default async function EntityActivityPage({
@@ -36,18 +37,17 @@ export default async function EntityActivityPage({
   const isFederationManager = Boolean(currentUser?.roles.some((role) => role.role === "manager_fed"));
   if (!currentUser || (!isAdmin && !isFederationManager)) notFound();
 
-  const kind: EntityKind = isAdmin && (query?.kind === "players" || query?.kind === "federations")
-    ? query.kind
+  const kind: EntityKind = isAdmin && (query?.kind === "users" || query?.kind === "players" || query?.kind === "federations")
+    ? query.kind === "players" ? "users" : query.kind
     : "clubs";
   const status: StatusFilter = query?.status === "active" || query?.status === "inactive" ? query.status : "all";
   const search = query?.q?.trim().slice(0, 100) ?? "";
   let rows: ActivityRow[] = [];
 
-  if (kind === "players") {
-    const players = await prisma.player.findMany({
+  if (kind === "users") {
+    const [players, accountOnlyUsers] = await Promise.all([prisma.player.findMany({
       where: {
         mergedIntoPlayerId: null,
-        isSportsProfile: true,
         ...(status === "active" ? { active: true } : status === "inactive" ? { active: false } : {}),
         ...(search ? { OR: [
           { firstName: { contains: search, mode: "insensitive" } },
@@ -56,18 +56,40 @@ export default async function EntityActivityPage({
           { user: { is: { email: { contains: search, mode: "insensitive" } } } }
         ] } : {})
       },
-      include: { user: { select: { email: true } } },
+      include: { user: { select: { email: true, emailVerified: true } } },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
-    });
-    rows = players.map((player) => ({
+    }), prisma.user.findMany({
+      where: {
+        AND: [
+          { OR: [{ player: { is: null } }, { player: { is: { mergedIntoPlayerId: { not: null } } } }] },
+          ...(search ? [{ OR: [
+            { displayName: { contains: search, mode: "insensitive" as const } },
+            { email: { contains: search, mode: "insensitive" as const } }
+          ] }] : [])
+        ],
+        ...(status === "active" ? { suspendedAt: null } : status === "inactive" ? { suspendedAt: { not: null } } : {}),
+      },
+      orderBy: [{ displayName: "asc" }, { email: "asc" }]
+    })]);
+    rows = [...players.map((player) => ({
       id: player.id,
       name: `${player.lastName}, ${player.firstName}`,
-      detail: player.user?.email ?? player.contactEmail ?? null,
+      detail: [player.isSportsProfile ? t.player : t.responsibleOnlyType, player.user?.email ?? player.contactEmail].filter(Boolean).join(" · "),
       active: player.active,
       effectiveActive: player.active,
       inheritedInactive: false,
-      href: `/players/${player.id}`
-    }));
+      href: player.isSportsProfile ? `/players/${player.id}` : null,
+      entityType: "player" as const
+    })), ...accountOnlyUsers.map((account) => ({
+      id: account.id,
+      name: account.displayName ?? account.email,
+      detail: `${t.accountWithoutProfile} · ${account.email}`,
+      active: !account.suspendedAt,
+      effectiveActive: !account.suspendedAt,
+      inheritedInactive: false,
+      href: null,
+      entityType: null
+    }))].sort((a, b) => a.name.localeCompare(b.name));
   } else if (kind === "clubs") {
     const clubs = await prisma.club.findMany({
       where: {
@@ -91,7 +113,8 @@ export default async function EntityActivityPage({
       active: club.active,
       effectiveActive: isClubEffectivelyActive(club),
       inheritedInactive: club.active && club.federation?.active === false,
-      href: `/clubs/${club.id}`
+      href: `/clubs/${club.id}`,
+      entityType: "club"
     }));
   } else {
     const federations = await prisma.federation.findMany({
@@ -112,7 +135,8 @@ export default async function EntityActivityPage({
       active: federation.active,
       effectiveActive: federation.active,
       inheritedInactive: false,
-      href: null
+      href: null,
+      entityType: "federation"
     }));
   }
 
@@ -135,9 +159,9 @@ export default async function EntityActivityPage({
 
       {isAdmin ? (
         <nav className="activity-tabs" aria-label={t.entityActivity}>
-          {(["players", "clubs", "federations"] as const).map((tab) => (
+          {(["users", "clubs", "federations"] as const).map((tab) => (
             <Link aria-current={kind === tab ? "page" : undefined} href={tabHref(tab)} key={tab}>
-              {t[tab]}
+              {tab === "users" ? t.users : t[tab]}
             </Link>
           ))}
         </nav>
@@ -160,7 +184,7 @@ export default async function EntityActivityPage({
         <button type="submit">{t.filter}</button>
       </form>
 
-      <section aria-label={t[kind]} className="activity-list">
+      <section aria-label={kind === "users" ? t.users : t[kind]} className="activity-list">
         {rows.length === 0 ? <p className="muted">{t.noEntities}</p> : null}
         {rows.map((row) => (
           <article className="activity-row" key={row.id}>
@@ -172,8 +196,8 @@ export default async function EntityActivityPage({
             <span className={`activity-badge${row.effectiveActive ? " is-active" : ""}`}>
               {row.effectiveActive ? t.activeEntity : t.inactiveEntity}
             </span>
-            <form action={updateEntityActivityAction}>
-              <input name="entityType" type="hidden" value={kind.slice(0, -1)} />
+            {row.entityType ? <form action={updateEntityActivityAction}>
+              <input name="entityType" type="hidden" value={row.entityType} />
               <input name="entityId" type="hidden" value={row.id} />
               <input name="active" type="hidden" value={String(!row.active)} />
               <input name="returnKind" type="hidden" value={kind} />
@@ -183,7 +207,7 @@ export default async function EntityActivityPage({
                 {row.active ? <EyeOff aria-hidden="true" size={17} /> : <Eye aria-hidden="true" size={17} />}
                 <span>{row.active ? t.deactivateEntity : t.activateEntity}</span>
               </button>
-            </form>
+            </form> : null}
           </article>
         ))}
       </section>

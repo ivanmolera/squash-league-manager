@@ -3,7 +3,7 @@ import { TournamentFilters } from "@/app/manager/tournaments/tournament-filters"
 import { Navigation } from "@/app/navigation";
 import { ClubCrest } from "@/src/components/club-crest";
 import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
-import { getCurrentUser } from "@/src/lib/auth";
+import { getCurrentUser, isManagerFor } from "@/src/lib/auth";
 import { localizeCategoryName } from "@/src/lib/category-names";
 import { requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
@@ -85,11 +85,11 @@ export default async function TournamentsPage({
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
   const isManager = Boolean(currentUser?.roles.some((role) => role.role === "manager"));
   const isFederationManager = Boolean(currentUser?.roles.some((role) => role.role === "manager_fed"));
-  const editableFederations = isAdmin ? federations : federations.filter((federation) => federation.managerUserId === currentUser?.id);
+  const editableFederations = isAdmin ? federations : federations.filter((federation) => isManagerFor(currentUser, federation.managerUserId));
   const editableFederationIds = new Set(editableFederations.map((federation) => federation.id));
   const editableClubs = isAdmin
     ? clubs
-    : clubs.filter((club) => club.managerUserId === currentUser?.id || (club.federationId && editableFederationIds.has(club.federationId)));
+    : clubs.filter((club) => isManagerFor(currentUser, club.managerUserId) || (club.federationId && editableFederationIds.has(club.federationId)));
   const canEdit = isAdmin || isManager || isFederationManager;
   const tabHref = (nextTab: TournamentTab) => {
     const params = new URLSearchParams({ tab: nextTab });

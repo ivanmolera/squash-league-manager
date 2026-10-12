@@ -7,6 +7,7 @@ export type HomeTournamentSlide = {
   id: string;
   href: string;
   title: string;
+  posterUrl: string | null;
   statusLabel: string;
   dateLabel: string;
   locationLabel: string;
@@ -15,10 +16,12 @@ export type HomeTournamentSlide = {
 
 export function HomeTournamentCarousel({
   slides,
-  title
+  title,
+  posterLabel
 }: {
   slides: HomeTournamentSlide[];
   title: string;
+  posterLabel: string;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -37,7 +40,7 @@ export function HomeTournamentCarousel({
   const activeSlide = slides[activeIndex];
 
   return (
-    <section className="home-carousel" aria-label={title}>
+    <section className={`home-carousel${activeSlide.posterUrl ? " has-poster" : ""}`} aria-label={title}>
       <div className="home-carousel-copy">
         <span>{activeSlide.statusLabel}</span>
         <h2><Link href={activeSlide.href}>{activeSlide.title}</Link></h2>
@@ -45,6 +48,11 @@ export function HomeTournamentCarousel({
         <p>{activeSlide.locationLabel}</p>
         <strong>{activeSlide.detailLabel}</strong>
       </div>
+      {activeSlide.posterUrl ? (
+        <Link className="home-carousel-poster" href={activeSlide.href} aria-label={`${posterLabel}: ${activeSlide.title}`}>
+          <img src={activeSlide.posterUrl} alt={`${posterLabel}: ${activeSlide.title}`} />
+        </Link>
+      ) : null}
       {slides.length > 1 ? (
         <div className="home-carousel-dots" aria-hidden="true">
           {slides.map((slide, index) => (

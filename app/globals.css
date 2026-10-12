@@ -615,6 +615,31 @@ h1 {
 .home-carousel-copy {
   display: grid;
   gap: 6px;
+  min-width: 0;
+}
+
+.home-carousel.has-poster {
+  grid-template-columns: minmax(0, 1fr) minmax(116px, 176px);
+}
+
+.home-carousel-poster {
+  align-items: center;
+  align-self: stretch;
+  display: flex;
+  justify-content: center;
+  min-height: 164px;
+}
+
+.home-carousel-poster img {
+  display: block;
+  height: 100%;
+  max-height: 228px;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.home-carousel.has-poster .home-carousel-dots {
+  grid-column: 1 / -1;
 }
 
 .home-carousel-copy span {
@@ -4753,7 +4778,143 @@ html[data-theme="light"] .club-directory-map-canvas .leaflet-tile-pane {
   display: none;
 }
 
+.nav-view-toggle,
+.nav-view-mode summary {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--foreground);
+  cursor: pointer;
+  display: flex;
+  height: 36px;
+  justify-content: center;
+  list-style: none;
+  padding: 0;
+  width: 36px;
+}
+
+.nav-view-toggle.is-active {
+  border-color: var(--accent-strong);
+  color: var(--accent-strong);
+}
+
+.nav-view-mode {
+  position: relative;
+}
+
+.nav-view-mode summary::-webkit-details-marker {
+  display: none;
+}
+
+.nav-view-mode-options {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 12px 26px rgb(0 0 0 / 20%);
+  display: grid;
+  gap: 2px;
+  min-width: 188px;
+  padding: 5px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 35;
+}
+
+.nav-view-mode-options button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: var(--foreground);
+  display: flex;
+  gap: 10px;
+  padding: 9px 10px;
+  text-align: left;
+  width: 100%;
+}
+
+.nav-view-mode-options button:hover {
+  background: var(--nav-active);
+}
+
+.mobile-view-shell {
+  align-items: center;
+  background: var(--background);
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  padding: 12px;
+}
+
+.mobile-view-toolbar {
+  align-items: center;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+  max-width: 650px;
+  padding-bottom: 12px;
+  width: 100%;
+}
+
+.mobile-view-toolbar span,
+.mobile-view-toolbar button {
+  align-items: center;
+  display: inline-flex;
+  gap: 7px;
+}
+
+.mobile-view-toolbar button {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--foreground);
+  cursor: pointer;
+  padding: 8px 10px;
+}
+
+.mobile-view-shell iframe {
+  background: var(--background);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  flex: 1 1 auto;
+  max-width: 390px;
+  min-height: 0;
+  width: 100%;
+}
+
+body:has(.mobile-view-shell) > .app-footer,
+body:has(.mobile-view-shell) > .back-to-top {
+  display: none;
+}
+
 @media (max-width: 640px) {
+  .home-carousel.has-poster {
+    gap: 12px;
+    grid-template-columns: minmax(0, 1fr) 110px;
+    padding: 16px;
+  }
+
+  .home-carousel-poster {
+    min-height: 144px;
+  }
+
+  .home-carousel-poster img {
+    max-height: 160px;
+  }
+
+  .home-carousel-copy h2 {
+    overflow-wrap: anywhere;
+  }
+
+  .mobile-view-toolbar {
+    gap: 8px;
+  }
+
+  .mobile-view-toolbar strong {
+    display: none;
+  }
   .rankings-page-heading .muted {
     display: none;
   }

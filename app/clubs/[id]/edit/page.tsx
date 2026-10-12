@@ -3,7 +3,7 @@ import { removePlayerFromClubAction, saveClubAction } from "@/app/admin/actions"
 import { SaveConfirmation } from "@/app/leagues/[id]/edit/save-confirmation";
 import { Navigation } from "@/app/navigation";
 import { ClubCrest } from "@/src/components/club-crest";
-import { getCurrentUser } from "@/src/lib/auth";
+import { getCurrentUser, isManagerFor } from "@/src/lib/auth";
 import { getDictionary } from "@/src/lib/i18n";
 import { getManagerOptions } from "@/src/lib/manager-options";
 import { prisma } from "@/src/lib/prisma";
@@ -38,7 +38,7 @@ export default async function EditClubPage({
   const { t } = dictionary;
   if (!club) notFound();
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
-  if (!isAdmin && club.managerUserId !== currentUser?.id) notFound();
+  if (!isAdmin && !isManagerFor(currentUser, club.managerUserId)) notFound();
   const managers = isAdmin
     ? await getManagerOptions(dictionary.locale, t.federationManagerNoAccount, t.federationManagerAccountOnly)
     : [];

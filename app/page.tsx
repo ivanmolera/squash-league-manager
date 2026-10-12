@@ -32,6 +32,7 @@ function tournamentSlides({
     id: `upcoming-${tournament.id}`,
     href: `/tournaments/${tournament.id}`,
     title: tournament.name,
+    posterUrl: tournament.posterUrl,
     statusLabel: labels.upcomingTournament,
     dateLabel: dateRangeLabel(tournament.startsAt, tournament.endsAt, locale, labels.noDate),
     locationLabel: tournament.hostClub?.name ?? labels.noVenue,
@@ -125,7 +126,7 @@ export default async function Home() {
         </section>
       ) : null}
 
-      <HomeTournamentCarousel slides={slides} title={t.featuredTournaments} />
+      <HomeTournamentCarousel slides={slides} title={t.featuredTournaments} posterLabel={t.poster} />
 
       <section className="sponsor-strip" aria-label={t.sponsors}>
         <h2>{t.sponsors}</h2>

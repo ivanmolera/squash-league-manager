@@ -6,6 +6,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "@/src/lib/prisma";
 
 export const sessionCookieName = "slm_session";
+export const playerPreviewCookieName = "slm_player_preview";
 
 export function hashSessionToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
@@ -15,7 +16,7 @@ export function createSessionToken() {
   return randomBytes(32).toString("base64url");
 }
 
-export const getCurrentUser = cache(async () => {
+export const getAuthenticatedUser = cache(async () => {
   const cookieStore = await cookies();
   const token = cookieStore.get(sessionCookieName)?.value;
 
@@ -46,6 +47,24 @@ export const getCurrentUser = cache(async () => {
   return session.user;
 });
 
+export const getCurrentUser = cache(async () => {
+  const user = await getAuthenticatedUser();
+  if (!user) return null;
+  const isAdmin = user.roles.some((role) => role.role === "admin");
+  if (!isAdmin || (await cookies()).get(playerPreviewCookieName)?.value !== "1") {
+    return { ...user, previewAsPlayer: false };
+  }
+  const playerRoles = user.roles.filter((role) => role.role === "player");
+  if (user.player && !playerRoles.length) {
+    playerRoles.push({ userId: user.id, role: "player", createdAt: new Date() });
+  }
+  return { ...user, roles: playerRoles, previewAsPlayer: true };
+});
+
+export function isManagerFor(user: Awaited<ReturnType<typeof getCurrentUser>>, managerUserId: string | null | undefined) {
+  return Boolean(user && !user.previewAsPlayer && user.id === managerUserId);
+}
+
 export async function setSessionCookie(token: string, expiresAt: Date) {
   const cookieStore = await cookies();
   cookieStore.set(sessionCookieName, token, {
@@ -60,4 +79,5 @@ export async function setSessionCookie(token: string, expiresAt: Date) {
 export async function clearSessionCookie() {
   const cookieStore = await cookies();
   cookieStore.delete(sessionCookieName);
+  cookieStore.delete(playerPreviewCookieName);
 }

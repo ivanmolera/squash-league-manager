@@ -69,7 +69,9 @@ async function getEditContext(currentUser: CurrentUser) {
 
   const [player, managedClubs] = await Promise.all([
     prisma.player.findUnique({ where: { userId: currentUser.id }, select: { id: true } }),
-    prisma.club.findMany({ where: { managerUserId: currentUser.id }, select: { id: true } })
+    currentUser.previewAsPlayer
+      ? Promise.resolve([])
+      : prisma.club.findMany({ where: { managerUserId: currentUser.id }, select: { id: true } })
   ]);
 
   return {

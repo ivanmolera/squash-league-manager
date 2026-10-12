@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { Navigation } from "@/app/navigation";
 import { ClubCrest } from "@/src/components/club-crest";
 import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
-import { getCurrentUser } from "@/src/lib/auth";
+import { getCurrentUser, isManagerFor } from "@/src/lib/auth";
 import { getFeatureSettings } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { googleOAuthConfigured, googleStartUrl } from "@/src/lib/google-oauth";
@@ -480,7 +480,7 @@ export default async function PlayerDetailPage({
     !player.userId &&
     (
       isAdmin ||
-      player.memberships.some((membership) => membership.club.managerUserId === currentUser?.id) ||
+      player.memberships.some((membership) => isManagerFor(currentUser, membership.club.managerUserId)) ||
       player.memberships.some((membership) => membership.club.federationId && managedFederationIds.has(membership.club.federationId))
     )
   );

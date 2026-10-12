@@ -5,7 +5,7 @@ import { Navigation } from "@/app/navigation";
 import { TournamentMatches } from "@/app/tournaments/[id]/tournament-matches";
 import { ClubCrest } from "@/src/components/club-crest";
 import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
-import { getCurrentUser } from "@/src/lib/auth";
+import { getCurrentUser, isManagerFor } from "@/src/lib/auth";
 import { isClubEffectivelyActive } from "@/src/lib/entity-activity";
 import { localizeCategoryName } from "@/src/lib/category-names";
 import { getFeatureSettings, requireFeature } from "@/src/lib/features";
@@ -66,7 +66,7 @@ export default async function TournamentDetailPage({ params }: { params: Promise
   if (!tournament || tournament.type !== "tournament") notFound();
 
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
-  const canEdit = isAdmin || tournament.hostClub?.managerUserId === currentUser?.id;
+  const canEdit = isAdmin || isManagerFor(currentUser, tournament.hostClub?.managerUserId);
   const currentPlayer = currentUser
     ? await prisma.player.findUnique({ where: { userId: currentUser.id }, select: { id: true, active: true, gender: true, birthDate: true } })
     : null;

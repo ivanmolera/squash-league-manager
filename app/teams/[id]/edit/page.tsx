@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { saveTeamAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
-import { getCurrentUser } from "@/src/lib/auth";
+import { getCurrentUser, isManagerFor } from "@/src/lib/auth";
 import { requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
@@ -19,7 +19,7 @@ export default async function EditTeamPage({ params }: { params: Promise<{ id: s
   const { t } = dictionary;
   if (!team) notFound();
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
-  if (!isAdmin && team.club.managerUserId !== currentUser?.id) notFound();
+  if (!isAdmin && !isManagerFor(currentUser, team.club.managerUserId)) notFound();
 
   return (
     <main className="app-shell">

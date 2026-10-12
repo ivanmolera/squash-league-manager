@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
 import { BackToTopButton } from "@/app/back-to-top-button";
 import { CookieConsent } from "@/app/cookie-consent";
@@ -10,6 +10,10 @@ export const metadata: Metadata = {
   title: "SquashFlow",
   description: "SquashFlow: gestión de ligas, equipos, torneos, reservas y ránkings de squash."
 };
+
+export async function generateViewport(): Promise<Viewport> {
+  return { width: (await cookies()).get("slm_desktop_view")?.value === "1" ? 1200 : "device-width", initialScale: 1 };
+}
 
 export default async function RootLayout({
   children

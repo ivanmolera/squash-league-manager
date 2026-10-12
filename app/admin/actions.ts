@@ -5,7 +5,7 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { getCurrentUser } from "@/src/lib/auth";
+import { getCurrentUser, isManagerFor } from "@/src/lib/auth";
 import { maxTournamentSeedCount } from "@/src/lib/competition-rules";
 import {
   addDaysToCourtDateKey,
@@ -1201,7 +1201,7 @@ async function assertCanEditTournament(competitionId: string, currentUser: Await
     include: { hostClub: true }
   });
   const isAdmin = hasRole(currentUser, "admin");
-  if (!isAdmin && competition.hostClub?.managerUserId !== currentUser?.id) {
+  if (!isAdmin && !isManagerFor(currentUser, competition.hostClub?.managerUserId)) {
     throw new Error("Solo el manager del club organizador o un admin puede modificar este torneo.");
   }
   return competition;
@@ -1739,7 +1739,7 @@ export async function updateEntityActivityAction(formData: FormData) {
   const status = textValue(formData.get("returnStatus"));
   const search = textValue(formData.get("returnSearch"))?.slice(0, 100);
   const query = new URLSearchParams({
-    kind: kind === "players" || kind === "federations" ? kind : "clubs",
+    kind: kind === "players" || kind === "users" ? "users" : kind === "federations" ? kind : "clubs",
     status: status === "active" || status === "inactive" ? status : "all",
     saved: "1"
   });
@@ -2288,7 +2288,7 @@ export async function reviewClubJoinRequestAction(formData: FormData) {
     throw new Error("Solicitud no encontrada o ya revisada.");
   }
 
-  if (!isAdmin && request.club.managerUserId !== currentUser.id) {
+  if (!isAdmin && !isManagerFor(currentUser, request.club.managerUserId)) {
     throw new Error("Solo el responsable del club puede revisar esta solicitud.");
   }
 
@@ -2425,7 +2425,7 @@ export async function saveClubAction(formData: FormData) {
       throw new Error("Solo un admin puede crear clubes.");
     }
 
-    if (existingClub?.managerUserId !== currentUser.id) {
+    if (!isManagerFor(currentUser, existingClub?.managerUserId)) {
       throw new Error("Solo puedes modificar el club que administras.");
     }
   }
@@ -3006,14 +3006,14 @@ export async function saveTournamentAction(formData: FormData) {
       where: { id: parsed.hostClubId },
       include: { federation: true }
     });
-    const managedFederation = organizerFederationId
+    const managedFederation = organizerFederationId && !currentUser.previewAsPlayer
       ? await prisma.federation.findFirst({
           where: { id: organizerFederationId, managerUserId: currentUser.id },
           select: { id: true, code: true, ranking: { select: { code: true } } }
         })
       : null;
 
-    if (managedClub.managerUserId !== currentUser.id && !managedFederation) {
+    if (!isManagerFor(currentUser, managedClub.managerUserId) && !managedFederation) {
       throw new Error("Solo puedes crear o modificar torneos de tu club o federación.");
     }
 
@@ -3030,7 +3030,7 @@ export async function saveTournamentAction(formData: FormData) {
         where: { id: parsed.competitionId }
       });
 
-      if (managedClub.managerUserId === currentUser.id && existing.hostClubId !== parsed.hostClubId) {
+      if (isManagerFor(currentUser, managedClub.managerUserId) && existing.hostClubId !== parsed.hostClubId) {
         throw new Error("No puedes mover un torneo de club a otro club.");
       }
 
@@ -3422,7 +3422,7 @@ export async function saveTeamAction(formData: FormData) {
     include: { club: true, rosters: { select: { playerId: true } } }
   });
 
-  if (!isAdmin && team.club.managerUserId !== currentUser.id) {
+  if (!isAdmin && !isManagerFor(currentUser, team.club.managerUserId)) {
     throw new Error("Solo puedes modificar equipos de tu club.");
   }
 
@@ -3702,7 +3702,7 @@ export async function acceptMatchProposalAction(formData: FormData) {
     throw new Error("No puedes aceptar tu propia propuesta.");
   }
 
-  const canManageClub = hasRole(currentUser, "admin") || proposal.club.managerUserId === currentUser.id;
+  const canManageClub = hasRole(currentUser, "admin") || isManagerFor(currentUser, proposal.club.managerUserId);
   if (!canManageClub && !canPlayerUseClubCourts({ publicCourtAccess: proposal.club.publicCourtAccess, player, clubId: proposal.clubId })) {
     throw new Error("Solo los jugadores abonados a este club pueden aceptar esta propuesta.");
   }
@@ -3747,7 +3747,7 @@ export async function cancelMatchProposalAction(formData: FormData) {
     include: { club: true, courtReservation: true }
   });
   const isAdmin = hasRole(currentUser, "admin");
-  const canManageClub = proposal.club.managerUserId === currentUser.id;
+  const canManageClub = isManagerFor(currentUser, proposal.club.managerUserId);
 
   if (!isAdmin && !canManageClub && proposal.proposerUserId !== currentUser.id) {
     throw new Error("No puedes cancelar esta propuesta.");
@@ -3800,7 +3800,7 @@ export async function completeMatchProposalAction(formData: FormData) {
     }
   });
   const isAdmin = hasRole(currentUser, "admin");
-  const canManageClub = proposal.club.managerUserId === currentUser.id;
+  const canManageClub = isManagerFor(currentUser, proposal.club.managerUserId);
   const isParticipant = proposal.proposerUserId === currentUser.id || proposal.acceptorUserId === currentUser.id;
 
   if (!isAdmin && !canManageClub && !isParticipant) {
@@ -3888,7 +3888,7 @@ export async function cancelCourtReservationAction(formData: FormData) {
     include: { club: true, matchProposal: true }
   });
   const isAdmin = hasRole(currentUser, "admin");
-  const canManageClub = reservation.club.managerUserId === currentUser.id;
+  const canManageClub = isManagerFor(currentUser, reservation.club.managerUserId);
 
   if (!isAdmin && !canManageClub && reservation.userId !== currentUser.id) {
     throw new Error("No puedes cancelar esta reserva.");
@@ -3986,7 +3986,7 @@ export async function removePlayerFromClubAction(formData: FormData) {
     throw new Error("La pertenencia no corresponde a este club.");
   }
 
-  if (!isAdmin && membership.club.managerUserId !== currentUser.id) {
+  if (!isAdmin && !isManagerFor(currentUser, membership.club.managerUserId)) {
     throw new Error("Solo puedes dar de baja jugadores de tu club.");
   }
 

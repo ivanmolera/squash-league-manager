@@ -2,17 +2,22 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { LogIn, LogOut } from "lucide-react";
 import { logoutAction } from "@/app/actions";
+import { AdminViewToggle } from "@/app/admin-view-toggle";
 import { LanguageSelector } from "@/app/language-selector";
 import { MobileNavigation } from "@/app/mobile-navigation";
 import { ThemeSelector } from "@/app/theme-selector";
+import { ViewModeSelector } from "@/app/view-mode-selector";
 import { NavigationLinks, NavigationSettingsLink } from "@/app/navigation-links";
-import { getCurrentUser } from "@/src/lib/auth";
+import { getAuthenticatedUser, getCurrentUser, playerPreviewCookieName } from "@/src/lib/auth";
 import { getFeatureSettings } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 
 export async function Navigation() {
-  const [{ locale, t }, currentUser, features] = await Promise.all([getDictionary(), getCurrentUser(), getFeatureSettings()]);
-  const theme = (await cookies()).get("slm_theme")?.value === "light" ? "light" : "dark";
+  const [{ locale, t }, currentUser, actualUser, features] = await Promise.all([getDictionary(), getCurrentUser(), getAuthenticatedUser(), getFeatureSettings()]);
+  const cookieStore = await cookies();
+  const theme = cookieStore.get("slm_theme")?.value === "light" ? "light" : "dark";
+  const actualAdmin = Boolean(actualUser?.roles.some((role) => role.role === "admin"));
+  const playerPreview = actualAdmin && cookieStore.get(playerPreviewCookieName)?.value === "1";
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
   const isFederationManager = Boolean(currentUser?.roles.some((role) => role.role === "manager_fed"));
   const links = [
@@ -39,6 +44,8 @@ export async function Navigation() {
       <NavigationLinks items={links} />
       <MobileNavigation items={links} quickItems={quickItems} moreLabel={t.more} quickNavLabel={t.quickNav} />
       <div className="nav-actions">
+        {actualAdmin ? <AdminViewToggle preview={playerPreview} playerLabel={t.viewAsPlayer} adminLabel={t.viewAsAdmin} /> : null}
+        <ViewModeSelector label={t.viewMode} mobileLabel={t.mobileView} desktopLabel={t.desktopView} />
         {isAdmin || isFederationManager ? (
           <NavigationSettingsLink
             href={isAdmin ? "/admin/settings" : "/admin/visibility"}
