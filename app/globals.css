@@ -4441,6 +4441,10 @@ html[data-theme="light"] .club-directory-map-canvas .leaflet-tile-pane {
 }
 
 @media (max-width: 360px) {
+  .public-hero h1 {
+    font-size: 2.1rem;
+  }
+
   .nav-has-settings .nav-actions {
     grid-column: 1 / -1;
     grid-row: 2;
