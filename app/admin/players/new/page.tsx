@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { savePlayerAction } from "@/app/admin/actions";
-import { AccountOnlyForm } from "@/app/admin/players/new/account-only-form";
+import { ResponsibleForm } from "@/app/admin/players/new/responsible-form";
 import { Navigation } from "@/app/navigation";
 import { PlayerFields } from "@/app/admin/players/player-fields";
 import { getCurrentUser } from "@/src/lib/auth";
@@ -11,9 +11,9 @@ import { prisma } from "@/src/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-export default async function NewPlayerProfilePage({ searchParams }: { searchParams?: Promise<{ type?: string }> }) {
+export default async function NewPlayerProfilePage({ searchParams }: { searchParams?: Promise<{ type?: string; error?: string }> }) {
   const params = await searchParams;
-  const accountOnly = params?.type === "account";
+  const responsibleOnly = params?.type === "responsible";
   const [clubs, currentUser, dictionary] = await Promise.all([
     prisma.club.findMany({ where: activeClubWhere, orderBy: [{ province: "asc" }, { name: "asc" }] }),
     getCurrentUser(),
@@ -34,12 +34,13 @@ export default async function NewPlayerProfilePage({ searchParams }: { searchPar
         <LinkBack href="/admin/players" label={t.players} />
       </section>
       <section className="centered-list player-form-section">
+        {params?.error === "duplicate_email" ? <p className="form-error" role="alert">{t.registrationEmailExists}</p> : null}
         <nav className="profile-kind-switch" aria-label={t.profileType}>
-          <Link href="/admin/players/new" className={!accountOnly ? "is-active" : ""} aria-current={!accountOnly ? "page" : undefined}>{t.playerProfileType}</Link>
-          <Link href="/admin/players/new?type=account" className={accountOnly ? "is-active" : ""} aria-current={accountOnly ? "page" : undefined}>{t.accountOnlyType}</Link>
+          <Link href="/admin/players/new" className={!responsibleOnly ? "is-active" : ""} aria-current={!responsibleOnly ? "page" : undefined}>{t.playerProfileType}</Link>
+          <Link href="/admin/players/new?type=responsible" className={responsibleOnly ? "is-active" : ""} aria-current={responsibleOnly ? "page" : undefined}>{t.responsibleOnlyType}</Link>
         </nav>
-        {accountOnly ? (
-          <AccountOnlyForm labels={t} />
+        {responsibleOnly ? (
+          <ResponsibleForm labels={t} />
         ) : (
           <form className="admin-form" action={savePlayerAction}>
             <input type="hidden" name="returnTo" value="/admin/players" />

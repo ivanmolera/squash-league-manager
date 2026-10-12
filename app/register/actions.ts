@@ -92,9 +92,8 @@ export async function registerPlayerAction(_state: RegisterState, formData: Form
     email,
     onlyUnlinked: true,
     minimumScore: 82,
-    take: 1
+    take: 5
   });
-  const linkCandidate = linkCandidates[0];
 
   const user = await prisma.user.create({
     data: {
@@ -113,17 +112,17 @@ export async function registerPlayerAction(_state: RegisterState, formData: Form
           role: "player"
         }
       },
-      ...(linkCandidate
+      ...(linkCandidates.length > 0
         ? {
             playerLinkRequests: {
-              create: {
-                candidatePlayerId: linkCandidate.player.id,
+              create: linkCandidates.map((candidate) => ({
+                candidatePlayerId: candidate.player.id,
                 requestedFirstName: parsed.data.firstName,
                 requestedLastName: parsed.data.lastName,
                 requestedEmail: email,
-                matchScore: linkCandidate.score,
-                matchReasons: linkCandidate.reasons
-              }
+                matchScore: candidate.score,
+                matchReasons: candidate.reasons
+              }))
             }
           }
         : {
@@ -163,7 +162,7 @@ export async function registerPlayerAction(_state: RegisterState, formData: Form
     });
 
     return {
-      success: linkCandidate ? t.registrationLinkRequestCreated : t.registrationCreated,
+      success: linkCandidates.length > 0 ? t.registrationLinkRequestCreated : t.registrationCreated,
       verificationUrl: emailResult.sent ? undefined : `/verify-email?token=${encodeURIComponent(token)}`
     };
   } catch (error) {

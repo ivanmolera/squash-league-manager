@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isClubEffectivelyActive } from "../src/lib/entity-activity.ts";
+import { activePlayerWhere, isClubEffectivelyActive } from "../src/lib/entity-activity.ts";
+
+test("the active player directory excludes responsible-only identities", () => {
+  assert.equal(activePlayerWhere.active, true);
+  assert.equal(activePlayerWhere.isSportsProfile, true);
+  assert.equal(activePlayerWhere.mergedIntoPlayerId, null);
+});
 
 test("a club is active without an assigned federation", () => {
   assert.equal(isClubEffectivelyActive({ active: true, federation: null }), true);

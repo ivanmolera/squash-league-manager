@@ -8,6 +8,7 @@ import { getFeatureSettings } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 import { SaveConfirmation } from "./save-confirmation";
+import { enableSportsProfileAction, updateResponsibleAction } from "@/app/admin/players/new/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export default async function EditPlayerPage({
   searchParams
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ saved?: string; joinRequested?: string; joinEmailFailed?: string; joinAlready?: string }>;
+  searchParams?: Promise<{ saved?: string; joinRequested?: string; joinEmailFailed?: string; joinAlready?: string; error?: string; converted?: string }>;
 }) {
   const { id } = await params;
   const query = await searchParams;
@@ -56,6 +57,42 @@ export default async function EditPlayerPage({
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
   if (!isAdmin && player.userId !== currentUser?.id) notFound();
   const isOwnProfile = player.userId === currentUser?.id;
+  if (!player.isSportsProfile) {
+    return (
+      <main className="app-shell">
+        <Navigation />
+        <section className="edit-stack">
+          <form className="admin-form" action={updateResponsibleAction}>
+            <h1>{t.responsibleOnlyType}</h1>
+            {query?.error === "duplicate_email" ? <p className="form-error" role="alert">{t.registrationEmailExists}</p> : null}
+            <input type="hidden" name="playerId" value={player.id} />
+            <label>{t.firstName}<input name="firstName" defaultValue={player.firstName} required /></label>
+            <label>{t.lastName}<input name="lastName" defaultValue={player.lastName} required /></label>
+            <label>{t.email}<input name="email" type="email" defaultValue={player.user?.email ?? player.contactEmail ?? ""} readOnly={!isAdmin} /></label>
+            <label>{t.phone}<input name="phone" defaultValue={player.contactPhone ?? ""} /></label>
+            <button type="submit">{t.save}</button>
+          </form>
+          {isAdmin ? (
+            <form className="admin-form" action={enableSportsProfileAction}>
+              <input type="hidden" name="playerId" value={player.id} />
+              <button type="submit">{t.enableSportsProfile}</button>
+            </form>
+          ) : null}
+          {player.userId && (isAdmin || player.user?.credential) ? (
+            <form className="admin-form" action={changePlayerPasswordAction}>
+              <h2>{t.changePassword}</h2>
+              <input type="hidden" name="playerId" value={player.id} />
+              {!isAdmin ? <label>{t.currentPassword}<input name="currentPassword" type="password" autoComplete="current-password" required /></label> : null}
+              <label>{t.newPassword}<input name="newPassword" type="password" autoComplete="new-password" minLength={8} required /></label>
+              <label>{t.repeatNewPassword}<input name="confirmPassword" type="password" autoComplete="new-password" minLength={8} required /></label>
+              <button type="submit">{isAdmin ? t.updatePassword : t.changePassword}</button>
+            </form>
+          ) : null}
+          {isOwnProfile && !player.user?.credential ? <Link className="back-link" href="/forgot-password">{t.setPasswordByEmail}</Link> : null}
+        </section>
+      </main>
+    );
+  }
   const currentMembership = currentSeason
     ? player.memberships.find((membership) => membership.seasonId === currentSeason.id && !membership.toDate)
     : null;
@@ -71,6 +108,8 @@ export default async function EditPlayerPage({
         <form className="admin-form" action={savePlayerAction}>
           <h1>{t.myProfile}</h1>
           {query?.saved === "1" ? <SaveConfirmation message={t.savedChanges} /> : null}
+          {query?.converted === "1" ? <SaveConfirmation message={t.sportsProfileEnabled} /> : null}
+          {query?.error === "duplicate_email" ? <p className="form-error" role="alert">{t.registrationEmailExists}</p> : null}
           {query?.joinRequested === "1" ? <SaveConfirmation message={t.clubJoinRequestSent} /> : null}
           {query?.joinEmailFailed === "1" ? <p className="warning-box">{t.clubJoinRequestEmailFailed}</p> : null}
           {query?.joinAlready === "1" ? <p className="warning-box">{t.alreadyBelongsToClub}</p> : null}
@@ -79,8 +118,8 @@ export default async function EditPlayerPage({
           <label>{t.firstName}<input name="firstName" defaultValue={player.firstName} required /></label>
           <label>{t.lastName}<input name="lastName" defaultValue={player.lastName} required /></label>
           <label>{t.photo}<input name="profilePhoto" type="file" accept="image/*" /></label>
-          <label>{t.email}<input name="email" type="email" defaultValue={player.user?.email ?? ""} readOnly={!isAdmin} required={!isAdmin} /></label>
-          <label>{t.phone}<input name="phone" defaultValue={player.user?.phone ?? ""} /></label>
+          <label>{t.email}<input name="email" type="email" defaultValue={player.user?.email ?? player.contactEmail ?? ""} readOnly={!isAdmin || Boolean(player.user)} required={!isAdmin} /></label>
+          <label>{t.phone}<input name="phone" defaultValue={player.user?.phone ?? player.contactPhone ?? ""} /></label>
           <label>{t.preferredLocale}
             <select name="preferredLocale" defaultValue={player.user?.preferredLocale ?? "es"}>
               <option value="ca">{t.catalan}</option><option value="es">{t.spanish}</option><option value="en">{t.english}</option>
@@ -105,7 +144,6 @@ export default async function EditPlayerPage({
           {features.player_communications ? (
             <label className="check-line"><input name="receivesMatchCommunications" type="checkbox" defaultChecked={player.receivesMatchCommunications} /> {t.receiveMatchCommunications}</label>
           ) : null}
-          {isAdmin ? <label className="check-line"><input name="emailVerified" type="checkbox" defaultChecked={player.user?.emailVerified ?? false} /> {t.emailVerified}</label> : null}
           <button type="submit">{t.save}</button>
         </form>
         {player.userId ? (

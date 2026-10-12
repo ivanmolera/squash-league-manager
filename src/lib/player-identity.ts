@@ -6,6 +6,8 @@ type PlayerIdentity = {
   id: string;
   firstName: string;
   lastName: string;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
   userId?: string | null;
   user?: { email: string | null; phone: string | null } | null;
   memberships?: Array<{ clubNameAtThatTime: string; club?: { name: string } | null }>;
@@ -121,12 +123,12 @@ export function scorePlayerIdentityMatch(
     reasons.push("varios componentes coinciden");
   }
 
-  if (input.email && player.user?.email && normalize(input.email) === normalize(player.user.email)) {
+  if (input.email && [player.user?.email, player.contactEmail].some((email) => email && normalize(input.email!) === normalize(email))) {
     score += 100;
     reasons.push("email coincidente");
   }
 
-  if (input.phone && player.user?.phone && input.phone.replace(/\D/g, "") === player.user.phone.replace(/\D/g, "")) {
+  if (input.phone && [player.user?.phone, player.contactPhone].some((phone) => phone && input.phone!.replace(/\D/g, "") === phone.replace(/\D/g, ""))) {
     score += 90;
     reasons.push("teléfono coincidente");
   }
@@ -201,8 +203,8 @@ export async function findPotentialDuplicatePlayers(minimumScore = 82) {
       const match = scorePlayerIdentityMatch({
         firstName: left.firstName,
         lastName: left.lastName,
-        email: left.user?.email,
-        phone: left.user?.phone
+        email: left.user?.email ?? left.contactEmail,
+        phone: left.user?.phone ?? left.contactPhone
       }, right);
 
       if (match.score >= minimumScore) {

@@ -1,92 +1,115 @@
 "use server";
 
-import { Prisma } from "@prisma/client";
-import { randomBytes } from "node:crypto";
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { hashSessionToken, getCurrentUser } from "@/src/lib/auth";
-import { appBaseUrl, sendTransactionalEmail } from "@/src/lib/email";
+import { getCurrentUser } from "@/src/lib/auth";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 
-const accountOnlySchema = z.object({
+const responsibleSchema = z.object({
   firstName: z.string().trim().min(2),
   lastName: z.string().trim().min(2),
-  email: z.string().trim().email(),
-  role: z.enum(["player", "manager", "manager_fed"])
+  email: z.union([z.literal(""), z.string().trim().email()]),
+  phone: z.string().trim()
 });
 
-export type CreateAccountOnlyState = {
+export type CreateResponsibleState = {
   error?: string;
-  success?: string;
-  invitationUrl?: string;
-  values?: { firstName: string; lastName: string; email: string; role: string };
+  values?: { firstName: string; lastName: string; email: string; phone: string };
 };
 
-export async function createAccountOnlyAction(_state: CreateAccountOnlyState, formData: FormData): Promise<CreateAccountOnlyState> {
+export async function createResponsibleAction(_state: CreateResponsibleState, formData: FormData): Promise<CreateResponsibleState> {
   const actor = await getCurrentUser();
   if (!actor?.roles.some((role) => role.role === "admin")) {
-    throw new Error("Only an administrator can create accounts.");
+    throw new Error("Only an administrator can create responsible profiles.");
   }
 
-  const { locale, t } = await getDictionary();
+  const { t } = await getDictionary();
   const values = {
     firstName: String(formData.get("firstName") ?? ""),
     lastName: String(formData.get("lastName") ?? ""),
-    email: String(formData.get("email") ?? ""),
-    role: String(formData.get("role") ?? "player")
+    email: String(formData.get("email") ?? "").trim().toLowerCase(),
+    phone: String(formData.get("phone") ?? "")
   };
-  const parsed = accountOnlySchema.safeParse(values);
-  if (!parsed.success) return { error: t.accountOnlyInvalid, values };
+  const parsed = responsibleSchema.safeParse(values);
+  if (!parsed.success) return { error: t.responsibleInvalid, values };
 
-  const email = parsed.data.email.toLowerCase();
-  if (await prisma.user.findUnique({ where: { email } })) {
-    return { error: t.registrationEmailExists, values };
+  if (parsed.data.email) {
+    const [account, profile] = await Promise.all([
+      prisma.user.findUnique({ where: { email: parsed.data.email } }),
+      prisma.player.findFirst({ where: { contactEmail: { equals: parsed.data.email, mode: "insensitive" }, mergedIntoPlayerId: null } })
+    ]);
+    if (account || profile) return { error: t.registrationEmailExists, values };
   }
 
-  const token = randomBytes(32).toString("base64url");
-  const invitationUrl = `${appBaseUrl()}/reset-password?token=${encodeURIComponent(token)}&invite=1`;
-  let user;
-  try {
-    user = await prisma.user.create({
+  await prisma.player.create({
+    data: {
+      firstName: parsed.data.firstName,
+      lastName: parsed.data.lastName,
+      contactEmail: parsed.data.email || null,
+      contactPhone: parsed.data.phone || null,
+      isSportsProfile: false,
+      showContactPublic: false,
+      showPhysicalPublic: false
+    }
+  });
+
+  redirect("/admin/players?created=responsible");
+}
+
+export async function updateResponsibleAction(formData: FormData) {
+  const actor = await getCurrentUser();
+  const id = z.string().uuid().parse(formData.get("playerId"));
+  const existing = await prisma.player.findUniqueOrThrow({ where: { id } });
+  if (!actor || !(actor.roles.some((role) => role.role === "admin") || existing.userId === actor.id)) {
+    throw new Error("You cannot edit this profile.");
+  }
+  const values = responsibleSchema.parse({
+    firstName: formData.get("firstName"),
+    lastName: formData.get("lastName"),
+    email: String(formData.get("email") ?? "").trim().toLowerCase(),
+    phone: formData.get("phone")
+  });
+  if (existing.isSportsProfile) throw new Error("This is a sports profile.");
+  if (values.email) {
+    const account = await prisma.user.findUnique({ where: { email: values.email }, select: { id: true } });
+    if (account && account.id !== existing.userId) redirect(`/players/${id}/edit?error=duplicate_email`);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.player.update({
+      where: { id },
       data: {
-        firebaseUid: `local:${email}`,
-        email,
-        emailVerified: false,
-        displayName: `${parsed.data.firstName} ${parsed.data.lastName}`,
-        preferredLocale: locale,
-        roles: { create: [
-          { role: "player" },
-          ...(parsed.data.role === "player" ? [] : [{ role: parsed.data.role }])
-        ] },
-        passwordResetTokens: { create: {
-          tokenHash: hashSessionToken(token),
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
-        } }
+        firstName: values.firstName,
+        lastName: values.lastName,
+        contactEmail: values.email || null,
+        contactPhone: values.phone || null
       }
     });
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return { error: t.registrationEmailExists, values };
+    if (existing.userId) {
+      await tx.user.update({
+        where: { id: existing.userId },
+        data: { displayName: `${values.firstName} ${values.lastName}`, phone: values.phone || null }
+      });
     }
-    throw error;
-  }
+  });
+  revalidatePath("/admin/players");
+  revalidatePath(`/players/${id}`);
+  if (actor.roles.some((role) => role.role === "admin")) redirect("/admin/players?updated=responsible");
+  redirect(`/players/${id}?saved=1`);
+}
 
-  try {
-    const result = await sendTransactionalEmail({
-      to: email,
-      subject: t.accountInvitationSubject,
-      text: `${t.accountInvitationText}\n\n${invitationUrl}`,
-      html: `<div style="font-family:Arial,sans-serif;line-height:1.5;color:#0f172a;max-width:560px"><h1>SquashFlow</h1><p>${t.accountInvitationText}</p><p><a href="${invitationUrl}">${t.activateAccount}</a></p><p>${invitationUrl}</p></div>`
-    });
-    if (!result.sent) {
-      if (process.env.NODE_ENV === "production") throw new Error("Transactional email is not configured.");
-      return { success: t.accountOnlyCreated, invitationUrl: `/reset-password?token=${encodeURIComponent(token)}&invite=1` };
-    }
-  } catch (error) {
-    console.error("Account invitation send failed", error);
-    await prisma.user.delete({ where: { id: user.id } });
-    return { error: t.accountInvitationSendFailed, values };
+export async function enableSportsProfileAction(formData: FormData) {
+  const actor = await getCurrentUser();
+  if (!actor?.roles.some((role) => role.role === "admin")) {
+    throw new Error("Only an administrator can enable a sports profile.");
   }
-
-  return { success: t.accountOnlyCreated };
+  const id = z.string().uuid().parse(formData.get("playerId"));
+  const person = await prisma.player.findUniqueOrThrow({ where: { id } });
+  if (person.isSportsProfile) redirect(`/players/${id}/edit`);
+  await prisma.player.update({ where: { id }, data: { isSportsProfile: true } });
+  revalidatePath("/admin/players");
+  revalidatePath(`/players/${id}`);
+  redirect(`/players/${id}/edit?converted=1`);
 }

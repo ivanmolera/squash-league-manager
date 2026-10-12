@@ -29,15 +29,12 @@ import { generateRoundRobin, nextPowerOfTwo, shuffle } from "@/src/lib/schedule"
 import { getTournamentRankingRows } from "@/src/lib/tournament-rankings";
 import { tournamentSeasonForDate } from "@/src/lib/tournament-season";
 
-const testPassword = "TestUser1234";
-
 const playerSchema = z.object({
   playerId: z.string().uuid().optional().or(z.literal("")),
   firstName: z.string().min(2),
   lastName: z.string().min(2),
   email: z.string().email().optional().or(z.literal("")),
   phone: z.string().optional(),
-  emailVerified: z.coerce.boolean().default(false),
   preferredLocale: z.enum(["ca", "es", "en"]).default("es"),
   gender: z.enum(["male", "female", "other", "not_specified"]),
   birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
@@ -342,8 +339,8 @@ function assertCompetitiveLevelsAreBalanced(leftLevel: number, rightLevel: numbe
 
 async function getCourtBookingPlayer(userId: string) {
   const season = await getDefaultSeason();
-  const player = await prisma.player.findUnique({
-    where: { userId },
+  const player = await prisma.player.findFirst({
+    where: { userId, isSportsProfile: true },
     include: {
       memberships: {
         where: {
@@ -660,15 +657,6 @@ async function getDefaultCategory() {
       genderScope: "not_specified",
       sortOrder: 1
     }
-  });
-}
-
-async function ensureCredential(userId: string) {
-  const passwordHash = await bcrypt.hash(testPassword, 12);
-  await prisma.authCredential.upsert({
-    where: { userId },
-    update: {},
-    create: { userId, passwordHash }
   });
 }
 
@@ -1311,7 +1299,6 @@ export async function savePlayerAction(formData: FormData) {
     lastName: textValue(formData.get("lastName")),
     email: textValue(formData.get("email"))?.toLowerCase(),
     phone: textValue(formData.get("phone")),
-    emailVerified: formData.get("emailVerified") === "on",
     preferredLocale: textValue(formData.get("preferredLocale")) ?? "es",
     gender: textValue(formData.get("gender")) ?? "not_specified",
     birthDate: textValue(formData.get("birthDate")) ?? "",
@@ -1347,26 +1334,23 @@ export async function savePlayerAction(formData: FormData) {
   const displayName = `${parsed.firstName} ${parsed.lastName}`;
   const parsedEmail = parsed.email || null;
   const parsedBirthDate = parseOptionalBirthDate(parsed.birthDate);
+  const existingPlayer = parsed.playerId
+    ? await prisma.player.findUniqueOrThrow({ where: { id: parsed.playerId }, select: { userId: true, user: { select: { email: true } } } })
+    : null;
+  if (isAdmin && existingPlayer?.user?.email && parsedEmail && parsedEmail !== existingPlayer.user.email) {
+    throw new Error("El email de acceso no se puede cambiar desde la ficha deportiva.");
+  }
+  if (isAdmin && parsedEmail) {
+    const accountWithEmail = await prisma.user.findUnique({ where: { email: parsedEmail }, select: { id: true } });
+    if (accountWithEmail && accountWithEmail.id !== existingPlayer?.userId) {
+      redirect(parsed.playerId
+        ? `/players/${parsed.playerId}/edit?error=duplicate_email`
+        : "/admin/players/new?error=duplicate_email");
+    }
+  }
+  const contactEmail = existingPlayer?.user?.email ?? parsedEmail;
   const user = isAdmin
-    ? parsedEmail
-      ? await prisma.user.upsert({
-          where: { email: parsedEmail },
-          update: {
-            displayName,
-            phone: parsed.phone,
-            emailVerified: parsed.emailVerified,
-            preferredLocale: parsed.preferredLocale
-          },
-          create: {
-            firebaseUid: `local:${parsedEmail}`,
-            email: parsedEmail,
-            displayName,
-            phone: parsed.phone,
-            emailVerified: parsed.emailVerified,
-            preferredLocale: parsed.preferredLocale
-          }
-        })
-      : null
+    ? null
     : await prisma.user.update({
         where: { id: currentUser.id },
         data: {
@@ -1375,23 +1359,17 @@ export async function savePlayerAction(formData: FormData) {
           preferredLocale: parsed.preferredLocale
         }
       });
-
-  if (user) {
-    await ensureCredential(user.id);
-    await prisma.userRoleAssignment.upsert({
-      where: { userId_role: { userId: user.id, role: "player" } },
-      update: {},
-      create: { userId: user.id, role: "player" }
-    });
-  }
+  const linkedUserId = existingPlayer?.userId ?? user?.id ?? null;
 
   const player = parsed.playerId
     ? await prisma.player.update({
         where: { id: parsed.playerId },
         data: {
-          userId: user?.id ?? null,
+          userId: linkedUserId,
           firstName: parsed.firstName,
           lastName: parsed.lastName,
+          contactEmail,
+          contactPhone: parsed.phone || null,
           gender: parsed.gender,
           birthDate: parsedBirthDate,
           dominantHand: parsed.dominantHand,
@@ -1407,9 +1385,11 @@ export async function savePlayerAction(formData: FormData) {
       })
     : await prisma.player.create({
         data: {
-          userId: user?.id ?? null,
+          userId: linkedUserId,
           firstName: parsed.firstName,
           lastName: parsed.lastName,
+          contactEmail,
+          contactPhone: parsed.phone || null,
           gender: parsed.gender,
           birthDate: parsedBirthDate,
           dominantHand: parsed.dominantHand,
@@ -1423,6 +1403,13 @@ export async function savePlayerAction(formData: FormData) {
           receivesMatchCommunications: parsed.receivesMatchCommunications
         }
       });
+
+  if (isAdmin && player.userId) {
+    await prisma.user.update({
+      where: { id: player.userId },
+      data: { displayName, phone: parsed.phone || null, preferredLocale: parsed.preferredLocale }
+    });
+  }
 
   await prisma.$transaction(async (tx) => {
     await syncFederationManagerAccount(tx, player.id, player.userId);
@@ -1875,6 +1862,14 @@ export async function reviewPlayerLinkRequestAction(formData: FormData) {
         where: { id: request.id },
         data: {
           status: "approved",
+          reviewedByUserId: currentUser.id,
+          reviewedAt: new Date()
+        }
+      });
+      await tx.playerLinkRequest.updateMany({
+        where: { userId: request.userId, status: "pending", id: { not: request.id } },
+        data: {
+          status: "rejected",
           reviewedByUserId: currentUser.id,
           reviewedAt: new Date()
         }

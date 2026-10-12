@@ -3,7 +3,6 @@ export type PlayerFieldData = {
   lastName?: string;
   email?: string;
   phone?: string | null;
-  emailVerified?: boolean;
   preferredLocale?: string;
   gender?: string;
   dominantHand?: string;
@@ -57,10 +56,6 @@ export function PlayerFields({
           </select>
         </label>
       </div>
-      <label className="check-line">
-        <input name="emailVerified" type="checkbox" defaultChecked={player?.emailVerified ?? false} disabled={!isAdmin} />
-        {labels.emailVerified}
-      </label>
       <label className="check-line">
         <input name="showContactPublic" type="checkbox" defaultChecked={player?.showContactPublic ?? true} />
         {labels.showContactPublic}

@@ -47,10 +47,12 @@ export default async function EntityActivityPage({
     const players = await prisma.player.findMany({
       where: {
         mergedIntoPlayerId: null,
+        isSportsProfile: true,
         ...(status === "active" ? { active: true } : status === "inactive" ? { active: false } : {}),
         ...(search ? { OR: [
           { firstName: { contains: search, mode: "insensitive" } },
           { lastName: { contains: search, mode: "insensitive" } },
+          { contactEmail: { contains: search, mode: "insensitive" } },
           { user: { is: { email: { contains: search, mode: "insensitive" } } } }
         ] } : {})
       },
@@ -60,7 +62,7 @@ export default async function EntityActivityPage({
     rows = players.map((player) => ({
       id: player.id,
       name: `${player.lastName}, ${player.firstName}`,
-      detail: player.user?.email ?? null,
+      detail: player.user?.email ?? player.contactEmail ?? null,
       active: player.active,
       effectiveActive: player.active,
       inheritedInactive: false,

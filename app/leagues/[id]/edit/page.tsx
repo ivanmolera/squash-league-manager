@@ -34,7 +34,7 @@ export default async function EditLeaguePage({
       include: { participants: true }
     }),
     prisma.player.findMany({
-      where: { mergedIntoPlayerId: null },
+      where: { mergedIntoPlayerId: null, isSportsProfile: true },
       include: {
         memberships: {
           where: { toDate: null },

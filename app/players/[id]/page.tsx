@@ -417,6 +417,8 @@ export default async function PlayerDetailPage({
       where: { id },
       include: {
         user: true,
+        managedClub: true,
+        managedFederation: true,
         memberships: { include: { club: true, season: true } },
         rosters: {
           include: { team: { include: { club: true } } },
@@ -435,6 +437,27 @@ export default async function PlayerDetailPage({
 
   if (!player) notFound();
   if (player.mergedIntoPlayerId) redirect(`/players/${player.mergedIntoPlayerId}`);
+
+  if (!player.isSportsProfile) {
+    const canEditResponsible = Boolean(currentUser?.roles.some((role) => role.role === "admin") || player.userId === currentUser?.id);
+    return (
+      <main className="app-shell">
+        <Navigation />
+        <section className="detail-header">
+          <div>
+            <p className="eyebrow">{t.responsibleOnlyType}</p>
+            <h1>{player.firstName} {player.lastName}</h1>
+          </div>
+          {canEditResponsible ? <Link className="secondary-link" href={`/players/${player.id}/edit`}>{t.edit}</Link> : null}
+        </section>
+        <section className="centered-list">
+          {player.managedClub ? <p>{t.club}: <Link href={`/clubs/${player.managedClub.id}`}>{player.managedClub.name}</Link></p> : null}
+          {player.managedFederation ? <p>{t.federation}: {player.managedFederation.name}</p> : null}
+          {canEditResponsible && player.contactEmail ? <p>{t.email}: {player.contactEmail}</p> : null}
+        </section>
+      </main>
+    );
+  }
 
   const openSeasonIds = new Set(openSeasons.map((season) => season.id));
   const isAdmin = Boolean(currentUser?.roles.some((role) => role.role === "admin"));
@@ -517,8 +540,8 @@ export default async function PlayerDetailPage({
         </article>
         <article className="list-panel">
           <h2>{t.personalData}</h2>
-          <p><strong>{t.email}:</strong> {canSeeContact ? player.user?.email ?? t.unavailable : t.privateValue}</p>
-          <p><strong>{t.phone}:</strong> {canSeeContact ? player.user?.phone ?? t.notProvided : t.privateValue}</p>
+          <p><strong>{t.email}:</strong> {canSeeContact ? player.user?.email ?? player.contactEmail ?? t.unavailable : t.privateValue}</p>
+          <p><strong>{t.phone}:</strong> {canSeeContact ? player.user?.phone ?? player.contactPhone ?? t.notProvided : t.privateValue}</p>
           <p><strong>{t.age}:</strong> {canSeePhysical ? playerAge ?? t.notProvidedFemale : t.privateFemaleValue}</p>
           <p><strong>{t.dominantHand}:</strong> {t[player.dominantHand as keyof typeof t]}</p>
           <p><strong>{t.height}:</strong> {canSeePhysical ? player.heightCm ?? t.notProvidedFemale : t.privateFemaleValue}</p>

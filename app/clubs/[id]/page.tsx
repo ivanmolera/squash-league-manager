@@ -228,8 +228,8 @@ export default async function ClubDetailPage({
   const showBookings = features.court_bookings && club.managesCourtBookings && club.availableCourts > 0;
   const showMatchProposals = showBookings && features.match_proposals;
   const currentPlayer = currentUser
-    ? await prisma.player.findUnique({
-        where: { userId: currentUser.id },
+    ? await prisma.player.findFirst({
+        where: { userId: currentUser.id, isSportsProfile: true },
         include: {
           memberships: {
             where: { toDate: null },
@@ -238,7 +238,7 @@ export default async function ClubDetailPage({
         }
       })
     : null;
-  const canUseClubCourts = isClubEffectivelyActive(club) && (!currentPlayer || currentPlayer.active) &&
+  const canUseClubCourts = isClubEffectivelyActive(club) && Boolean(currentPlayer?.active) &&
     (club.publicCourtAccess || Boolean(currentPlayer?.memberships.some((membership) => membership.clubId === club.id)));
   const bookingStart = weekStart();
   const bookingEnd = addDays(bookingStart, 14);

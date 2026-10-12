@@ -36,7 +36,8 @@ function PlayerListThumbnail({
   );
 }
 
-export default async function PlayersPage() {
+export default async function PlayersPage({ searchParams }: { searchParams?: Promise<{ created?: string; updated?: string }> }) {
+  const query = await searchParams;
   const [players, currentUser, dictionary] = await Promise.all([
     prisma.player.findMany({
       where: activePlayerWhere,
@@ -63,6 +64,13 @@ export default async function PlayersPage() {
         orderBy: [{ displayName: "asc" }, { email: "asc" }]
       })
     : [];
+  const responsibles = isAdmin
+    ? await prisma.player.findMany({
+        where: { isSportsProfile: false, mergedIntoPlayerId: null },
+        include: { managedClub: true, managedFederation: true },
+        orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
+      })
+    : [];
   const ownPlayerId = currentUser?.player?.id;
   const canCreateOwnProfile = Boolean(currentUser && !ownPlayerId);
   const groupedPlayers = players.reduce<Array<{ initial: string; players: typeof players }>>((groups, player) => {
@@ -79,6 +87,8 @@ export default async function PlayersPage() {
       <section className="page-heading">
         <h1>{t.players}</h1>
         <p className="muted">{t.playerProfileIntro}</p>
+        {query?.created === "responsible" ? <p className="success-message" role="status">{t.responsibleCreated}</p> : null}
+        {query?.updated === "responsible" ? <p className="success-message" role="status">{t.savedChanges}</p> : null}
         <div className="heading-actions">
           {isAdmin ? <Link className="primary-link" href="/admin/players/new">{t.createNewProfile}</Link> : null}
           {!isAdmin && canCreateOwnProfile ? <Link className="primary-link" href="/players/me">{t.createNewProfile}</Link> : null}
@@ -170,6 +180,20 @@ export default async function PlayersPage() {
           ))}
         </div>
       </section>
+      {isAdmin && responsibles.length > 0 ? (
+        <details className="account-only-list">
+          <summary>{t.responsibleProfiles} ({responsibles.length})</summary>
+          {responsibles.map((person) => (
+            <article className="row-card player-list-row" key={person.id}>
+              <div className="player-list-text">
+                <strong>{person.lastName}, {person.firstName}</strong>
+                <span>{[person.managedClub?.name, person.managedFederation?.name, person.contactEmail].filter(Boolean).join(" · ") || t.noUser}</span>
+              </div>
+              <div className="row-actions"><Link className="secondary-link" href={`/players/${person.id}/edit`}>{t.edit}</Link></div>
+            </article>
+          ))}
+        </details>
+      ) : null}
       {isAdmin && accountOnlyUsers.length > 0 ? (
         <details className="account-only-list">
           <summary>{t.accountOnlyList} ({accountOnlyUsers.length})</summary>

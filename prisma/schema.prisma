@@ -260,9 +260,12 @@ model UserRoleAssignment {
 model Player {
   id                    String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   active                Boolean                   @default(true)
+  isSportsProfile       Boolean                   @default(true) @map("is_sports_profile")
   userId                String?                   @unique @map("user_id") @db.Uuid
   firstName             String                    @map("first_name")
   lastName              String                    @map("last_name")
+  contactEmail          String?                   @map("contact_email")
+  contactPhone          String?                   @map("contact_phone")
   gender                Gender                    @default(not_specified)
   birthDate             DateTime?                 @map("birth_date") @db.Date
   heightCm              Int?                      @map("height_cm")

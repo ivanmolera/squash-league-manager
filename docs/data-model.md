@@ -4,6 +4,13 @@
 
 El modelo cubre ligas individuales, ligas por equipos y torneos de fin de semana. Esta preparado para conservar historico aunque los jugadores cambien de club o equipo entre temporadas.
 
+## Identidad y acceso
+
+- `app_users` representa cuentas de acceso. El email y su verificacion pertenecen a la cuenta, no a la identidad deportiva.
+- `players` conserva la identidad por ID y puede existir sin cuenta. `is_sports_profile = true` permite participar y aparecer en el directorio de jugadores.
+- Un responsable sin ficha deportiva se representa en el modelo actual mediante una identidad `players` con `is_sports_profile = false`; puede gestionar un club o federacion por `manager_player_id`, pero no aparece como jugador activo ni puede competir o reservar pista.
+- `contact_email` y `contact_phone` son datos opcionales de contacto de una identidad. No conceden acceso; la cuenta se crea al registrarse y verificar el email. Las coincidencias con identidades existentes quedan pendientes de revision antes de vincularse.
+
 ## Historico
 
 Los resultados no dependen del estado actual del jugador. Cada partido guarda:

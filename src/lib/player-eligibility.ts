@@ -42,11 +42,14 @@ async function assertPlayerMeetsCategoryRestrictions({
 }) {
   const player = await prisma.player.findUniqueOrThrow({
     where: { id: playerId },
-    select: { gender: true, birthDate: true, mergedIntoPlayerId: true }
+    select: { gender: true, birthDate: true, mergedIntoPlayerId: true, isSportsProfile: true }
   });
 
   if (player.mergedIntoPlayerId) {
     throw new Error("Esta ficha de jugador está fusionada con otra ficha principal.");
+  }
+  if (!player.isSportsProfile) {
+    throw new Error("Esta persona no tiene ficha deportiva.");
   }
 
   const genderMatches = category.genderScope === "not_specified" || player.gender === category.genderScope;

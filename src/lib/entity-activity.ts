@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 
 export const activePlayerWhere = {
   active: true,
+  isSportsProfile: true,
   mergedIntoPlayerId: null
 } satisfies Prisma.PlayerWhereInput;
 

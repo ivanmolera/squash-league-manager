@@ -103,13 +103,13 @@ export async function GET(request: NextRequest) {
 
         const { locale } = await getDictionary();
         const name = splitGoogleName(identity.given_name, identity.family_name, identity.name, email);
-        const candidate = (await findPlayerLinkCandidates({
+        const candidates = await findPlayerLinkCandidates({
           ...name,
           email,
           onlyUnlinked: true,
           minimumScore: 82,
-          take: 1
-        }))[0];
+          take: 5
+        });
         const user = await prisma.user.create({
           data: {
             firebaseUid: `google:${identity.sub}`,
@@ -119,17 +119,17 @@ export async function GET(request: NextRequest) {
             preferredLocale: locale,
             roles: { create: { role: "player" } },
             externalIdentities: { create: { provider: "google", subject: identity.sub } },
-            ...(candidate
+            ...(candidates.length > 0
               ? {
                   playerLinkRequests: {
-                    create: {
+                    create: candidates.map((candidate) => ({
                       candidatePlayerId: candidate.player.id,
                       requestedFirstName: name.firstName,
                       requestedLastName: name.lastName,
                       requestedEmail: email,
                       matchScore: candidate.score,
                       matchReasons: candidate.reasons
-                    }
+                    }))
                   }
                 }
               : {
