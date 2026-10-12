@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { RankingCodePicker } from "@/src/components/ranking-code-picker";
 
 export function LeagueParticipantFields({
   clubs,
   defaultHostClubId = "",
   filterByClub = false,
+  ranking,
   labels,
   legend,
   participants,
@@ -14,6 +16,7 @@ export function LeagueParticipantFields({
   clubs: Array<{ id: string; name: string }>;
   defaultHostClubId?: string;
   filterByClub?: boolean;
+  ranking?: { defaultCode: string; activeCodes: string[] };
   labels: Record<string, string>;
   legend: string;
   participants: Array<{ id: string; label: string; clubId?: string }>;
@@ -27,6 +30,20 @@ export function LeagueParticipantFields({
 
   return (
     <>
+      {ranking && !hostClubId ? (
+        <RankingCodePicker
+          defaultCode={ranking.defaultCode}
+          label={labels.scoreable}
+          activeCodes={ranking.activeCodes}
+          inactiveCurrentLabel={labels.inactiveCurrentRanking}
+        />
+      ) : null}
+      {ranking && hostClubId ? (
+        <div className="club-ranking-scope">
+          <span>{labels.clubRankingOnly}</span>
+          <input type="hidden" name="rankingCode" value="none" />
+        </div>
+      ) : null}
       <label>{labels.restrictedClub}
         <select name="hostClubId" value={hostClubId} onChange={(event) => setHostClubId(event.target.value)}>
           <option value="">{labels.noRestriction}</option>

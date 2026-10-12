@@ -32,7 +32,7 @@ export default async function RankingsPage({
   return (
     <main className="app-shell">
       <Navigation />
-      <section className="page-heading">
+      <section className="page-heading rankings-page-heading">
         <p className="eyebrow">{t.rankings}</p>
         <h1>{t.generalRankings}</h1>
         <p className="muted">{t.generalRankingsText}</p>

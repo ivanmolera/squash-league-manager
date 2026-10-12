@@ -48,8 +48,6 @@ export default async function NewTournamentPage() {
         <TournamentForm
           categories={categories.map((category) => ({ ...category, name: localizeCategoryName(category.name, locale) }))}
           editableClubs={editableClubs}
-          editableFederations={editableFederations}
-          isAdmin={isAdmin}
           activeRankingCodes={activeRankingCodes}
           labels={t}
           returnTo="/manager/tournaments"

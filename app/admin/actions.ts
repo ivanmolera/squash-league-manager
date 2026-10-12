@@ -24,6 +24,7 @@ import { appBaseUrl, sendTransactionalEmail } from "@/src/lib/email";
 import { assertPlayerEligibleForCompetitionCategory } from "@/src/lib/player-eligibility";
 import { prisma } from "@/src/lib/prisma";
 import { rankingCodeValues, rankingScopeForCode } from "@/src/lib/ranking-codes";
+import { federationCodeForTournamentRanking, leagueRankingCode } from "@/src/lib/competition-ranking-policy";
 import { assertSelectableRankingCode } from "@/src/lib/active-ranking-codes";
 import { generateRoundRobin, nextPowerOfTwo, shuffle } from "@/src/lib/schedule";
 import { getTournamentRankingRows } from "@/src/lib/tournament-rankings";
@@ -153,7 +154,6 @@ const tournamentSchema = z.object({
   description: z.string().optional(),
   posterUrl: z.string().optional(),
   hostClubId: z.string().uuid(),
-  organizerFederationId: z.string().uuid().optional().or(z.literal("")),
   refereeName: z.string().optional(),
   rankingCode: z.enum(rankingCodeValues).default("none"),
   bestOfSets: z.coerce.number().int().refine((value) => value === 3 || value === 5),
@@ -2690,7 +2690,8 @@ export async function saveLeagueAction(formData: FormData) {
     participantIds: toArray(formData, "participantIds")
   });
 
-  await assertSelectableRankingCode(parsed.rankingCode, parsed.competitionId);
+  const selectedRankingCode = leagueRankingCode(parsed.hostClubId, parsed.rankingCode);
+  await assertSelectableRankingCode(selectedRankingCode, parsed.competitionId);
 
   if (!parsed.competitionId) {
     if (parsed.hostClubId && !(await prisma.club.count({ where: { ...activeClubWhere, id: parsed.hostClubId } }))) {
@@ -2967,7 +2968,6 @@ export async function saveTournamentAction(formData: FormData) {
     description: textValue(formData.get("description")),
     posterUrl: uploadedPosterUrl ?? textValue(formData.get("posterUrl")),
     hostClubId: textValue(formData.get("hostClubId")),
-    organizerFederationId: textValue(formData.get("organizerFederationId")) ?? "",
     refereeName: textValue(formData.get("refereeName")),
     rankingCode: textValue(formData.get("rankingCode")) ?? "none",
     bestOfSets: textValue(formData.get("bestOfSets")) ?? "5",
@@ -2982,10 +2982,11 @@ export async function saveTournamentAction(formData: FormData) {
 
   await assertSelectableRankingCode(parsed.rankingCode, parsed.competitionId);
 
-  let organizerFederationId = parsed.organizerFederationId || null;
-  if (!organizerFederationId && parsed.rankingCode !== "none") {
+  let organizerFederationId: string | null = null;
+  const federationCode = federationCodeForTournamentRanking(parsed.rankingCode);
+  if (federationCode) {
     const matchingFederation = await prisma.federation.findFirst({
-      where: parsed.rankingCode === "PSA" ? { code: "RFES" } : { ranking: { code: parsed.rankingCode } },
+      where: { ranking: { code: federationCode }, active: true },
       select: { id: true }
     });
     organizerFederationId = matchingFederation?.id ?? null;
@@ -3963,6 +3964,7 @@ export async function saveMatchResultAction(formData: FormData) {
   await advanceTournamentResult(match.id, winnerPlayerId);
 
   revalidatePath(`/leagues/${match.competitionId}`);
+  revalidatePath("/agenda");
   revalidatePath(`/leagues/${match.competitionId}/edit`);
   revalidatePath(`/tournaments/${match.competitionId}`);
   revalidatePath(`/tournaments/${match.competitionId}/edit`);

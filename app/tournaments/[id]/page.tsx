@@ -89,6 +89,7 @@ export default async function TournamentDetailPage({ params }: { params: Promise
           <h1>{tournament.name}</h1>
         </div>
         {canEdit ? <Link className="primary-link" href={`/tournaments/${tournament.id}/edit`}>{t.edit}</Link> : null}
+        <a className="secondary-link mobile-draw-link" href="#tournament-draws">{t.draw}</a>
       </section>
       <section className="detail-grid">
         <article className="list-panel full-width">
@@ -116,7 +117,7 @@ export default async function TournamentDetailPage({ params }: { params: Promise
           </p>
         </article>
       </section>
-      <section className="tournament-category-list">
+      <section className="tournament-category-list" id="tournament-draws">
         {tournament.categories.map((competitionCategory) => {
           const isRegistered = Boolean(currentPlayer && competitionCategory.registrations.some((registration) => registration.playerId === currentPlayer.id));
           const isEligible = Boolean(

@@ -1,6 +1,5 @@
 import { saveLeagueAction } from "@/app/admin/actions";
 import { LeagueParticipantFields } from "@/app/admin/leagues/league-participant-fields";
-import { RankingCodePicker } from "@/src/components/ranking-code-picker";
 
 export function LeagueForm({
   title,
@@ -36,7 +35,6 @@ export function LeagueForm({
       <input type="hidden" name="type" value={type} />
       <label>{labels.name}<input name="name" required /></label>
       <label>{labels.description}<textarea name="description" rows={3} /></label>
-      <RankingCodePicker defaultCode="none" label={labels.scoreable} activeCodes={activeRankingCodes} inactiveCurrentLabel={labels.inactiveCurrentRanking} />
       <label>{labels.matchFormat}
         <select name="bestOfSets" defaultValue="5">
           <option value="5">{labels.bestOf5}</option>
@@ -62,6 +60,7 @@ export function LeagueForm({
       <LeagueParticipantFields
         clubs={clubs}
         filterByClub={type === "individual_league"}
+        ranking={{ defaultCode: "none", activeCodes: activeRankingCodes }}
         labels={labels}
         legend={type === "individual_league" ? labels.players : labels.clubs}
         participants={participants}

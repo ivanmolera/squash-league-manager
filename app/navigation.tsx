@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { LogIn, LogOut } from "lucide-react";
 import { logoutAction } from "@/app/actions";
 import { LanguageSelector } from "@/app/language-selector";
+import { MobileNavigation } from "@/app/mobile-navigation";
 import { ThemeSelector } from "@/app/theme-selector";
 import { NavigationLinks, NavigationSettingsLink } from "@/app/navigation-links";
 import { getCurrentUser } from "@/src/lib/auth";
@@ -24,11 +25,19 @@ export async function Navigation() {
     ...(features.rankings_statistics ? [{ href: "/rankings", label: t.rankings, section: "rankings" as const }] : []),
     ...(isAdmin ? [{ href: "/admin/federations", label: t.federations, section: "federations" as const }] : [])
   ];
+  const quickItems = [
+    ...(currentUser?.player && (features.leagues || (features.court_bookings && features.match_proposals)) ? [{ href: "/agenda", label: t.agenda, icon: "agenda" as const }] : []),
+    ...(currentUser?.player && features.leagues && features.player_result_entry ? [{ href: "/agenda/results", label: t.results, icon: "results" as const }] : []),
+    ...(features.rankings_statistics ? [{ href: "/rankings", label: t.rankings, icon: "rankings" as const }] : []),
+    ...(features.court_bookings ? [{ href: "/bookings", label: t.bookingsShort, icon: "bookings" as const }] : []),
+    ...(features.tournaments ? [{ href: "/manager/tournaments", label: t.tournaments, icon: "tournaments" as const }] : [])
+  ];
 
   return (
     <nav className={`nav${isAdmin || isFederationManager ? " nav-has-settings" : ""}`}>
       <Link className="nav-brand" href="/" aria-label="SquashFlow">Squash<span>Flow</span><i aria-hidden="true" /></Link>
       <NavigationLinks items={links} />
+      <MobileNavigation items={links} quickItems={quickItems} moreLabel={t.more} quickNavLabel={t.quickNav} />
       <div className="nav-actions">
         {isAdmin || isFederationManager ? (
           <NavigationSettingsLink

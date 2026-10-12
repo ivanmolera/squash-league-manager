@@ -4,16 +4,12 @@ import { RankingCodePicker } from "@/src/components/ranking-code-picker";
 export function TournamentForm({
   categories,
   editableClubs,
-  editableFederations,
-  isAdmin,
   activeRankingCodes,
   labels,
   returnTo
 }: {
   categories: Array<{ id: string; name: string }>;
   editableClubs: Array<{ id: string; name: string }>;
-  editableFederations: Array<{ id: string; name: string; ranking: { code: string } | null }>;
-  isAdmin: boolean;
   activeRankingCodes: string[];
   labels: Record<string, string>;
   returnTo?: string;
@@ -27,18 +23,6 @@ export function TournamentForm({
       <input type="hidden" name="posterUrl" value="" />
       <label>{labels.poster}<input name="poster" type="file" accept="image/*" /></label>
       <label>{labels.referee}<input name="refereeName" /></label>
-      {editableFederations.length ? (
-        <label>{labels.organizerFederation}
-          <select name="organizerFederationId">
-            {isAdmin ? <option value="">{labels.noFederation}</option> : null}
-            {editableFederations.map((federation) => (
-              <option key={federation.id} value={federation.id}>
-                {federation.name}{federation.ranking ? ` · ${federation.ranking.code}` : ""}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : null}
       <RankingCodePicker defaultCode="none" label={labels.scoreable} activeCodes={activeRankingCodes} inactiveCurrentLabel={labels.inactiveCurrentRanking} />
       <label>{labels.matchFormat}
         <select name="bestOfSets" defaultValue="5">

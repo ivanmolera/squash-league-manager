@@ -5,7 +5,6 @@ import { getCurrentUser } from "@/src/lib/auth";
 import { requireFeature } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
-import { RankingCodePicker } from "@/src/components/ranking-code-picker";
 import { getActiveRankingCodes } from "@/src/lib/active-ranking-codes";
 import { LeagueParticipantFields } from "@/app/admin/leagues/league-participant-fields";
 import { LeagueStandings } from "../league-sections";
@@ -87,7 +86,6 @@ export default async function EditLeaguePage({
         <input type="hidden" name="type" value={league.type} />
         <label>{t.name}<input name="name" defaultValue={league.name} required /></label>
         <label>{t.description}<textarea name="description" rows={3} defaultValue={league.description ?? ""} /></label>
-        <RankingCodePicker defaultCode={league.rankingCode} label={t.scoreable} activeCodes={activeRankingCodes} inactiveCurrentLabel={t.inactiveCurrentRanking} />
         <label>{t.matchFormat}
           <select name="bestOfSets" defaultValue={league.bestOfSets}>
             <option value="5">{t.bestOf5}</option>
@@ -114,6 +112,7 @@ export default async function EditLeaguePage({
           clubs={clubs}
           defaultHostClubId={league.hostClubId ?? ""}
           filterByClub={isIndividual}
+          ranking={{ defaultCode: league.rankingCode, activeCodes: activeRankingCodes }}
           labels={t}
           legend={isIndividual ? t.players : t.clubs}
           participants={participants}

@@ -10,6 +10,7 @@ import {
   reviewClubJoinRequestAction
 } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
+import { ClubLeagueStandings } from "./club-league-standings";
 import { ClubCrest } from "@/src/components/club-crest";
 import { RankingCodeBadge } from "@/src/components/ranking-code-picker";
 import { autonomousCommunityForClub } from "@/src/lib/autonomous-communities";
@@ -305,6 +306,20 @@ export default async function ClubDetailPage({
     hour: 8 + index,
     minute: 0
   }));
+  const now = new Date();
+  const localLeagues = features.leagues ? await prisma.competition.findMany({
+    where: {
+      hostClubId: club.id,
+      type: { in: ["individual_league", "team_league"] }
+    },
+    select: { id: true, name: true, type: true, status: true, startsAt: true, endsAt: true },
+    orderBy: [{ startsAt: "desc" }, { name: "asc" }]
+  }) : [];
+  const activeClubLeagues = localLeagues.filter((league) =>
+    league.status !== "cancelled" && league.status !== "closed" &&
+    Boolean(league.startsAt && league.startsAt <= now) &&
+    (!league.endsAt || league.endsAt >= now)
+  );
 
   return (
     <main className="app-shell">
@@ -560,6 +575,13 @@ export default async function ClubDetailPage({
               </div>
             )) : <p className="muted">{t.noClubJoinRequests}</p>}
           </article>
+        ) : null}
+        {localLeagues.length ? (
+          <section className="club-local-leagues full-width" aria-label={t.clubLeagueStandings}>
+            <h2>{t.clubLeagueStandings}</h2>
+            {activeClubLeagues.map((league) => <ClubLeagueStandings key={league.id} league={league} />)}
+            {!activeClubLeagues.length ? <p className="muted">{t.noActiveClubLeagues}</p> : null}
+          </section>
         ) : null}
         <article className="list-panel club-teams-panel">
           <h2>{t.teams}</h2>

@@ -138,18 +138,6 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
         {tournament.posterUrl ? <img className="tournament-poster-preview" src={tournament.posterUrl} alt={tournament.name} /> : null}
         <label>{t.poster}<input name="poster" type="file" accept="image/*" /></label>
         <label>{t.referee}<input name="refereeName" defaultValue={tournament.refereeName ?? ""} /></label>
-        {editableFederations.length ? (
-          <label>{t.organizerFederation}
-            <select name="organizerFederationId" defaultValue={tournament.organizerFederationId ?? ""}>
-              {isAdmin ? <option value="">{t.noFederation}</option> : null}
-              {editableFederations.map((federation) => (
-                <option key={federation.id} value={federation.id}>
-                  {federation.name}{federation.ranking ? ` · ${federation.ranking.code}` : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
         <RankingCodePicker defaultCode={tournament.rankingCode ?? rankingCodeForScope(tournament.rankingScope)} label={t.scoreable} activeCodes={activeRankingCodes} inactiveCurrentLabel={t.inactiveCurrentRanking} />
         <label>{t.matchFormat}
           <select name="bestOfSets" defaultValue={tournament.bestOfSets}>
