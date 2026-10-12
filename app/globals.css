@@ -4973,15 +4973,15 @@ body:has(.mobile-view-shell) > .back-to-top {
   }
 
   .ranking-results-table .ranking-position-column {
-    width: 14%;
+    width: 52px;
   }
 
   .ranking-results-table .ranking-player-column {
-    width: 58%;
+    width: auto;
   }
 
   .ranking-results-table .ranking-points-column {
-    width: 28%;
+    width: 90px;
   }
 
   .ranking-results-table .ranking-tournaments-column,
