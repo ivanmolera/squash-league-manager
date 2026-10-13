@@ -3918,6 +3918,7 @@ export async function completeMatchProposalAction(formData: FormData) {
   revalidatePath(`/clubs/${parsed.clubId}`);
   revalidatePath(`/players/${proposal.proposerPlayerId}`);
   if (proposal.acceptorPlayerId) revalidatePath(`/players/${proposal.acceptorPlayerId}`);
+  revalidatePath("/results");
 }
 
 export async function cancelCourtReservationAction(formData: FormData) {
@@ -4012,6 +4013,7 @@ export async function saveMatchResultAction(formData: FormData) {
 
   revalidatePath(`/leagues/${match.competitionId}`);
   revalidatePath("/agenda");
+  revalidatePath("/results");
   revalidatePath(`/leagues/${match.competitionId}/edit`);
   revalidatePath(`/tournaments/${match.competitionId}`);
   revalidatePath(`/tournaments/${match.competitionId}/edit`);

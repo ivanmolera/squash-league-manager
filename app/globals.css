@@ -4814,6 +4814,58 @@ html[data-theme="light"] .club-directory-map-canvas .leaflet-tile-pane {
   margin-top: 12px;
 }
 
+.personal-results-section {
+  margin-bottom: 28px;
+}
+
+.personal-results-section h2 {
+  border-bottom: 1px solid var(--line);
+  font-size: 1.12rem;
+  margin: 0 0 12px;
+  padding-bottom: 9px;
+}
+
+.personal-results-section > .muted {
+  margin: 0;
+}
+
+.personal-results-list .agenda-match-main {
+  grid-template-columns: minmax(145px, 190px) minmax(0, 1fr) auto;
+}
+
+.personal-results-list .agenda-date {
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.personal-results-venue {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.personal-results-score {
+  align-self: center;
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-size: 0.88rem;
+  font-variant-numeric: tabular-nums;
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+
+@media (max-width: 650px) {
+  .personal-results-list .agenda-match-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .personal-results-list .agenda-result-entry,
+  .personal-results-list .personal-results-score {
+    grid-column: 1;
+    justify-self: start;
+  }
+}
+
 .booking-club-row {
   align-items: center;
   display: grid;

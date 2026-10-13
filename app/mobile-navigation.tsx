@@ -2,13 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, CalendarClock, ChartNoAxesColumnIncreasing, ClipboardCheck, Menu, Trophy } from "lucide-react";
+import { CalendarClock, ChartNoAxesColumnIncreasing, ClipboardCheck, Menu, Trophy } from "lucide-react";
 
 type Item = { href: string; label: string; section: string };
-type QuickItem = { href: string; label: string; icon: "agenda" | "results" | "rankings" | "bookings" | "tournaments" };
+type QuickItem = { href: string; label: string; icon: "results" | "rankings" | "bookings" | "tournaments" };
 
 const icons = {
-  agenda: CalendarDays,
   results: ClipboardCheck,
   rankings: ChartNoAxesColumnIncreasing,
   bookings: CalendarClock,

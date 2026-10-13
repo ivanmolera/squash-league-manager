@@ -4,7 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Building2,
+  CalendarClock,
   ChartNoAxesColumnIncreasing,
+  ClipboardCheck,
   Flag,
   House,
   ListOrdered,
@@ -18,7 +20,7 @@ import {
 type NavigationItem = {
   href: string;
   label: string;
-  section: "home" | "players" | "clubs" | "leagues" | "tournaments" | "rankings" | "federations" | "profile";
+  section: "home" | "players" | "clubs" | "bookings" | "leagues" | "tournaments" | "results" | "rankings" | "federations" | "profile";
 };
 
 const navigationIcons: Record<NavigationItem["section"], LucideIcon> = {
@@ -26,8 +28,10 @@ const navigationIcons: Record<NavigationItem["section"], LucideIcon> = {
   profile: UserRound,
   players: UsersRound,
   clubs: Building2,
+  bookings: CalendarClock,
   leagues: ListOrdered,
   tournaments: Trophy,
+  results: ClipboardCheck,
   rankings: ChartNoAxesColumnIncreasing,
   federations: Flag
 };
@@ -38,8 +42,10 @@ function isCurrentSection(pathname: string, item: NavigationItem, profileHref?: 
   if (section === "profile") return pathname === item.href || pathname.startsWith(`${item.href}/`);
   if (section === "players") return pathname.startsWith("/admin/players") || (pathname.startsWith("/players/") && !(profileHref && (pathname === profileHref || pathname.startsWith(`${profileHref}/`))));
   if (section === "clubs") return pathname.startsWith("/admin/clubs") || pathname.startsWith("/clubs/") || pathname.startsWith("/teams/");
+  if (section === "bookings") return pathname.startsWith("/bookings");
   if (section === "leagues") return pathname.startsWith("/admin/leagues") || pathname.startsWith("/leagues/");
   if (section === "tournaments") return pathname.startsWith("/manager/tournaments") || pathname.startsWith("/tournaments/");
+  if (section === "results") return pathname === "/results" || pathname.startsWith("/agenda");
   if (section === "rankings") return pathname.startsWith("/rankings");
   if (section === "federations") return pathname.startsWith("/admin/federations");
   return false;

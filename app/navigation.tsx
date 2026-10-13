@@ -25,14 +25,15 @@ export async function Navigation() {
     ...(currentUser ? [{ href: currentUser.player ? `/players/${currentUser.player.id}` : "/players/me", label: t.myProfile, section: "profile" as const }] : []),
     { href: "/admin/players", label: t.players, section: "players" as const },
     { href: "/admin/clubs", label: t.clubs, section: "clubs" as const },
+    ...(features.court_bookings ? [{ href: "/bookings", label: t.bookingsShort, section: "bookings" as const }] : []),
     ...(features.leagues ? [{ href: "/admin/leagues", label: t.leagues, section: "leagues" as const }] : []),
     ...(features.tournaments ? [{ href: "/manager/tournaments", label: t.tournaments, section: "tournaments" as const }] : []),
+    ...(currentUser?.player && (features.leagues || features.tournaments || (features.court_bookings && features.match_proposals)) ? [{ href: "/results", label: t.results, section: "results" as const }] : []),
     ...(features.rankings_statistics ? [{ href: "/rankings", label: t.rankings, section: "rankings" as const }] : []),
     ...(isAdmin ? [{ href: "/admin/federations", label: t.federations, section: "federations" as const }] : [])
   ];
   const quickItems = [
-    ...(currentUser?.player && (features.leagues || (features.court_bookings && features.match_proposals)) ? [{ href: "/agenda", label: t.agenda, icon: "agenda" as const }] : []),
-    ...(currentUser?.player && features.leagues && features.player_result_entry ? [{ href: "/agenda/results", label: t.results, icon: "results" as const }] : []),
+    ...(currentUser?.player && (features.leagues || features.tournaments || (features.court_bookings && features.match_proposals)) ? [{ href: "/results", label: t.results, icon: "results" as const }] : []),
     ...(features.rankings_statistics ? [{ href: "/rankings", label: t.rankings, icon: "rankings" as const }] : []),
     ...(features.court_bookings ? [{ href: "/bookings", label: t.bookingsShort, icon: "bookings" as const }] : []),
     ...(features.tournaments ? [{ href: "/manager/tournaments", label: t.tournaments, icon: "tournaments" as const }] : [])
