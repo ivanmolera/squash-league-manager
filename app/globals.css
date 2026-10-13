@@ -228,14 +228,21 @@ a:hover {
   width: 38px;
 }
 
-.nav-settings-link,
-.nav-auth-button,
-.nav-auth-link {
+.nav-settings-link {
   box-sizing: border-box;
   height: 36px;
   min-height: 36px;
   padding: 0;
   width: 36px;
+}
+
+.nav-auth-button,
+.nav-auth-link {
+  box-sizing: border-box;
+  height: 24px;
+  min-height: 24px;
+  padding: 0;
+  width: 24px;
 }
 
 .nav-settings-link:hover,
@@ -261,9 +268,9 @@ a:hover {
   font-size: 0.83rem;
   font-weight: 780;
   justify-content: center;
-  min-height: 36px;
+  min-height: 24px;
   padding: 0;
-  width: 36px;
+  width: 24px;
 }
 
 .nav-auth-link {
@@ -276,10 +283,10 @@ a:hover {
   font-size: 0.83rem;
   font-weight: 780;
   justify-content: center;
-  min-height: 36px;
+  min-height: 24px;
   padding: 0;
   white-space: nowrap;
-  width: 36px;
+  width: 24px;
 }
 
 .nav-auth-link:hover,
@@ -318,12 +325,12 @@ a:hover {
   cursor: pointer;
   display: inline-flex;
   flex: 0 0 auto;
-  height: 36px;
+  height: 24px;
   justify-content: center;
   overflow: hidden;
   padding: 0;
   position: relative;
-  width: 36px;
+  width: 24px;
 }
 
 .flag-button::before {
@@ -3969,12 +3976,17 @@ textarea::placeholder {
     width: 40px;
   }
 
-  .nav-auth-button,
-  .nav-auth-link,
   .nav-settings-link {
     height: 36px;
     min-height: 36px;
     width: 36px;
+  }
+
+  .nav-auth-button,
+  .nav-auth-link {
+    height: 24px;
+    min-height: 24px;
+    width: 24px;
   }
 
   .app-shell,
@@ -4517,12 +4529,17 @@ html[data-theme="light"] .club-directory-map-canvas .leaflet-tile-pane {
     gap: 2px;
   }
 
-  .nav-auth-button,
-  .nav-auth-link,
   .nav-settings-link {
     height: 36px;
     min-height: 36px;
     width: 36px;
+  }
+
+  .nav-auth-button,
+  .nav-auth-link {
+    height: 24px;
+    min-height: 24px;
+    width: 24px;
   }
 
   .tournament-filters {
