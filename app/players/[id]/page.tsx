@@ -620,6 +620,7 @@ export default async function PlayerDetailPage({
                       <strong>{t.pendingMatchToPlay}</strong>
                       <p>{t.court} {proposal.courtReservation.courtNumber} · {proposal.type === "competitive" ? t.competitiveMatch : t.friendlyMatch}</p>
                       <p>{t.proposer}: {displayPlayerName(proposal.proposerPlayer)}{opponent ? ` · ${t.opponent}: ${displayPlayerName(opponent)}` : ""}</p>
+                      <Link href={`/bookings/${proposal.courtReservation.id}`}>{t.openBookingTicket}</Link>
                     </div>
                   );
                 })}

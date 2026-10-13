@@ -21,6 +21,7 @@ import { activeClubWhere, activePlayerWhere } from "@/src/lib/entity-activity";
 import { clubGeocodingQuery, geocodeClubAddress } from "@/src/lib/geocoding";
 import { getDictionary } from "@/src/lib/i18n";
 import { appBaseUrl, sendTransactionalEmail } from "@/src/lib/email";
+import { sendBookingTicketEmail } from "@/src/lib/booking-ticket";
 import { assertPlayerEligibleForCompetitionCategory } from "@/src/lib/player-eligibility";
 import { prisma } from "@/src/lib/prisma";
 import { rankingCodeValues, rankingScopeForCode } from "@/src/lib/ranking-codes";
@@ -3541,7 +3542,7 @@ export async function reserveCourtAction(formData: FormData) {
 
   const club = await prisma.club.findFirstOrThrow({
     where: { ...activeClubWhere, id: parsed.clubId },
-    select: { id: true, availableCourts: true, managesCourtBookings: true, publicCourtAccess: true }
+    select: { id: true, name: true, availableCourts: true, managesCourtBookings: true, publicCourtAccess: true }
   });
 
   if (!club.managesCourtBookings || club.availableCourts < parsed.courtNumber) {
@@ -3559,7 +3560,7 @@ export async function reserveCourtAction(formData: FormData) {
     throw error;
   }
 
-  await prisma.courtReservation.create({
+  const reservation = await prisma.courtReservation.create({
     data: {
       clubId: club.id,
       courtNumber: parsed.courtNumber,
@@ -3574,6 +3575,25 @@ export async function reserveCourtAction(formData: FormData) {
   });
 
   revalidatePath(`/clubs/${club.id}`);
+  let emailUnavailable = false;
+  try {
+    const { locale, t } = await getDictionary();
+    const result = await sendBookingTicketEmail({
+      reservationId: reservation.id,
+      clubName: club.name,
+      courtNumber: reservation.courtNumber,
+      startsAt: reservation.startsAt,
+      endsAt: reservation.endsAt,
+      email: currentUser.email,
+      locale,
+      t
+    });
+    emailUnavailable = !result.sent;
+  } catch (error) {
+    console.error("Failed to send court booking ticket", error);
+    emailUnavailable = true;
+  }
+  redirect(`/bookings/${reservation.id}${emailUnavailable ? "?email=unavailable" : ""}`);
 }
 
 export async function proposeMatchAction(formData: FormData) {
@@ -3676,7 +3696,7 @@ export async function acceptMatchProposalAction(formData: FormData) {
   const proposal = await prisma.matchProposal.findUniqueOrThrow({
     where: { id: parsed.proposalId },
     include: {
-      club: { select: { id: true, active: true, federation: { select: { active: true } }, managerUserId: true, publicCourtAccess: true } },
+      club: { select: { id: true, name: true, active: true, federation: { select: { active: true } }, managerUserId: true, publicCourtAccess: true } },
       courtReservation: true
     }
   });
@@ -3727,6 +3747,33 @@ export async function acceptMatchProposalAction(formData: FormData) {
   });
 
   revalidatePath(`/clubs/${parsed.clubId}`);
+  let emailUnavailable = false;
+  try {
+    const { locale, t } = await getDictionary();
+    const proposer = await prisma.user.findUnique({
+      where: { id: proposal.proposerUserId },
+      select: { email: true, emailVerified: true }
+    });
+    const recipients = [currentUser.email, ...(proposer?.emailVerified && proposer.email ? [proposer.email] : [])];
+    const results = await Promise.allSettled(recipients.map((email) => sendBookingTicketEmail({
+      reservationId: proposal.courtReservation.id,
+      clubName: proposal.club.name,
+      courtNumber: proposal.courtReservation.courtNumber,
+      startsAt: proposal.courtReservation.startsAt,
+      endsAt: proposal.courtReservation.endsAt,
+      email,
+      locale,
+      t
+    })));
+    emailUnavailable = results[0].status === "rejected" || (results[0].status === "fulfilled" && !results[0].value.sent);
+    for (const result of results) {
+      if (result.status === "rejected") console.error("Failed to send accepted match booking ticket", result.reason);
+    }
+  } catch (error) {
+    console.error("Failed to prepare accepted match booking ticket", error);
+    emailUnavailable = true;
+  }
+  redirect(`/bookings/${proposal.courtReservation.id}${emailUnavailable ? "?email=unavailable" : ""}`);
 }
 
 export async function cancelMatchProposalAction(formData: FormData) {

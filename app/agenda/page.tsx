@@ -40,11 +40,11 @@ export default async function AgendaPage({
     where: {
       status: "accepted",
       OR: [{ proposerPlayerId: playerId }, { acceptorPlayerId: playerId }],
-      courtReservation: { startsAt: { gte: new Date() } }
+      courtReservation: { status: "active", startsAt: { gte: new Date() } }
     },
     include: {
       club: { select: { name: true } },
-      courtReservation: { select: { startsAt: true } },
+      courtReservation: { select: { id: true, startsAt: true } },
       proposerPlayer: { select: { firstName: true, lastName: true } },
       acceptorPlayer: { select: { firstName: true, lastName: true } }
     },
@@ -91,6 +91,7 @@ export default async function AgendaPage({
                   <strong>{proposal.proposerPlayer.firstName} {proposal.proposerPlayer.lastName} · {proposal.acceptorPlayer?.firstName} {proposal.acceptorPlayer?.lastName}</strong>
                   <p><Link href={`/clubs/${proposal.clubId}#reservas`}>{proposal.club.name}</Link></p>
                   <span>{proposal.type === "competitive" ? t.competitiveMatch : t.friendlyMatch}</span>
+                  <p><Link href={`/bookings/${proposal.courtReservation.id}`}>{t.openBookingTicket}</Link></p>
                 </div>
               </div>
             </article>

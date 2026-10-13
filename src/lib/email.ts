@@ -5,6 +5,7 @@ type SendEmailInput = {
   subject: string;
   html: string;
   text: string;
+  attachments?: Array<{ filename: string; content: string; contentId: string; contentType: string }>;
 };
 
 type SendEmailResult = {
@@ -37,7 +38,13 @@ export async function sendTransactionalEmail(input: SendEmailInput): Promise<Sen
       to: input.to,
       subject: input.subject,
       html: input.html,
-      text: input.text
+      text: input.text,
+      ...(input.attachments?.length ? { attachments: input.attachments.map((attachment) => ({
+        filename: attachment.filename,
+        content: attachment.content,
+        content_id: attachment.contentId,
+        content_type: attachment.contentType
+      })) } : {})
     })
   });
 

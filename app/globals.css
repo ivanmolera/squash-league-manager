@@ -2517,6 +2517,12 @@ h1 {
   font-size: 0.78rem;
 }
 
+.court-booking-ticket-link {
+  color: #713321;
+  font-size: 0.78rem;
+  text-decoration: underline;
+}
+
 .slot-booking-form select,
 .match-proposal-row select,
 .match-proposal-row input,
@@ -4827,6 +4833,107 @@ html[data-theme="light"] .club-directory-map-canvas .leaflet-tile-pane {
 
 .booking-club-row strong {
   overflow-wrap: anywhere;
+}
+
+.booking-ticket {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin: 0 auto 18px;
+  max-width: 760px;
+  padding: clamp(20px, 4vw, 36px);
+}
+
+.booking-ticket-details {
+  min-width: 0;
+}
+
+.booking-ticket-details h2 {
+  font-size: 1.5rem;
+  margin: 14px 0;
+  overflow-wrap: anywhere;
+}
+
+.booking-ticket-details p {
+  font-size: 1.05rem;
+  margin: 6px 0;
+}
+
+.booking-ticket-details small {
+  color: var(--muted);
+  display: block;
+  margin-top: 18px;
+  overflow-wrap: anywhere;
+}
+
+.booking-ticket-status {
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  display: inline-block;
+  font-size: 0.85rem;
+  font-weight: 800;
+  padding: 5px 9px;
+}
+
+.booking-ticket-status.is-valid {
+  background: #1d402e;
+  border-color: #3c9a64;
+  color: #b8f0ca;
+}
+
+.booking-ticket-status.is-cancelled,
+.booking-ticket-status.is-expired {
+  background: #4b2929;
+  border-color: #b56c6c;
+  color: #ffcece;
+}
+
+html[data-theme="light"] .booking-ticket-status.is-valid {
+  background: #e7f4eb;
+  border-color: #b4d8c3;
+  color: #225b48;
+}
+
+html[data-theme="light"] .booking-ticket-status.is-cancelled,
+html[data-theme="light"] .booking-ticket-status.is-expired {
+  background: #fff0f0;
+  border-color: #e9b6b6;
+  color: #8c3030;
+}
+
+.booking-ticket-qr {
+  text-align: center;
+}
+
+.booking-ticket-qr img {
+  background: #fff;
+  border-radius: 4px;
+  display: block;
+  height: auto;
+  max-width: min(256px, 100%);
+  padding: 4px;
+  width: 256px;
+}
+
+.booking-ticket-qr p {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 8px 0 0;
+}
+
+@media (max-width: 620px) {
+  .booking-ticket {
+    grid-template-columns: 1fr;
+  }
+
+  .booking-ticket-qr {
+    justify-self: center;
+  }
 }
 
 .mobile-more,

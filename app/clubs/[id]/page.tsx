@@ -444,6 +444,9 @@ export default async function ClubDetailPage({
                                     ) : null}
                                   </>
                                 ) : null}
+                                {currentUser && (reservation.userId === currentUser.id || proposal?.acceptorUserId === currentUser.id) && (!proposal || proposal.status === "accepted") ? (
+                                  <Link className="court-booking-ticket-link" href={`/bookings/${reservation.id}`}>{t.openBookingTicket}</Link>
+                                ) : null}
                                 {canReleaseSlot ? (
                                   <form action={proposal ? cancelMatchProposalAction : cancelCourtReservationAction}>
                                     {proposal ? (
