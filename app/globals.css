@@ -4887,6 +4887,103 @@ html[data-theme="light"] .club-directory-map-canvas .leaflet-tile-pane {
   overflow-wrap: anywhere;
 }
 
+.booking-reservations,
+.booking-clubs {
+  margin-bottom: 28px;
+}
+
+.booking-reservations h2,
+.booking-clubs h2 {
+  border-bottom: 1px solid var(--line);
+  font-size: 1.12rem;
+  margin: 0 0 14px;
+  padding-bottom: 9px;
+}
+
+.booking-reservations h3 {
+  font-size: 0.94rem;
+  margin: 18px 0 10px;
+}
+
+.booking-reservations .muted {
+  margin: 0;
+}
+
+.booking-reservation-list {
+  display: grid;
+  gap: 8px;
+}
+
+.booking-reservation-row {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(130px, 1.5fr) minmax(150px, 1fr) auto auto auto;
+  padding: 12px 14px;
+}
+
+.booking-reservation-club {
+  display: grid;
+  min-width: 0;
+}
+
+.booking-reservation-club strong {
+  overflow-wrap: anywhere;
+}
+
+.booking-reservation-club span,
+.booking-reservation-row time {
+  color: var(--muted);
+}
+
+.booking-reservation-time {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.booking-reservation-row .booking-ticket-status {
+  justify-self: start;
+  white-space: nowrap;
+}
+
+.booking-reservation-row > a {
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .booking-reservation-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .booking-reservation-club {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .booking-reservation-row time {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .booking-reservation-time {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .booking-reservation-row > a {
+    grid-column: 2;
+    grid-row: 3;
+  }
+
+  .booking-reservation-row .booking-ticket-status {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
 .booking-ticket {
   align-items: center;
   background: var(--surface);
