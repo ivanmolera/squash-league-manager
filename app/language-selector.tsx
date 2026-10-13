@@ -24,9 +24,9 @@ export function LanguageSelector({
 }) {
   const [needsConsent, setNeedsConsent] = useState(false);
   const locales = [
-    { id: "ca", name: "Català", flag: "CAT" },
-    { id: "es", name: "Español", flag: "ES" },
-    { id: "en", name: "English", flag: "UK" }
+    { id: "ca", name: "Català", code: "CA" },
+    { id: "es", name: "Español", code: "ES" },
+    { id: "en", name: "English", code: "EN" }
   ];
 
   function changeLocale(nextLocale: string) {
@@ -42,18 +42,18 @@ export function LanguageSelector({
   return (
     <div className="locale-form">
       <span className="sr-only">{label}</span>
-      <div className="flag-switcher" role="group" aria-label={help}>
+      <div className="locale-switcher" role="group" aria-label={help}>
         {locales.map((item) => (
           <button
             aria-label={item.name}
             aria-pressed={locale === item.id}
-            className={`flag-button flag-${item.id}${locale === item.id ? " is-active" : ""}`}
+            className={`locale-button${locale === item.id ? " is-active" : ""}`}
             key={item.id}
             onClick={() => changeLocale(item.id)}
             title={item.name}
             type="button"
           >
-            <span aria-hidden="true">{item.flag}</span>
+            {item.code}
           </button>
         ))}
       </div>
