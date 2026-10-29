@@ -111,6 +111,9 @@ export default async function MyPlayerProfilePage() {
           <label>{t.racket}<input name="racketBrand" /></label>
           <label className="check-line"><input name="showContactPublic" type="checkbox" defaultChecked /> {t.showContactPublic}</label>
           <label className="check-line"><input name="showPhysicalPublic" type="checkbox" defaultChecked /> {t.showPhysicalPublic}</label>
+          {currentUser.emailVerified ? (
+            <label className="check-line"><input name="receivesCompetitionAlerts" type="checkbox" defaultChecked={currentUser.receivesCompetitionAlerts} /> {t.receiveCompetitionAlerts}</label>
+          ) : null}
           <button type="submit">{t.createPlayer}</button>
         </form>
       </section>

@@ -154,6 +154,7 @@ model User {
   firebaseUid String               @unique @map("firebase_uid")
   email       String               @unique
   emailVerified Boolean            @default(false) @map("email_verified")
+  receivesCompetitionAlerts Boolean @default(false) @map("receives_competition_alerts")
   suspendedAt DateTime?            @map("suspended_at") @db.Timestamptz(6)
   suspendedByUserId String?        @map("suspended_by_user_id") @db.Uuid
   suspensionReason String?         @map("suspension_reason")
@@ -175,6 +176,7 @@ model User {
   reviewedPlayerLinkRequests PlayerLinkRequest[] @relation("PlayerLinkRequestReviewer")
   playerMergeLogs PlayerMergeLog[] @relation("PlayerMergeActor")
   courtReservations CourtReservation[] @relation("CourtReservationUser")
+  competitionAlertDeliveries CompetitionAlertDelivery[]
   cancelledCourtReservations CourtReservation[] @relation("CourtReservationCancelledBy")
   proposedMatchProposals MatchProposal[] @relation("MatchProposalProposerUser")
   acceptedMatchProposals MatchProposal[] @relation("MatchProposalAcceptorUser")
@@ -641,8 +643,27 @@ model Competition {
   participants CompetitionParticipant[]
   matches      Match[]
   leagueMatchdays LeagueMatchday[]
+  alertDeliveries CompetitionAlertDelivery[]
 
   @@map("competitions")
+}
+
+model CompetitionAlertDelivery {
+  userId        String      @map("user_id") @db.Uuid
+  competitionId String      @map("competition_id") @db.Uuid
+  status        String      @default("pending") @db.VarChar(16)
+  attempts      Int         @default(0)
+  lastAttemptAt DateTime?   @map("last_attempt_at") @db.Timestamptz(6)
+  sentAt        DateTime?   @map("sent_at") @db.Timestamptz(6)
+  lastError     String?     @map("last_error")
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime    @default(now()) @map("updated_at") @db.Timestamptz(6)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+
+  @@id([userId, competitionId])
+  @@index([status, lastAttemptAt])
+  @@map("competition_alert_deliveries")
 }
 
 model CompetitionCategory {

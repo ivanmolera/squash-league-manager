@@ -1294,6 +1294,7 @@ export async function savePlayerAction(formData: FormData) {
   const returnTo = returnToListPath(formData.get("returnTo"));
   const uploadedProfilePhotoUrl = await readProfilePhoto(formData);
   const communicationsEnabled = await isFeatureEnabled("player_communications");
+  const receivesCompetitionAlerts = formData.get("receivesCompetitionAlerts") === "on";
   const parsed = playerSchema.parse({
     playerId: textValue(formData.get("playerId")),
     firstName: textValue(formData.get("firstName")),
@@ -1357,7 +1358,8 @@ export async function savePlayerAction(formData: FormData) {
         data: {
           displayName,
           phone: parsed.phone,
-          preferredLocale: parsed.preferredLocale
+          preferredLocale: parsed.preferredLocale,
+          receivesCompetitionAlerts
         }
       });
   const linkedUserId = existingPlayer?.userId ?? user?.id ?? null;
@@ -1408,7 +1410,12 @@ export async function savePlayerAction(formData: FormData) {
   if (isAdmin && player.userId) {
     await prisma.user.update({
       where: { id: player.userId },
-      data: { displayName, phone: parsed.phone || null, preferredLocale: parsed.preferredLocale }
+      data: {
+        displayName,
+        phone: parsed.phone || null,
+        preferredLocale: parsed.preferredLocale,
+        ...(player.userId === currentUser.id ? { receivesCompetitionAlerts } : {})
+      }
     });
   }
 

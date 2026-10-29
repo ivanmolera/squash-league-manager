@@ -5,6 +5,7 @@ type SendEmailInput = {
   subject: string;
   html: string;
   text: string;
+  idempotencyKey?: string;
   attachments?: Array<{ filename: string; content: string; contentId: string; contentType: string }>;
 };
 
@@ -31,7 +32,8 @@ export async function sendTransactionalEmail(input: SendEmailInput): Promise<Sen
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      ...(input.idempotencyKey ? { "Idempotency-Key": input.idempotencyKey } : {})
     },
     body: JSON.stringify({
       from,

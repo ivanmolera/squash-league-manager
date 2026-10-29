@@ -295,6 +295,14 @@ const dictionary = {
     showClubContactPublic: "Mostrar dades de contacte públicament",
     showRosterPublic: "Mostrar plantilla públicament",
     receiveMatchCommunications: "Accepto rebre comunicacions sobre horaris dels meus partits",
+    receiveCompetitionAlerts: "Vull rebre per email avisos de tornejos i lligues on pugui participar (fins a 7 dies abans)",
+    competitionAlertSubject: "Competició pròxima a SquashFlow",
+    competitionAlertTournament: "Torneig",
+    competitionAlertLeague: "Lliga",
+    competitionAlertStarts: "Comença",
+    competitionAlertEligibleCategories: "Categories en què pots participar",
+    competitionAlertMoreDetails: "Consulta els detalls",
+    competitionAlertPreferences: "Gestiona aquests avisos a la teva fitxa",
     gender: "Gènere",
     birthDate: "Data de naixement",
     age: "Edat",
@@ -898,6 +906,14 @@ const dictionary = {
     showClubContactPublic: "Mostrar datos de contacto públicamente",
     showRosterPublic: "Mostrar plantilla públicamente",
     receiveMatchCommunications: "Acepto recibir comunicaciones sobre horarios de mis partidos",
+    receiveCompetitionAlerts: "Quiero recibir por email avisos de torneos y ligas en los que pueda participar (hasta 7 días antes)",
+    competitionAlertSubject: "Próxima competición en SquashFlow",
+    competitionAlertTournament: "Torneo",
+    competitionAlertLeague: "Liga",
+    competitionAlertStarts: "Empieza",
+    competitionAlertEligibleCategories: "Categorías en las que puedes participar",
+    competitionAlertMoreDetails: "Consulta los detalles",
+    competitionAlertPreferences: "Gestiona estos avisos en tu ficha",
     gender: "Género",
     birthDate: "Fecha de nacimiento",
     age: "Edad",
@@ -1501,6 +1517,14 @@ const dictionary = {
     showClubContactPublic: "Show contact details publicly",
     showRosterPublic: "Show roster publicly",
     receiveMatchCommunications: "I agree to receive communications about my match schedules",
+    receiveCompetitionAlerts: "Email me about tournaments and leagues I can join (up to 7 days in advance)",
+    competitionAlertSubject: "Upcoming competition on SquashFlow",
+    competitionAlertTournament: "Tournament",
+    competitionAlertLeague: "League",
+    competitionAlertStarts: "Starts",
+    competitionAlertEligibleCategories: "Categories you can enter",
+    competitionAlertMoreDetails: "View details",
+    competitionAlertPreferences: "Manage these alerts in your profile",
     gender: "Gender",
     birthDate: "Date of birth",
     age: "Age",
@@ -1828,10 +1852,12 @@ export async function getLocale(): Promise<Locale> {
 
 export type Dictionary = (typeof dictionary)[Locale];
 
+export function dictionaryForLocale(value: string) {
+  const locale: Locale = locales.includes(value as Locale) ? value as Locale : "es";
+  return { locale, t: dictionary[locale] };
+}
+
 export async function getDictionary() {
   const locale = await getLocale();
-  return {
-    locale,
-    t: dictionary[locale]
-  };
+  return dictionaryForLocale(locale);
 }

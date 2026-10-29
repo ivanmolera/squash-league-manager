@@ -99,3 +99,22 @@ publicar y desplegar una revision con el 100 % del trafico ejecuta:
 ```bash
 npm run deploy:gcp
 ```
+
+## Avisos de competiciones
+
+Los usuarios con email verificado y ficha deportiva activa pueden activar los avisos en
+`La meva fitxa > Editar`. La preferencia empieza desactivada. El correo se envía una sola
+vez por competición cuando faltan entre uno y siete días para su inicio, siempre que
+el torneo admita inscripciones, el jugador ya esté inscrito, o pueda participar en una
+liga. Se respetan las categorías por género, edad y nivel, la pertenencia a un club en
+ligas locales y las categorías en las que el jugador ya está inscrito. El correo incluye fecha, lugar, categorías, plazo de inscripción
+y enlace a la competición y a las preferencias. No se envía a cuentas suspendidas,
+sin verificar o sin ficha deportiva activa.
+
+En producción, configura `RESEND_API_KEY` desde Secret Manager, `EMAIL_FROM` con un
+dominio de envío verificado, y `SCHEDULER_OIDC_AUDIENCE` con la URL principal de Cloud Run.
+`SCHEDULER_SERVICE_ACCOUNT_EMAIL` debe ser la cuenta de servicio usada por Cloud Scheduler.
+La tarea hace `POST /api/jobs/competition-alerts` diariamente a las 09:00 en
+`Europe/Madrid` con un token OIDC para esa audiencia. `?dryRun=1` calcula destinatarios
+sin registrar envíos ni mandar correos. Cada envío se registra en
+`competition_alert_deliveries` para evitar duplicados y permitir reintentos.
