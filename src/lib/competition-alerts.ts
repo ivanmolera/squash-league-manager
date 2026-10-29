@@ -3,7 +3,7 @@ import "server-only";
 import { prisma } from "@/src/lib/prisma";
 import { sendCompetitionAlertEmail } from "@/src/lib/competition-alert-email";
 import { daysUntilCompetition, eligibleCompetitionCategories, madridCalendarDate } from "@/src/lib/competition-alert-policy";
-import { getFeatureSettings } from "@/src/lib/features";
+import { featureDefaults, getFeatureSettings } from "@/src/lib/features";
 
 const MAX_EMAILS_PER_RUN = 100;
 const MAX_ATTEMPTS = 4;
@@ -11,6 +11,9 @@ const MAX_ATTEMPTS = 4;
 export async function runCompetitionAlerts({ dryRun = false }: { dryRun?: boolean } = {}) {
   const now = new Date();
   const features = await getFeatureSettings();
+  if (!features.player_communications) {
+    return { competitions: 0, eligible: 0, sent: 0, failed: 0, skipped: 0, dryRun, disabled: true };
+  }
   const competitions = await prisma.competition.findMany({
     where: {
       startsAt: { gt: now, lt: new Date(now.getTime() + 9 * 86_400_000) },
@@ -129,6 +132,16 @@ export async function runCompetitionAlerts({ dryRun = false }: { dryRun?: boolea
       if (!claim.count) { result.skipped += 1; continue; }
 
       try {
+        const communicationsSetting = await prisma.appFeatureSetting.findUnique({
+          where: { featureKey: "player_communications" }, select: { enabled: true }
+        });
+        if (!(communicationsSetting?.enabled ?? featureDefaults.player_communications)) {
+          await prisma.competitionAlertDelivery.delete({
+            where: { userId_competitionId: { userId: user.id, competitionId: competition.id } }
+          });
+          result.skipped += 1;
+          return result;
+        }
         const stillOptedIn = await prisma.user.count({
           where: { id: user.id, receivesCompetitionAlerts: true, emailVerified: true, suspendedAt: null,
             player: { is: { id: player.id, active: true, isSportsProfile: true, mergedIntoPlayerId: null } } }

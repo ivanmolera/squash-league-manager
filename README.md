@@ -118,3 +118,7 @@ La tarea hace `POST /api/jobs/competition-alerts` diariamente a las 09:00 en
 `Europe/Madrid` con un token OIDC para esa audiencia. `?dryRun=1` calcula destinatarios
 sin registrar envíos ni mandar correos. Cada envío se registra en
 `competition_alert_deliveries` para evitar duplicados y permitir reintentos.
+
+El toggle administrativo `Comunicacions a jugadors` debe estar activado para mostrar la
+preferencia y enviar estos correos. Al desactivarlo se detienen los envíos, pero se
+conserva el consentimiento de cada usuario para cuando se vuelva a activar.

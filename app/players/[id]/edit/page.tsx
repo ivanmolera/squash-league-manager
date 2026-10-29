@@ -144,7 +144,7 @@ export default async function EditPlayerPage({
           {features.player_communications ? (
             <label className="check-line"><input name="receivesMatchCommunications" type="checkbox" defaultChecked={player.receivesMatchCommunications} /> {t.receiveMatchCommunications}</label>
           ) : null}
-          {isOwnProfile && player.user?.emailVerified ? (
+          {features.player_communications && isOwnProfile && player.user?.emailVerified ? (
             <label className="check-line"><input name="receivesCompetitionAlerts" type="checkbox" defaultChecked={player.user.receivesCompetitionAlerts} /> {t.receiveCompetitionAlerts}</label>
           ) : null}
           <button type="submit">{t.save}</button>

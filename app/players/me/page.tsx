@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { savePlayerAction } from "@/app/admin/actions";
 import { Navigation } from "@/app/navigation";
 import { getCurrentUser } from "@/src/lib/auth";
+import { getFeatureSettings } from "@/src/lib/features";
 import { getDictionary } from "@/src/lib/i18n";
 import { prisma } from "@/src/lib/prisma";
 
@@ -14,7 +15,7 @@ function splitDisplayName(value: string | null | undefined) {
 }
 
 export default async function MyPlayerProfilePage() {
-  const [currentUser, dictionary] = await Promise.all([getCurrentUser(), getDictionary()]);
+  const [currentUser, dictionary, features] = await Promise.all([getCurrentUser(), getDictionary(), getFeatureSettings()]);
   const { t } = dictionary;
 
   if (!currentUser) redirect("/login");
@@ -111,7 +112,7 @@ export default async function MyPlayerProfilePage() {
           <label>{t.racket}<input name="racketBrand" /></label>
           <label className="check-line"><input name="showContactPublic" type="checkbox" defaultChecked /> {t.showContactPublic}</label>
           <label className="check-line"><input name="showPhysicalPublic" type="checkbox" defaultChecked /> {t.showPhysicalPublic}</label>
-          {currentUser.emailVerified ? (
+          {features.player_communications && currentUser.emailVerified ? (
             <label className="check-line"><input name="receivesCompetitionAlerts" type="checkbox" defaultChecked={currentUser.receivesCompetitionAlerts} /> {t.receiveCompetitionAlerts}</label>
           ) : null}
           <button type="submit">{t.createPlayer}</button>

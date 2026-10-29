@@ -1359,7 +1359,7 @@ export async function savePlayerAction(formData: FormData) {
           displayName,
           phone: parsed.phone,
           preferredLocale: parsed.preferredLocale,
-          receivesCompetitionAlerts
+          ...(communicationsEnabled && currentUser.emailVerified ? { receivesCompetitionAlerts } : {})
         }
       });
   const linkedUserId = existingPlayer?.userId ?? user?.id ?? null;
@@ -1414,7 +1414,7 @@ export async function savePlayerAction(formData: FormData) {
         displayName,
         phone: parsed.phone || null,
         preferredLocale: parsed.preferredLocale,
-        ...(player.userId === currentUser.id ? { receivesCompetitionAlerts } : {})
+        ...(communicationsEnabled && player.userId === currentUser.id && currentUser.emailVerified ? { receivesCompetitionAlerts } : {})
       }
     });
   }
